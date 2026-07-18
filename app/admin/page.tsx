@@ -113,7 +113,7 @@ export default async function AdminDashboard() {
         </div>
       </div>
 
-      {/* Flag Queue... (keeping it identical to before) */}
+      {/* Flag Queue */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-200 bg-slate-50">
           <h2 className="text-lg font-bold text-slate-800">⚠️ Flagged Content Queue</h2>
@@ -130,7 +130,7 @@ export default async function AdminDashboard() {
                 <li key={flag.id} className="p-6 hover:bg-slate-50 transition-colors">
                   <div className="flex flex-col gap-3">
                     <p className="text-sm text-slate-900 font-medium line-clamp-2">
-                      <span className="text-slate-500 mr-2">Q:</span>{flag.questions?.text || "Unknown"}
+                      <span className="text-slate-500 mr-2">Q:</span>{(flag.questions as any)?.text || "Unknown"}
                     </p>
                     <div className="bg-red-50 p-3 rounded-lg border border-red-100 text-sm text-red-800">
                       <strong>AI Note:</strong> {flag.flag_reason}
