@@ -1,52 +1,6 @@
-import { createClient } from '../lib/supabase/server';
-import CbtEngine from '@/components/CbtEngine';
-import StudyCard from '@/components/StudyCard';
 import Link from 'next/link';
 
-export default async function Home({ searchParams }: { searchParams: { mode?: string } }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  // Fetch the medical questions
-  const { data: questions } = await supabase.from('questions').select('*');
-
-  const currentMode = searchParams.mode;
-
-  // If they clicked the Mock Exam card
-  if (currentMode === 'exam') {
-    return (
-      <div className="w-full max-w-4xl mx-auto flex flex-col items-center p-4">
-        <div className="w-full mb-4 flex justify-start">
-          <Link href="/" className="text-amber-600 font-bold hover:underline">← Back to Dashboard</Link>
-        </div>
-        <CbtEngine questions={questions || []} testTitle="Medical Assessment" />
-      </div>
-    );
-  }
-
-  // If they clicked the Study/Teaching Mode card
-  if (currentMode === 'study') {
-    return (
-      <div className="w-full max-w-4xl mx-auto flex flex-col items-center p-4">
-        <div className="w-full mb-6 flex justify-start">
-          <Link href="/" className="text-amber-600 font-bold hover:underline">← Back to Dashboard</Link>
-        </div>
-        
-        {/* THIS IS THE FIX: We map through the array and give each question its own card */}
-        <div className="w-full space-y-8">
-          {questions && questions.length > 0 ? (
-            questions.map((q, i) => (
-              <StudyCard key={q.id || i} question={q} index={i + 1} />
-            ))
-          ) : (
-            <p className="text-slate-500 text-center w-full">No questions found in the database.</p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // THE DEFAULT DASHBOARD VIEW
+export default function Home() {
   return (
     <main className="w-full max-w-4xl mx-auto flex flex-col items-center p-4">
       <div className="w-full bg-white p-8 rounded-2xl shadow-sm border border-slate-100 mb-8 mt-4 text-center">
@@ -55,7 +9,8 @@ export default async function Home({ searchParams }: { searchParams: { mode?: st
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-        <Link href="/?mode=study" className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm border-2 border-transparent hover:border-amber-400 hover:shadow-md transition-all group">
+        {/* Notice the href is now a real route: "/study" */}
+        <Link href="/study" className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm border-2 border-transparent hover:border-amber-400 hover:shadow-md transition-all group">
           <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <span className="text-2xl">📚</span>
           </div>
@@ -65,7 +20,8 @@ export default async function Home({ searchParams }: { searchParams: { mode?: st
           </p>
         </Link>
 
-        <Link href="/?mode=exam" className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm border-2 border-transparent hover:border-blue-400 hover:shadow-md transition-all group">
+        {/* Notice the href is now a real route: "/exam" */}
+        <Link href="/exam" className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm border-2 border-transparent hover:border-blue-400 hover:shadow-md transition-all group">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <span className="text-2xl">⏱️</span>
           </div>
