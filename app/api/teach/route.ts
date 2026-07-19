@@ -11,23 +11,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "You must be logged in to use Teaching Mode." }, { status: 401 });
     }
 
-    // =========================================================================
+        // =========================================================================
     // STEP 0: THE ADMIN BOUNCER - Check if the Admin Globally Paused AI
     // =========================================================================
-    // We check the 'settings' table and pull the 'is_ai_enabled' true/false value
+    // We check the correct 'site_settings' table
     const { data: adminSettings } = await supabase
-      .from('settings') 
-      .select('is_ai_enabled')
+      .from('site_settings') 
+      .select('is_ai_tutor_enabled')
+      .eq('id', 1)
       .single();
 
     // If the admin explicitly turned it off, block the request here
-    if (adminSettings && adminSettings.is_ai_enabled === false) {
+    if (adminSettings && adminSettings.is_ai_tutor_enabled === false) {
       return NextResponse.json({ 
         error: "ai_paused",
-        message: "DeepSeek AI services are currently paused by the Administrator." 
+        message: "The AI Tutor is currently paused for maintenance. Please check back shortly." 
       }, { status: 503 }); // 503 means Service Unavailable
     }
     // =========================================================================
+
 
     const { data: profile } = await supabase
       .from('profiles')
