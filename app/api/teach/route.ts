@@ -11,10 +11,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "You must be logged in to use Teaching Mode." }, { status: 401 });
     }
 
-        // =========================================================================
+    // =========================================================================
     // STEP 0: THE ADMIN BOUNCER - Check if the Admin Globally Paused AI
     // =========================================================================
-    // We check the correct 'site_settings' table
     const { data: adminSettings } = await supabase
       .from('site_settings') 
       .select('is_ai_tutor_enabled')
@@ -26,10 +25,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ 
         error: "ai_paused",
         message: "The AI Tutor is currently paused for maintenance. Please check back shortly." 
-      }, { status: 503 }); // 503 means Service Unavailable
+      }, { status: 503 }); 
     }
     // =========================================================================
-
 
     const { data: profile } = await supabase
       .from('profiles')

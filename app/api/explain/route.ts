@@ -11,19 +11,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ content: "You must be logged in to use the AI Tutor." }, { status: 401 });
     }
 
-    // 2. Fetch User Profile & Global Settings
-    const [ { data: profile }, { data: settings } ] = await Promise.all([
-      supabase.from('profiles').select('role').eq('id', user.id).single(),
-      supabase.from('site_settings').select('is_ai_tutor_enabled').eq('id', 1).single()
-    ]);
+    // =========================================================================
+    // STEP 2: THE ADMIN BOUNCER - Check if the Admin Globally Paused AI
+    // =========================================================================
+    const { data: settings } = await supabase
+      .from('site_settings')
+      .select('is_ai_tutor_enabled')
+      .eq('id', 1)
+      .single();
 
-    // 3. MASTER TOGGLE CHECK: Block if disabled (unless they are an admin testing the system)
-    if (!settings?.is_ai_tutor_enabled && profile?.role !== 'admin') {
+    // If the admin explicitly turned it off, block the request here
+    if (settings && settings.is_ai_tutor_enabled === false) {
       return NextResponse.json({ 
         content: "✨ The AI Tutor is currently offline for maintenance. Check back soon!",
         flagged: false
       });
     }
+    // =========================================================================
     
     const body = await req.json();
     const { questionId, questionText, options, correctAnswer, modelAnswer } = body;
@@ -88,7 +92,6 @@ export async function POST(req: Request) {
 
     // 7. Handle Flags
     if (aiResponseJson.flagged) {
-      // Create the answer_flags table later if it doesn't exist, we will use a try-catch so it doesn't break the response
       try {
         await supabase.from('answer_flags').insert({
           question_id: questionId,
