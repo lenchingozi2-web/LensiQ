@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
   title: "Lensiq AI",
-  description: "Elite Medical Study Platform & AI Tutor",
+  description: "Elite Medical Study Platform & AI Tutor",manifest: "/manifest.json",
 };
 
 export default function RootLayout({
