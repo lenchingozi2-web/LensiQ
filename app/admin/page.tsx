@@ -9,22 +9,12 @@ export default async function AdminDashboard() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/signup');
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
+  // 🚨 THE VIP PASS: Hardcoded to your master email! 🚨
+  const ADMIN_EMAIL = "lenchingozi2@gmail.com"; 
 
-  if (profile?.role !== 'admin') {
-  return (
-    <div className="p-10 text-black">
-      <h1>DEBUG MODE</h1>
-      <p>Your User ID is: {user.id}</p>
-      <p>The database says your role is: {profile?.role || "null (Row not found)"}</p>
-    </div>
-  );
-}
-
+  if (user.email !== ADMIN_EMAIL) {
+    redirect('/'); 
+  }
 
   // 2. Fetch Master Settings
   const { data: settings } = await supabase
