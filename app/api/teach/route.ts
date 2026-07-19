@@ -11,6 +11,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "You must be logged in to use Teaching Mode." }, { status: 401 });
     }
 
+    // =========================================================================
+    // STEP 0: THE ADMIN BOUNCER - Check if the Admin Globally Paused AI
+    // =========================================================================
+    // We check the 'settings' table and pull the 'is_ai_enabled' true/false value
+    const { data: adminSettings } = await supabase
+      .from('settings') 
+      .select('is_ai_enabled')
+      .single();
+
+    // If the admin explicitly turned it off, block the request here
+    if (adminSettings && adminSettings.is_ai_enabled === false) {
+      return NextResponse.json({ 
+        error: "ai_paused",
+        message: "DeepSeek AI services are currently paused by the Administrator." 
+      }, { status: 503 }); // 503 means Service Unavailable
+    }
+    // =========================================================================
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('plan, ai_teachings_used')
@@ -23,7 +41,7 @@ export async function POST(req: Request) {
     
     const isFirstMessage = messages.length === 1;
 
-    // 3. Check Limits
+    // 3. Check Subscription Limits
     if (isFirstMessage && profile?.plan === 'free' && (profile?.ai_teachings_used || 0) >= 6) {
       return NextResponse.json({ 
         error: "limit_reached",
@@ -31,7 +49,7 @@ export async function POST(req: Request) {
       }, { status: 403 });
     }
 
-    // 4. Update Limits BEFORE starting the stream
+    // 4. Update Usage Limits BEFORE starting the stream
     if (isFirstMessage && profile?.plan === 'free') {
       await supabase
         .from('profiles')
@@ -70,7 +88,7 @@ FORMATTING & INTERACTIVE KNOWLEDGE CHECK:
       },
       body: JSON.stringify({
         model: 'deepseek-reasoner', 
-        stream: true, // THIS IS THE MAGIC WORD THAT TURNS ON STREAMING
+        stream: true, 
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages
