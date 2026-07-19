@@ -3,7 +3,6 @@ import CbtEngine from '@/components/CbtEngine';
 import StudyCard from '@/components/StudyCard';
 import Link from 'next/link';
 
-// We use searchParams to figure out which mode the user clicked
 export default async function Home({ searchParams }: { searchParams: { mode?: string } }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -16,7 +15,7 @@ export default async function Home({ searchParams }: { searchParams: { mode?: st
   // If they clicked the Mock Exam card
   if (currentMode === 'exam') {
     return (
-      <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
+      <div className="w-full max-w-4xl mx-auto flex flex-col items-center p-4">
         <div className="w-full mb-4 flex justify-start">
           <Link href="/" className="text-amber-600 font-bold hover:underline">← Back to Dashboard</Link>
         </div>
@@ -28,28 +27,34 @@ export default async function Home({ searchParams }: { searchParams: { mode?: st
   // If they clicked the Study/Teaching Mode card
   if (currentMode === 'study') {
     return (
-      <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
-        <div className="w-full mb-4 flex justify-start">
+      <div className="w-full max-w-4xl mx-auto flex flex-col items-center p-4">
+        <div className="w-full mb-6 flex justify-start">
           <Link href="/" className="text-amber-600 font-bold hover:underline">← Back to Dashboard</Link>
         </div>
-        {/* We load your StudyCard component here */}
-        <StudyCard questions={questions || []} />
+        
+        {/* THIS IS THE FIX: We map through the array and give each question its own card */}
+        <div className="w-full space-y-8">
+          {questions && questions.length > 0 ? (
+            questions.map((q, i) => (
+              <StudyCard key={q.id || i} question={q} index={i + 1} />
+            ))
+          ) : (
+            <p className="text-slate-500 text-center w-full">No questions found in the database.</p>
+          )}
+        </div>
       </div>
     );
   }
 
   // THE DEFAULT DASHBOARD VIEW
   return (
-    <main className="w-full max-w-4xl mx-auto flex flex-col items-center">
-      {/* Welcome Header */}
+    <main className="w-full max-w-4xl mx-auto flex flex-col items-center p-4">
       <div className="w-full bg-white p-8 rounded-2xl shadow-sm border border-slate-100 mb-8 mt-4 text-center">
         <h1 className="text-3xl font-bold text-slate-800 mb-2">Welcome to Lensiq AI</h1>
         <p className="text-slate-500">Select a module below to begin your session.</p>
       </div>
 
-      {/* The Clickable Module Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-        {/* Study Mode Card */}
         <Link href="/?mode=study" className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm border-2 border-transparent hover:border-amber-400 hover:shadow-md transition-all group">
           <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <span className="text-2xl">📚</span>
@@ -60,7 +65,6 @@ export default async function Home({ searchParams }: { searchParams: { mode?: st
           </p>
         </Link>
 
-        {/* Mock Exam Card */}
         <Link href="/?mode=exam" className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm border-2 border-transparent hover:border-blue-400 hover:shadow-md transition-all group">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <span className="text-2xl">⏱️</span>
