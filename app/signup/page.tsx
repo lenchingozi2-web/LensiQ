@@ -7,26 +7,36 @@ export default async function AuthPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (user) redirect('/dashboard');
 
-  // The Server Action that securely processes the form
-  async function handleAuth(formData: FormData) {
+  // Action specifically for Logging In
+  async function handleLogin(formData: FormData) {
     "use server";
-    
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
-    const action = formData.get('action') as string;
-    
     const supabaseServer = await createClient();
     
-    if (action === 'signup') {
-      const { error } = await supabaseServer.auth.signUp({ email, password });
-      if (error) console.error("Signup error:", error.message);
-    } else {
-      const { error } = await supabaseServer.auth.signInWithPassword({ email, password });
-      if (error) console.error("Login error:", error.message);
-    }
+    const { error } = await supabaseServer.auth.signInWithPassword({ email, password });
     
-    // Redirect to the pricing page so they can finish upgrading!
-    redirect('/pricing');
+    if (!error) {
+      redirect('/dashboard');
+    } else {
+      console.error("Login error:", error.message);
+    }
+  }
+
+  // Action specifically for Creating an Account
+  async function handleSignup(formData: FormData) {
+    "use server";
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    const supabaseServer = await createClient();
+    
+    const { error } = await supabaseServer.auth.signUp({ email, password });
+    
+    if (!error) {
+      redirect('/pricing');
+    } else {
+      console.error("Signup error:", error.message);
+    }
   }
 
   return (
@@ -39,7 +49,8 @@ export default async function AuthPage() {
           <p className="text-slate-500 text-sm">Sign in to access your medical command center.</p>
         </div>
 
-        <form action={handleAuth} className="space-y-5">
+        {/* Removed the main action from the form tag */}
+        <form className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
             <input 
@@ -63,18 +74,15 @@ export default async function AuthPage() {
           </div>
 
           <div className="flex gap-4 pt-4">
+            {/* formAction points directly to the specific functions now */}
             <button 
-              type="submit" 
-              name="action" 
-              value="login" 
+              formAction={handleLogin}
               className="w-full bg-slate-900 text-white rounded-xl px-4 py-3 font-bold hover:bg-slate-800 transition-colors"
             >
               Log In
             </button>
             <button 
-              type="submit" 
-              name="action" 
-              value="signup" 
+              formAction={handleSignup}
               className="w-full bg-[#E8A23D] text-slate-900 rounded-xl px-4 py-3 font-bold hover:bg-amber-500 transition-colors"
             >
               Sign Up
