@@ -15,7 +15,16 @@ export default async function AdminDashboard() {
     .eq('id', user.id)
     .single();
 
-  if (profile?.role !== 'admin') redirect('/'); 
+  if (profile?.role !== 'admin') {
+  return (
+    <div className="p-10 text-black">
+      <h1>DEBUG MODE</h1>
+      <p>Your User ID is: {user.id}</p>
+      <p>The database says your role is: {profile?.role || "null (Row not found)"}</p>
+    </div>
+  );
+}
+
 
   // 2. Fetch Master Settings
   const { data: settings } = await supabase
