@@ -2,10 +2,10 @@ import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 
 export default async function AuthPage() {
-  // If they are already logged in, send them to the dashboard
+  // If they are already logged in, send them to the homepage
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (user) redirect('/dashboard');
+  if (user) redirect('/');
 
   // Action specifically for Logging In
   async function handleLogin(formData: FormData) {
@@ -13,11 +13,14 @@ export default async function AuthPage() {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
     const supabaseServer = await createClient();
-    
-    const { error } = await supabaseServer.auth.signInWithPassword({ email, password });
-    
+
+    const { error } = await supabaseServer.auth.signInWithPassword({
+      email,
+      password,
+    });
+
     if (!error) {
-      redirect('/dashboard');
+      redirect('/');
     } else {
       console.error("Login error:", error.message);
     }
@@ -29,11 +32,14 @@ export default async function AuthPage() {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
     const supabaseServer = await createClient();
-    
-    const { error } = await supabaseServer.auth.signUp({ email, password });
-    
+
+    const { error } = await supabaseServer.auth.signUp({
+      email,
+      password,
+    });
+
     if (!error) {
-      redirect('/pricing');
+      redirect('/');
     } else {
       console.error("Signup error:", error.message);
     }
@@ -46,42 +52,47 @@ export default async function AuthPage() {
           <h1 className="text-3xl font-black text-[#0B1220] tracking-tight mb-2">
             Lensiq<span className="text-[#E8A23D]">AI</span>
           </h1>
-          <p className="text-slate-500 text-sm">Sign in to access your medical command center.</p>
+          <p className="text-slate-500 text-sm">
+            Sign in to access your medical command center.
+          </p>
         </div>
 
-        {/* Removed the main action from the form tag */}
         <form className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
-            <input 
-              type="email" 
-              name="email" 
-              required 
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Email Address
+            </label>
+            <input
+              type="email"
+              name="email"
+              required
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#E8A23D] focus:ring-2 focus:ring-[#E8A23D]/20 outline-none transition-all"
               placeholder="doctor@example.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-            <input 
-              type="password" 
-              name="password" 
-              required 
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Password
+            </label>
+            <input
+              type="password"
+              name="password"
+              required
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#E8A23D] focus:ring-2 focus:ring-[#E8A23D]/20 outline-none transition-all"
               placeholder="••••••••"
             />
           </div>
 
           <div className="flex gap-4 pt-4">
-            {/* formAction points directly to the specific functions now */}
-            <button 
+            <button
               formAction={handleLogin}
               className="w-full bg-slate-900 text-white rounded-xl px-4 py-3 font-bold hover:bg-slate-800 transition-colors"
             >
               Log In
             </button>
-            <button 
+
+            <button
               formAction={handleSignup}
               className="w-full bg-[#E8A23D] text-slate-900 rounded-xl px-4 py-3 font-bold hover:bg-amber-500 transition-colors"
             >

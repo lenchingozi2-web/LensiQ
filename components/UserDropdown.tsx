@@ -9,10 +9,16 @@ export default function UserDropdown({ email }: { email: string }) {
   // Get the first letter of the email for the avatar (e.g., "L" for your admin email)
   const initial = email ? email.charAt(0).toUpperCase() : 'U';
 
-  const handleLogout = async () => {
-    // 1. Wipe all local ghost sessions
+    const handleLogout = async () => {
     localStorage.clear();
     sessionStorage.clear();
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+    // SEND THEM TO THE AUTH PAGE WHEN LOGGING OUT
+    window.location.href = '/signup'; 
+  };
+
 
     // 2. Wipe the cookies directly in the browser
     document.cookie.split(";").forEach((c) => {
