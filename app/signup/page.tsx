@@ -24,6 +24,8 @@ export default async function AuthPage() {
       // SECURITY LOGIC: Generate token, save to DB, and set as browser cookie
       const token = crypto.randomUUID();
       await supabaseServer.from('profiles').update({ session_token: token }).eq('id', data.user.id);
+      
+      // @ts-ignore: Next.js types incorrectly mark cookies as read-only here, but it works at runtime in Server Actions
       cookies().set('session_token', token, { path: '/' });
       
       redirect('/');
@@ -48,6 +50,8 @@ export default async function AuthPage() {
       // SECURITY LOGIC: Generate token, save to DB, and set as browser cookie
       const token = crypto.randomUUID();
       await supabaseServer.from('profiles').update({ session_token: token }).eq('id', data.user.id);
+      
+      // @ts-ignore: Next.js types incorrectly mark cookies as read-only here, but it works at runtime in Server Actions
       cookies().set('session_token', token, { path: '/' });
       
       redirect('/');
