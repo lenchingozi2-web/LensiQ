@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
+import { cookies } from 'next/headers';
 
 export default async function AuthPage() {
   // If they are already logged in, send them to the homepage
@@ -14,15 +15,20 @@ export default async function AuthPage() {
     const password = formData.get('password') as string;
     const supabaseServer = await createClient();
 
-    const { error } = await supabaseServer.auth.signInWithPassword({
+    const { data, error } = await supabaseServer.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (!error) {
+    if (!error && data.user) {
+      // SECURITY LOGIC: Generate token, save to DB, and set as browser cookie
+      const token = crypto.randomUUID();
+      await supabaseServer.from('profiles').update({ session_token: token }).eq('id', data.user.id);
+      cookies().set('session_token', token, { path: '/' });
+      
       redirect('/');
     } else {
-      console.error("Login error:", error.message);
+      console.error("Login error:", error?.message);
     }
   }
 
@@ -33,15 +39,20 @@ export default async function AuthPage() {
     const password = formData.get('password') as string;
     const supabaseServer = await createClient();
 
-    const { error } = await supabaseServer.auth.signUp({
+    const { data, error } = await supabaseServer.auth.signUp({
       email,
       password,
     });
 
-    if (!error) {
+    if (!error && data.user) {
+      // SECURITY LOGIC: Generate token, save to DB, and set as browser cookie
+      const token = crypto.randomUUID();
+      await supabaseServer.from('profiles').update({ session_token: token }).eq('id', data.user.id);
+      cookies().set('session_token', token, { path: '/' });
+      
       redirect('/');
     } else {
-      console.error("Signup error:", error.message);
+      console.error("Signup error:", error?.message);
     }
   }
 
