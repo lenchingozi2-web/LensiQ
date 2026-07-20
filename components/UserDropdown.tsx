@@ -9,7 +9,7 @@ export default function UserDropdown({ email }: { email: string }) {
   // Get the first letter of the email for the avatar (e.g., "L" for your admin email)
   const initial = email ? email.charAt(0).toUpperCase() : 'U';
 
-    const handleLogout = async () => {
+  const handleLogout = async () => {
     localStorage.clear();
     sessionStorage.clear();
     document.cookie.split(";").forEach((c) => {
@@ -17,18 +17,6 @@ export default function UserDropdown({ email }: { email: string }) {
     });
     // SEND THEM TO THE AUTH PAGE WHEN LOGGING OUT
     window.location.href = '/signup'; 
-  };
-
-
-    // 2. Wipe the cookies directly in the browser
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c
-        .replace(/^ +/, "")
-        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-    });
-
-    // 3. Force a hard reload to the homepage to completely clear Next.js memory
-    window.location.href = '/';
   };
 
   return (
