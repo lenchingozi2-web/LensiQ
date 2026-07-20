@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     }
 
     // 5. Construct the Elite Medical Chat Prompt
-    const systemPrompt = `You are LensiqAI, an elite, conversational medical tutor. 
+    const systemPrompt = `You are LenxiQ AI, an elite, conversational medical tutor. 
 Your current branch focus is: ${courseName}.
 
 DYNAMIC SCALING & TONE RULES:

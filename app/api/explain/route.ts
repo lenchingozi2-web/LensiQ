@@ -49,7 +49,7 @@ export async function POST(req: Request) {
 
     // --- 5. If no cache exists, call DeepSeek ---
     const apiUrl = 'https://api.deepseek.com/chat/completions';
-    const systemPrompt = `You are the LensIQ tutor... (Keep your exact same system prompt here!) 
+    const systemPrompt = `You are the LenxIQ tutor... (Keep your exact same system prompt here!) 
     MODE: EXPLAIN — Give a deeper explanation.
     You MUST always respond in strictly valid JSON format matching this exact shape:
     { "content": "...", "flagged": false, "flag_reason": null }`;

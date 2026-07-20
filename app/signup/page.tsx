@@ -65,7 +65,7 @@ export default async function AuthPage() {
       <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-xl p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-black text-[#0B1220] tracking-tight mb-2">
-            Lensiq<span className="text-[#E8A23D]">AI</span>
+            LenxiQ<span className="text-[#E8A23D]">AI</span>
           </h1>
           <p className="text-slate-500 text-sm">
             Sign in to access your medical command center.

@@ -8,12 +8,12 @@ export default function Home() {
       <div className="w-full py-6 md:py-8 mb-4 text-center flex flex-col items-center">
         <img
           src="/icon.png"
-          alt="LensiQ Brand Identity"
+          alt="LenxiQ Brand Identity"
           className="w-full max-w-2xl mb-6 rounded-xl shadow-md object-cover"
         />
 
         <h1 className="text-4xl md:text-5xl font-extrabold text-slate-800 mb-3 tracking-tight">
-          Welcome to LensiQ AI
+          Welcome to LenxiQ AI
         </h1>
 
         <p className="text-lg text-slate-600 max-w-2xl mx-auto font-medium">
