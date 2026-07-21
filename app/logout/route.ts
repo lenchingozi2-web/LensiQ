@@ -16,9 +16,10 @@ export async function GET(request: Request) {
   // 3. Destroy the Supabase session
   await supabase.auth.signOut();
   
-  // 4. Destroy the custom security cookie in the browser
-  cookies().delete('session_token');
+  // 4. Destroy the custom security cookie in the browser (FIXED with await)
+  const cookieStore = await cookies();
+  cookieStore.delete('session_token');
   
-  // 5. Force a hard, secure redirect (completely bypassing Vercel's glitchy request.url)
+  // 5. Force a hard, secure redirect
   return NextResponse.redirect('https://lenxiq.online/login');
 }
