@@ -3,12 +3,10 @@ import { createClient } from '../../lib/supabase/server';
 import { cookies } from 'next/headers';
 
 export default async function AuthPage() {
-  // If they are already logged in, send them to the homepage
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (user) redirect('/');
 
-  // Action specifically for Logging In
   async function handleLogin(formData: FormData) {
     "use server";
     const email = formData.get('email') as string;
@@ -21,12 +19,12 @@ export default async function AuthPage() {
     });
 
     if (!error && data.user) {
-      // SECURITY LOGIC: Generate token, save to DB, and set as browser cookie
       const token = crypto.randomUUID();
       await supabaseServer.from('profiles').update({ session_token: token }).eq('id', data.user.id);
       
-      // @ts-ignore: Next.js types incorrectly mark cookies as read-only here, but it works at runtime in Server Actions
-      cookies().set('session_token', token, { path: '/' });
+      // FIXED: Properly await the cookies promise
+      const cookieStore = await cookies();
+      cookieStore.set('session_token', token, { path: '/' });
       
       redirect('/');
     } else {
@@ -34,7 +32,6 @@ export default async function AuthPage() {
     }
   }
 
-  // Action specifically for Creating an Account
   async function handleSignup(formData: FormData) {
     "use server";
     const email = formData.get('email') as string;
@@ -47,12 +44,12 @@ export default async function AuthPage() {
     });
 
     if (!error && data.user) {
-      // SECURITY LOGIC: Generate token, save to DB, and set as browser cookie
       const token = crypto.randomUUID();
       await supabaseServer.from('profiles').update({ session_token: token }).eq('id', data.user.id);
       
-      // @ts-ignore: Next.js types incorrectly mark cookies as read-only here, but it works at runtime in Server Actions
-      cookies().set('session_token', token, { path: '/' });
+      // FIXED: Properly await the cookies promise
+      const cookieStore = await cookies();
+      cookieStore.set('session_token', token, { path: '/' });
       
       redirect('/');
     } else {

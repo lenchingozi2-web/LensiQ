@@ -1,22 +1,29 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
+import { cookies } from 'next/headers';
 
 export default function LoginPage() {
   const login = async (formData: FormData) => {
     'use server'
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
-    const supabase = await createClient(); // Added await here
+    const supabase = await createClient();
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) {
+    if (error || !data.user) {
       redirect('/login?message=Could not authenticate user');
     }
+    
+    // FIXED SECURITY LOGIC: Await cookies properly
+    const token = crypto.randomUUID();
+    await supabase.from('profiles').update({ session_token: token }).eq('id', data.user.id);
+    const cookieStore = await cookies();
+    cookieStore.set('session_token', token, { path: '/' });
     
     revalidatePath('/');
     redirect('/');
@@ -26,16 +33,22 @@ export default function LoginPage() {
     'use server'
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
-    const supabase = await createClient(); // Added await here
+    const supabase = await createClient(); 
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
     });
 
-    if (error) {
+    if (error || !data.user) {
       redirect('/login?message=Could not sign up');
     }
+    
+    // FIXED SECURITY LOGIC: Await cookies properly
+    const token = crypto.randomUUID();
+    await supabase.from('profiles').update({ session_token: token }).eq('id', data.user.id);
+    const cookieStore = await cookies();
+    cookieStore.set('session_token', token, { path: '/' });
     
     revalidatePath('/');
     redirect('/');
