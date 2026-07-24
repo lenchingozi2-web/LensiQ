@@ -1,9 +1,8 @@
 "use client";
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function MockExamSetup() {
-  const router = useRouter();
   const [subject, setSubject] = useState('Pharmacology');
   const [division, setDivision] = useState('Autonomic');
   const [questionCount, setQuestionCount] = useState(20);
@@ -12,10 +11,8 @@ export default function MockExamSetup() {
   const totalSeconds = questionCount * 50;
   const timeInMinutes = Math.ceil(totalSeconds / 60);
 
-  const handleStartExam = () => {
-    // FIXED ROUTING: Pointing directly to the '/exam' folder
-    router.push(`/exam?subject=${subject}&division=${division}&count=${questionCount}`);
-  };
+  // Generate the URL directly
+  const examUrl = `/exam?subject=${subject}&division=${division}&count=${questionCount}`;
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center justify-center">
@@ -70,12 +67,12 @@ export default function MockExamSetup() {
             </p>
           </div>
 
-          <button 
-            onClick={handleStartExam}
-            className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition-all shadow-md mt-4"
-          >
-            Start Mock Exam →
-          </button>
+          {/* FIXED: Using a native Next.js Link instead of router.push */}
+          <Link href={examUrl} className="w-full block mt-4">
+            <button className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition-all shadow-md">
+              Start Mock Exam →
+            </button>
+          </Link>
         </div>
       </div>
     </div>
