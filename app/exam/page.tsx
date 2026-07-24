@@ -13,8 +13,8 @@ export default function MockExamSetup() {
   const timeInMinutes = Math.ceil(totalSeconds / 60);
 
   const handleStartExam = () => {
-    // Route to the actual exam session with all parameters attached
-    router.push(`/exam/session?subject=${subject}&division=${division}&count=${questionCount}`);
+    // FIXED ROUTING: Pointing directly to the '/exam' folder
+    router.push(`/exam?subject=${subject}&division=${division}&count=${questionCount}`);
   };
 
   return (

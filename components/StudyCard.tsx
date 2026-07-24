@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type Question = {
   id: string;
-  type?: string; // Added this so the card knows if it is MCQ or Theory
+  type?: string; 
   question_text?: string;
   stem?: string;
   option_a: string;
@@ -72,9 +74,11 @@ export default function StudyCard({ question, index }: { question: Question, ind
       {/* Question Header */}
       <div className="bg-slate-50 border-b border-slate-200 p-4 sm:p-6 flex gap-4">
         <span className="font-bold text-slate-400 text-xl mt-1">Q{index + 1}.</span>
-        <p className="text-lg sm:text-xl text-slate-800 font-medium whitespace-pre-wrap leading-relaxed">
-          {question.question_text || question.stem}
-        </p>
+        <div className="prose prose-slate max-w-none text-lg sm:text-xl font-medium leading-relaxed">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {question.question_text || question.stem || ""}
+          </ReactMarkdown>
+        </div>
       </div>
 
       {/* ========================================== */}
@@ -84,9 +88,12 @@ export default function StudyCard({ question, index }: { question: Question, ind
         <div className="p-4 sm:p-6 bg-white animate-in fade-in duration-300">
           <h3 className="font-bold text-slate-900 text-lg mb-3">Standard Answer:</h3>
           
-          <p className="text-slate-700 leading-relaxed whitespace-pre-wrap mb-6">
-            {question.correct_answer || question.model_answer || "No predefined answer provided for this theory question."}
-          </p>
+          {/* FIXED: Rendering the Supabase text through ReactMarkdown with GFM for tables */}
+          <div className="prose prose-slate max-w-none mb-6">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {question.correct_answer || question.model_answer || "No predefined answer provided for this theory question."}
+            </ReactMarkdown>
+          </div>
 
           {/* AI Tutor Area for Theory */}
           {!aiResponse ? (
@@ -111,9 +118,11 @@ export default function StudyCard({ question, index }: { question: Question, ind
                   {isFlagged ? 'AI Tutor Note: Potential Error Detected' : 'AI Tutor Elaboration'}
                 </h4>
               </div>
-              <p className={`${isFlagged ? 'text-red-800' : 'text-indigo-800'} leading-relaxed whitespace-pre-wrap`}>
-                {aiResponse}
-              </p>
+              <div className={`prose max-w-none ${isFlagged ? 'prose-red text-red-800' : 'prose-indigo text-indigo-800'}`}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {aiResponse}
+                </ReactMarkdown>
+              </div>
             </div>
           )}
         </div>
@@ -166,9 +175,11 @@ export default function StudyCard({ question, index }: { question: Question, ind
           {selectedAnswer && (
             <div className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 animate-in fade-in slide-in-from-top-2 duration-300">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">Explanation</h3>
-              <p className="text-slate-700 leading-relaxed whitespace-pre-wrap mb-6">
-                {question.model_answer || "No predefined explanation provided for this question."}
-              </p>
+              <div className="prose prose-slate max-w-none mb-6">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {question.model_answer || "No predefined explanation provided for this question."}
+                </ReactMarkdown>
+              </div>
 
               {/* AI Tutor Area for MCQ */}
               {!aiResponse ? (
@@ -193,9 +204,11 @@ export default function StudyCard({ question, index }: { question: Question, ind
                       {isFlagged ? 'AI Tutor Note: Potential Error Detected' : 'AI Tutor Explanation'}
                     </h4>
                   </div>
-                  <p className={`${isFlagged ? 'text-red-800' : 'text-indigo-800'} leading-relaxed whitespace-pre-wrap`}>
-                    {aiResponse}
-                  </p>
+                  <div className={`prose max-w-none ${isFlagged ? 'prose-red text-red-800' : 'prose-indigo text-indigo-800'}`}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {aiResponse}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               )}
             </div>
