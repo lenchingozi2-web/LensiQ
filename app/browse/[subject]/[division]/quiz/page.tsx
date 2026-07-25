@@ -15,13 +15,13 @@ export default async function QuizSetupPage({ params }: { params: Promise<{ subj
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
-  // Fetch ALL MCQs for this division
+  // Fetch ALL MCQs for this division (Now fully case-insensitive!)
   const { data: questions, error } = await supabase
     .from('questions')
     .select('*')
     .ilike('subject', subjectTitle)
-    .eq('division', divisionName)
-    .eq('type', 'mcq');
+    .ilike('division', divisionName)
+    .ilike('type', 'mcq');
 
   // If there's an error or no questions, show a fallback UI
   if (error || !questions || questions.length === 0) {
