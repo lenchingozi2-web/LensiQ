@@ -79,6 +79,13 @@ FORMATTING & INTERACTIVE KNOWLEDGE CHECK:
 - STOP THERE. Ask the student to type their answer so you can grade it.
 - If grading an answer, tell them if they are right or wrong, provide the correct rationale, and ask if they are ready to move on.`;
 
+    // THE FIX: Reasoning models often reject the "system" role, throwing a 400 error.
+    // We bypass this entirely by injecting your elite instructions directly into the first 'user' message of the chat history.
+    const formattedMessages = [...messages];
+    if (formattedMessages.length > 0 && formattedMessages[0].role === 'user') {
+      formattedMessages[0].content = `[SYSTEM INSTRUCTIONS FOR AI TUTOR]\n${systemPrompt}\n\n[STUDENT QUERY]\n${formattedMessages[0].content}`;
+    }
+
     // 6. Call DeepSeek API with Streaming Enabled
     const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
@@ -89,14 +96,15 @@ FORMATTING & INTERACTIVE KNOWLEDGE CHECK:
       body: JSON.stringify({
         model: 'deepseek-reasoner', 
         stream: true, 
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages
-        ]
+        messages: formattedMessages // Using the safely formatted messages array
       })
     });
 
-    if (!response.ok) throw new Error(`DeepSeek API error: ${response.status}`);
+    // ULTIMATE X-RAY DEBUGGER: If it STILL throws a 400, this rips the exact reason straight from DeepSeek's servers.
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`DeepSeek 400 Details: ${errorText}`);
+    }
 
     // 7. Pipe the stream directly to the frontend
     return new Response(response.body, {
@@ -109,7 +117,6 @@ FORMATTING & INTERACTIVE KNOWLEDGE CHECK:
 
   } catch (error: any) {
     console.error("AI Teaching Error:", error);
-    // X-RAY DEBUGGER: This will now push the exact error to your frontend UI
     return NextResponse.json({ 
       error: `Backend Crash: ${error.message || 'Unknown error'}` 
     }, { status: 500 });
