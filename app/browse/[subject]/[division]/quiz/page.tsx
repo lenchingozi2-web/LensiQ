@@ -15,22 +15,33 @@ export default async function QuizSetupPage({ params }: { params: Promise<{ subj
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
-  // Fetch ALL MCQs for this division (Now fully case-insensitive!)
+  // FIXED: Using % wildcards so Supabase ignores accidental spaces (e.g., "Microbiology ")
   const { data: questions, error } = await supabase
     .from('questions')
     .select('*')
-    .ilike('subject', subjectTitle)
-    .ilike('division', divisionName)
-    .ilike('type', 'mcq');
+    .ilike('subject', `%${subjectTitle}%`)
+    .ilike('division', `%${divisionName}%`)
+    .ilike('type', '%mcq%');
 
-  // If there's an error or no questions, show a fallback UI
+  // If there's an error or no questions, show the fallback UI WITH DEBUG INFO
   if (error || !questions || questions.length === 0) {
     return (
-      <main className="p-6 max-w-3xl mx-auto mt-10 text-center">
-         <h1 className="text-2xl font-bold mb-4">Cannot Start Quiz</h1>
-         <p className="text-slate-600 mb-6">No multiple-choice questions were found for {divisionName}.</p>
-         <Link href={`/browse/${subjectId}/${encodeURIComponent(divisionName)}`} className="text-[#E8A23D] font-bold hover:underline">
-           &larr; Go Back
+      <main className="p-6 max-w-3xl mx-auto mt-10 text-center flex flex-col items-center">
+         <h1 className="text-2xl font-bold mb-4 text-slate-900">Cannot Start Quiz</h1>
+         <p className="text-slate-600 mb-4">No multiple-choice questions were found.</p>
+         
+         {/* Diagnostic Box to see exactly what Supabase is looking for */}
+         <div className="bg-slate-100 p-4 rounded-xl border border-slate-300 text-left mb-8 w-full max-w-md shadow-inner">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-2">Database Query Sent:</p>
+            <code className="text-sm text-slate-800 block mb-1">Subject: "{subjectTitle}"</code>
+            <code className="text-sm text-slate-800 block mb-1">Division: "{divisionName}"</code>
+            <code className="text-sm text-slate-800 block mb-1">Type: "mcq"</code>
+            {error && <code className="text-sm text-red-600 block mt-3 font-bold">Error: {error.message}</code>}
+         </div>
+
+         {/* Fixed back button to point directly back to your setup screen */}
+         <Link href={`/exam`} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-800 transition-colors">
+           &larr; Back to Exam Setup
          </Link>
       </main>
     );
