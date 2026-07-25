@@ -11,8 +11,10 @@ export default function MockExamSetup() {
   const totalSeconds = questionCount * 50;
   const timeInMinutes = Math.ceil(totalSeconds / 60);
 
-  // Generate the URL directly
-  const examUrl = `/exam?subject=${subject}&division=${division}&count=${questionCount}`;
+  // FIXED: Formatting the URL to perfectly match your /browse/[subject]/[division]/quiz folder structure
+  const formattedSubject = subject.toLowerCase().replace(/\s+/g, '-');
+  const formattedDivision = encodeURIComponent(division);
+  const examUrl = `/browse/${formattedSubject}/${formattedDivision}/quiz?count=${questionCount}`;
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center justify-center">
@@ -67,7 +69,7 @@ export default function MockExamSetup() {
             </p>
           </div>
 
-          {/* FIXED: Using a native Next.js Link instead of router.push */}
+          {/* Navigates straight to your CBT engine! */}
           <Link href={examUrl} className="w-full block mt-4">
             <button className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition-all shadow-md">
               Start Mock Exam →

@@ -69,6 +69,26 @@ export default function StudyCard({ question, index }: { question: Question, ind
     }
   };
 
+  // ==========================================
+  //     THE DYNAMIC TEXT CLEANER FUNCTION
+  // ==========================================
+  const cleanMedicalText = (rawText: string | undefined | null) => {
+    if (!rawText) return "";
+    
+    return rawText
+      // 1. Force a double line break before any number followed by a dot (e.g., "6. ")
+      .replace(/(\d+\.)/g, '\n\n$1')
+      
+      // 2. Convert floating PDF dots (·) into proper Markdown list dashes (- )
+      .replace(/·/g, '\n- ')
+      
+      // 3. Add clean line breaks and bolding to common medical subheadings
+      .replace(/(Microscopic Features:|Clinical Significance:|Aetiology:|Pathogenesis:|Laboratory diagnosis:|Definition:)/ig, '\n\n**$1**\n\n')
+      
+      // 4. Force a line break around table markdown separators so they render properly
+      .replace(/(\|-\|-\|-.*\|)/g, '\n$1\n');
+  };
+
   return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-8">
       {/* Question Header */}
@@ -76,7 +96,7 @@ export default function StudyCard({ question, index }: { question: Question, ind
         <span className="font-bold text-slate-400 text-xl mt-1">Q{index + 1}.</span>
         <div className="prose prose-slate max-w-none text-lg sm:text-xl font-medium leading-relaxed">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {question.question_text || question.stem || ""}
+            {cleanMedicalText(question.question_text || question.stem || "")}
           </ReactMarkdown>
         </div>
       </div>
@@ -88,10 +108,10 @@ export default function StudyCard({ question, index }: { question: Question, ind
         <div className="p-4 sm:p-6 bg-white animate-in fade-in duration-300">
           <h3 className="font-bold text-slate-900 text-lg mb-3">Standard Answer:</h3>
           
-          {/* FIXED: Rendering the Supabase text through ReactMarkdown with GFM for tables */}
+          {/* FIXED: Passing the raw database text through the cleaner function first */}
           <div className="prose prose-slate max-w-none mb-6">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {question.correct_answer || question.model_answer || "No predefined answer provided for this theory question."}
+              {cleanMedicalText(question.correct_answer || question.model_answer || "No predefined answer provided for this theory question.")}
             </ReactMarkdown>
           </div>
 
@@ -177,7 +197,7 @@ export default function StudyCard({ question, index }: { question: Question, ind
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">Explanation</h3>
               <div className="prose prose-slate max-w-none mb-6">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {question.model_answer || "No predefined explanation provided for this question."}
+                  {cleanMedicalText(question.model_answer || "No predefined explanation provided for this question.")}
                 </ReactMarkdown>
               </div>
 
