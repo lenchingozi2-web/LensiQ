@@ -79,13 +79,6 @@ FORMATTING & INTERACTIVE KNOWLEDGE CHECK:
 - STOP THERE. Ask the student to type their answer so you can grade it.
 - If grading an answer, tell them if they are right or wrong, provide the correct rationale, and ask if they are ready to move on.`;
 
-    // THE FIX: Reasoning models often reject the "system" role, throwing a 400 error.
-    // We bypass this entirely by injecting your elite instructions directly into the first 'user' message of the chat history.
-    const formattedMessages = [...messages];
-    if (formattedMessages.length > 0 && formattedMessages[0].role === 'user') {
-      formattedMessages[0].content = `[SYSTEM INSTRUCTIONS FOR AI TUTOR]\n${systemPrompt}\n\n[STUDENT QUERY]\n${formattedMessages[0].content}`;
-    }
-
     // 6. Call DeepSeek API with Streaming Enabled
     const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
@@ -94,13 +87,16 @@ FORMATTING & INTERACTIVE KNOWLEDGE CHECK:
         'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'deepseek-reasoner', 
+        model: 'deepseek-v4-pro', // <-- FIXED: Giving the server exactly what it asked for
         stream: true, 
-        messages: formattedMessages // Using the safely formatted messages array
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages
+        ]
       })
     });
 
-    // ULTIMATE X-RAY DEBUGGER: If it STILL throws a 400, this rips the exact reason straight from DeepSeek's servers.
+    // ULTIMATE X-RAY DEBUGGER
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`DeepSeek 400 Details: ${errorText}`);
