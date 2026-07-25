@@ -107,8 +107,11 @@ FORMATTING & INTERACTIVE KNOWLEDGE CHECK:
       },
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI Teaching Error:", error);
-    return NextResponse.json({ error: "The AI Tutor encountered an error. Please try again." }, { status: 500 });
+    // X-RAY DEBUGGER: This will now push the exact error to your frontend UI
+    return NextResponse.json({ 
+      error: `Backend Crash: ${error.message || 'Unknown error'}` 
+    }, { status: 500 });
   }
 }
