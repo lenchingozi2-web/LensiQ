@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
+import { checkAccess } from '../../../lib/gatekeeper'; // <-- THE NEW GATEKEEPER
 
 export async function POST(req: Request) {
   try {
@@ -26,6 +27,18 @@ export async function POST(req: Request) {
         content: "✨ The AI Tutor is currently offline for maintenance. Check back soon!",
         flagged: false
       });
+    }
+    // =========================================================================
+
+    // =========================================================================
+    // STEP 3: THE GATEKEEPER LOCK
+    // =========================================================================
+    const access = await checkAccess('explanation');
+    if (!access.allowed) {
+      return NextResponse.json(
+        { content: access.message || "Limit reached.", error: access.error }, 
+        { status: access.status }
+      );
     }
     // =========================================================================
     

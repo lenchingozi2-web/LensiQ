@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '../lib/supabase/server';
+import { checkAccess } from '../lib/gatekeeper'; // <-- Moved safely to the top!
 
 export async function saveExamResult(testTitle: string, score: number, totalQuestions: number, percentage: number) {
   const supabase = await createClient();
@@ -32,4 +33,16 @@ export async function saveExamResult(testTitle: string, score: number, totalQues
   }
 
   return { success: true };
+}
+
+export async function checkQuizAccess() {
+  // This calls your secure server-side Gatekeeper from the client safely
+  const access = await checkAccess('quiz');
+  return access;
+}
+
+export async function checkBrowseAccess(courseName: string) {
+  // This checks if the user is allowed to browse this specific branch
+  const access = await checkAccess('browse', courseName);
+  return access;
 }

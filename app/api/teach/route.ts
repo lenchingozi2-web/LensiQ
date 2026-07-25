@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
+import { checkAccess } from '../../../lib/gatekeeper'; // <-- THE NEW GATEKEEPER
 
 export async function POST(req: Request) {
   try {
@@ -29,35 +30,22 @@ export async function POST(req: Request) {
     }
     // =========================================================================
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('plan, ai_teachings_used')
-      .eq('id', user.id)
-      .single();
-
     // 2. Extract the Request Data
     const body = await req.json();
     const { courseName, messages } = body;
     
     const isFirstMessage = messages.length === 1;
 
-    // 3. Check Subscription Limits
-    if (isFirstMessage && profile?.plan === 'free' && (profile?.ai_teachings_used || 0) >= 6) {
-      return NextResponse.json({ 
-        error: "limit_reached",
-        message: "You have reached your 6 free AI Teaching sessions for this month. Upgrade to Premium for unlimited access."
-      }, { status: 403 });
+    // 3. THE GATEKEEPER LOCK
+    // We only charge a credit when they start a new topic, not on follow-up chats
+    if (isFirstMessage) {
+      const access = await checkAccess('teaching');
+      if (!access.allowed) {
+        return NextResponse.json({ error: access.message }, { status: access.status });
+      }
     }
 
-    // 4. Update Usage Limits BEFORE starting the stream
-    if (isFirstMessage && profile?.plan === 'free') {
-      await supabase
-        .from('profiles')
-        .update({ ai_teachings_used: (profile.ai_teachings_used || 0) + 1 })
-        .eq('id', user.id);
-    }
-
-    // 5. Construct the Elite Medical Chat Prompt
+    // 4. Construct the Elite Medical Chat Prompt
     const systemPrompt = `You are LenxiQ AI, an elite, conversational medical tutor. 
 Your current branch focus is: ${courseName}.
 
@@ -79,7 +67,7 @@ FORMATTING & INTERACTIVE KNOWLEDGE CHECK:
 - STOP THERE. Ask the student to type their answer so you can grade it.
 - If grading an answer, tell them if they are right or wrong, provide the correct rationale, and ask if they are ready to move on.`;
 
-    // 6. Call DeepSeek API with Streaming Enabled
+    // 5. Call DeepSeek API with Streaming Enabled
     const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: {
@@ -87,7 +75,7 @@ FORMATTING & INTERACTIVE KNOWLEDGE CHECK:
         'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'deepseek-v4-pro', // <-- FIXED: Giving the server exactly what it asked for
+        model: 'deepseek-v4-pro', 
         stream: true, 
         messages: [
           { role: 'system', content: systemPrompt },
@@ -102,7 +90,7 @@ FORMATTING & INTERACTIVE KNOWLEDGE CHECK:
       throw new Error(`DeepSeek 400 Details: ${errorText}`);
     }
 
-    // 7. Pipe the stream directly to the frontend
+    // 6. Pipe the stream directly to the frontend
     return new Response(response.body, {
       headers: {
         'Content-Type': 'text/event-stream',
