@@ -2,16 +2,37 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
+// Perfectly synchronized with your Browse Mode routing strings
+const curriculumMap: Record<string, string[]> = {
+  "Pharmacology": [
+    "Cardiovascular, Renal, Gastrointestinal, Respiratory and Haemopoietic Pharmacology",
+    "Central Nervous System Pharmacology and Toxicology",
+    "Chemotherapy",
+    "Endocrine Pharmacology and Immunopharmacology",
+    "General and Autonomic Nervous System Pharmacology"
+  ],
+  "Pathology": [
+    "Anatomical Pathology",
+    "Chemical Pathology",
+    "Immunology/Haematology",
+    "Microbiology"
+  ]
+};
+
 export default function MockExamSetup() {
   const [subject, setSubject] = useState('Pharmacology');
-  const [division, setDivision] = useState('Autonomic');
+  const [division, setDivision] = useState(curriculumMap['Pharmacology'][0]);
   const [questionCount, setQuestionCount] = useState(20);
 
-  // Calculates the strict 50 seconds per question rule into minutes
+  const handleSubjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSubject = e.target.value;
+    setSubject(newSubject);
+    setDivision(curriculumMap[newSubject][0]); 
+  };
+
   const totalSeconds = questionCount * 50;
   const timeInMinutes = Math.ceil(totalSeconds / 60);
 
-  // FIXED: Formatting the URL to perfectly match your /browse/[subject]/[division]/quiz folder structure
   const formattedSubject = subject.toLowerCase().replace(/\s+/g, '-');
   const formattedDivision = encodeURIComponent(division);
   const examUrl = `/browse/${formattedSubject}/${formattedDivision}/quiz?count=${questionCount}`;
@@ -28,11 +49,12 @@ export default function MockExamSetup() {
             <label className="block text-sm font-bold text-slate-700 mb-2">Subject</label>
             <select 
               value={subject} 
-              onChange={(e) => setSubject(e.target.value)}
+              onChange={handleSubjectChange}
               className="w-full p-4 border-2 border-slate-200 rounded-xl focus:border-[#E8A23D] outline-none transition-colors"
             >
-              <option value="Pharmacology">Pharmacology</option>
-              <option value="Pathology">Pathology</option>
+              {Object.keys(curriculumMap).map((sub) => (
+                <option key={sub} value={sub}>{sub}</option>
+              ))}
             </select>
           </div>
 
@@ -43,12 +65,9 @@ export default function MockExamSetup() {
               onChange={(e) => setDivision(e.target.value)}
               className="w-full p-4 border-2 border-slate-200 rounded-xl focus:border-[#E8A23D] outline-none transition-colors"
             >
-              <option value="Autonomic">Autonomic</option>
-              <option value="Chemical Pathology">Chemical Pathology</option>
-              <option value="Anatomical Pathology">Anatomical Pathology</option>
-              <option value="Microbiology">Microbiology</option>
-              <option value="Haematology/Immunology">Haematology/Immunology</option>
-              <option value="General">General</option>
+              {curriculumMap[subject].map((div) => (
+                <option key={div} value={div}>{div}</option>
+              ))}
             </select>
           </div>
 
@@ -69,7 +88,6 @@ export default function MockExamSetup() {
             </p>
           </div>
 
-          {/* Navigates straight to your CBT engine! */}
           <Link href={examUrl} className="w-full block mt-4">
             <button className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition-all shadow-md">
               Start Mock Exam →
