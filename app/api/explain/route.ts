@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
-import { checkAccess } from '../../../lib/gatekeeper'; // <-- THE NEW GATEKEEPER
+import { checkAccess } from '../../../lib/gatekeeper';
 
 export async function POST(req: Request) {
   try {
@@ -21,7 +21,6 @@ export async function POST(req: Request) {
       .eq('id', 1)
       .single();
 
-    // If the admin explicitly turned it off, block the request here
     if (settings && settings.is_ai_tutor_enabled === false) {
       return NextResponse.json({ 
         content: "✨ The AI Tutor is currently offline for maintenance. Check back soon!",
@@ -36,8 +35,8 @@ export async function POST(req: Request) {
     const access = await checkAccess('explanation');
     if (!access.allowed) {
       return NextResponse.json(
-        { content: access.message || "Limit reached.", error: access.error }, 
-        { status: access.status }
+        { content: access.message || "Limit reached.", flagged: false }, 
+        { status: access.status || 403 }
       );
     }
     // =========================================================================
@@ -52,7 +51,6 @@ export async function POST(req: Request) {
       .eq('question_id', questionId)
       .single();
 
-    // If it exists, return it immediately! (Zero API Cost)
     if (cachedExplanation) {
       return NextResponse.json({
         content: cachedExplanation.explanation_text,
@@ -62,7 +60,7 @@ export async function POST(req: Request) {
 
     // --- 5. If no cache exists, call DeepSeek ---
     const apiUrl = 'https://api.deepseek.com/chat/completions';
-    const systemPrompt = `You are the LenxIQ tutor... (Keep your exact same system prompt here!) 
+    const systemPrompt = `You are the LenxIQ tutor... 
     MODE: EXPLAIN — Give a deeper explanation.
     You MUST always respond in strictly valid JSON format matching this exact shape:
     { "content": "...", "flagged": false, "flag_reason": null }`;
