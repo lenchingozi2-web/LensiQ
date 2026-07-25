@@ -62,11 +62,22 @@ export async function checkAccess(feature: FeatureType, requestedCourse?: string
     }
 
     // ==========================================
-    // RULE 3: BROWSE MODE (One Branch Limit)
+    // RULE 3: BROWSE MODE (One Branch Limit - Auto-locks first choice)
     // ==========================================
     if (feature === 'browse') {
-      if (requestedCourse && profile.selected_free_course && requestedCourse !== profile.selected_free_course) {
-        return { allowed: false, status: 403, message: "Course locked." };
+      if (requestedCourse) {
+        // If they already have a locked course and try a different one, block them
+        if (profile.selected_free_course && requestedCourse !== profile.selected_free_course) {
+          return { allowed: false, status: 403, message: `Course Locked: Your plan only includes access to ${profile.selected_free_course}.` };
+        }
+
+        // If they haven't picked a free course yet, LOCK IT IN right now!
+        if (!profile.selected_free_course) {
+          await supabase
+            .from('profiles')
+            .update({ selected_free_course: requestedCourse })
+            .eq('id', user.id);
+        }
       }
       return { allowed: true }; 
     }
