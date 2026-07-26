@@ -15,9 +15,13 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { amount, duration } = body;
 
-    // 3. Create a unique transaction reference
+    // 3. Create a unique transaction reference and dynamic site URL
     const tx_ref = `lensiq_${user.id}_${Date.now()}`;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    
+    // Dynamically grab the live domain from incoming request headers
+    const host = req.headers.get('host') || 'lenxiq.online';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    const siteUrl = `${protocol}://${host}`;
 
     // 4. Call Flutterwave's v3 Payment API
     const response = await fetch('https://api.flutterwave.com/v3/payments', {
@@ -30,7 +34,7 @@ export async function POST(req: Request) {
         tx_ref,
         amount,
         currency: 'NGN',
-        redirect_url: `${siteUrl}/api/checkout/verify`, // We will build this verification route next
+        redirect_url: `${siteUrl}/api/checkout/verify`,
         meta: {
           user_id: user.id,
           plan_duration: duration,
@@ -42,7 +46,7 @@ export async function POST(req: Request) {
         customizations: {
           title: 'LensiqAI Elite Scholar',
           description: `${duration} Months Premium Subscription`,
-          logo: 'https://your-logo-url-here.com/logo.png' // You can update this later
+          logo: 'https://your-logo-url-here.com/logo.png'
         },
       }),
     });
