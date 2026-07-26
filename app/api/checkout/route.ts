@@ -15,13 +15,13 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { amount, duration } = body;
 
-    // 3. Create a unique transaction reference and dynamic site URL
+    // 3. Create a unique transaction reference
     const tx_ref = `lensiq_${user.id}_${Date.now()}`;
     
-    // Dynamically grab the live domain from incoming request headers
-    const host = req.headers.get('host') || 'lenxiq.online';
-    const protocol = host.includes('localhost') ? 'http' : 'https';
-    const siteUrl = `${protocol}://${host}`;
+    // STRICT HARDCODE: Forces the exact working domain in production, ignores 'www' completely
+    const siteUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://lenxiq.online' 
+      : 'http://localhost:3000';
 
     // 4. Call Flutterwave's v3 Payment API
     const response = await fetch('https://api.flutterwave.com/v3/payments', {
