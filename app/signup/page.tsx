@@ -2,10 +2,18 @@ import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 import { cookies } from 'next/headers';
 
-export default async function AuthPage() {
+// We add searchParams so we can read error messages from the URL
+export default async function AuthPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (user) redirect('/');
+  if (user) redirect('/dashboard'); // Better to redirect to dashboard than root
+
+  // Resolve the searchParams promise for Next.js 15
+  const resolvedParams = await searchParams;
 
   async function handleLogin(formData: FormData) {
     "use server";
@@ -22,13 +30,13 @@ export default async function AuthPage() {
       const token = crypto.randomUUID();
       await supabaseServer.from('profiles').update({ session_token: token }).eq('id', data.user.id);
       
-      // FIXED: Properly await the cookies promise
       const cookieStore = await cookies();
       cookieStore.set('session_token', token, { path: '/' });
       
-      redirect('/');
+      redirect('/dashboard');
     } else {
-      console.error("Login error:", error?.message);
+      // If login fails, redirect back to the page and attach the error to the URL
+      redirect(`/signup?error=Invalid credentials. Please check your email and password.`);
     }
   }
 
@@ -47,13 +55,13 @@ export default async function AuthPage() {
       const token = crypto.randomUUID();
       await supabaseServer.from('profiles').update({ session_token: token }).eq('id', data.user.id);
       
-      // FIXED: Properly await the cookies promise
       const cookieStore = await cookies();
       cookieStore.set('session_token', token, { path: '/' });
       
-      redirect('/');
+      redirect('/dashboard');
     } else {
-      console.error("Signup error:", error?.message);
+      // Send the Supabase error message straight to the user
+      redirect(`/signup?error=${error?.message || 'Error creating account.'}`);
     }
   }
 
@@ -68,6 +76,13 @@ export default async function AuthPage() {
             Sign in to access your medical command center.
           </p>
         </div>
+
+        {/* ERROR DISPLAY: This red box will appear if an error is caught */}
+        {resolvedParams?.error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm text-center font-medium">
+            {resolvedParams.error}
+          </div>
+        )}
 
         <form className="space-y-5">
           <div>
