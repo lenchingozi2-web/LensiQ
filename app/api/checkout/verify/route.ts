@@ -31,19 +31,19 @@ export async function GET(req: Request) {
       const userId = verifyData.data.meta.user_id;
       const durationInMonths = Number(verifyData.data.meta.plan_duration);
 
-      // Calculate the exact expiration date
+      // Calculate the exact expiration date dynamically (handles 3, 6, 9, 12 months correctly)
       const expirationDate = new Date();
       expirationDate.setMonth(expirationDate.getMonth() + durationInMonths);
 
-      // 3. Upgrade the user in the database
+      // 3. Upgrade the user in the database with the exact correct plan name ('elite')
       const { error } = await supabase
         .from('profiles')
         .update({
-          plan: 'premium',
+          plan: 'elite',                    // FIXED: Changed from 'premium' to 'elite'
           plan_duration: durationInMonths,
           plan_expires_at: expirationDate.toISOString(),
-          // Reset limits just in case they revert to free later
-          ai_explains_used: 0,
+          // Reset limits using your exact database column names
+          ai_explanations_used: 0,
           ai_teachings_used: 0,
           quiz_attempts_used: 0,
         })
@@ -51,7 +51,7 @@ export async function GET(req: Request) {
 
       if (error) throw error;
 
-      // 4. Redirect them to the dashboard with a success message
+      // 4. Redirect them to the dashboard with a success banner
       return NextResponse.redirect(new URL('/dashboard?upgrade=success', req.url));
     } else {
       throw new Error('Payment verification failed');
