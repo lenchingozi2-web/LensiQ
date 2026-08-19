@@ -4,42 +4,38 @@ import UserDropdown from './UserDropdown';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+const primaryLinks = [
+  { href: '/curriculum', label: 'Study', shortLabel: 'Curriculum' },
+  { href: '/browse', label: 'Practice', shortLabel: 'Question bank' },
+  { href: '/search', label: 'Search', shortLabel: 'Find questions' },
+  { href: '/teach', label: 'Teach', shortLabel: 'AI Teaching' },
+  { href: '/voice', label: 'Voice Tutor', shortLabel: 'Speak with LenxiQ' },
+  { href: '/voice?mode=class', label: 'Live Class', shortLabel: 'Live teaching room' },
+];
+
 export default async function Navbar() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // THE SECURITY GUARD
   if (user) {
-    // Await the cookies to fix the Next.js 15 type error
     const cookieStore = await cookies();
-    
     const localToken = cookieStore.get('session_token')?.value;
+    const { data: profile } = await supabase.from('profiles').select('session_token').eq('id', user.id).single();
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('session_token')
-      .eq('id', user.id)
-      .single();
-
-    // If the database has a token, but it doesn't match the browser's cookie
     if (profile?.session_token && profile.session_token !== localToken) {
       return (
-        <div className="fixed inset-0 bg-slate-50 z-[9999] flex flex-col items-center justify-center p-6">
-          <div className="bg-white p-8 rounded-3xl max-w-md w-full text-center shadow-2xl border border-slate-200">
-            <span className="text-6xl mb-6 block">⚠️</span>
-            <h2 className="text-2xl font-black text-slate-900 mb-3">Session Expired</h2>
-            <p className="text-slate-600 mb-8 leading-relaxed">
-              Your account was recently logged in from another device. For your security, this active session has been paused.
-            </p>
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-50 p-6">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-2xl">
+            <span className="mb-6 block text-5xl">!</span>
+            <h2 className="mb-3 text-2xl font-black text-slate-900">Session expired</h2>
+            <p className="mb-8 leading-relaxed text-slate-600">Your account was recently logged in from another device. For your security, this active session has been paused.</p>
             <form action={async () => {
-              "use server";
+              'use server';
               const supabaseServer = await createClient();
               await supabaseServer.auth.signOut();
               redirect('/signup');
             }}>
-              <button className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition-all shadow-md">
-                Log In Again
-              </button>
+              <button className="w-full rounded-xl bg-slate-900 py-4 font-bold text-white shadow-md hover:bg-slate-800">Log in again</button>
             </form>
           </div>
         </div>
@@ -48,23 +44,41 @@ export default async function Navbar() {
   }
 
   return (
-    <nav className="w-full p-4 bg-slate-900 text-white flex justify-between items-center shadow-md z-50 relative">
-      <div className="font-bold text-xl cursor-default select-none">
-        LenxiQ AI
-      </div>
-      
-      <div className="flex items-center gap-3 font-medium">
-        <Link href="/curriculum" className="hidden hover:text-amber-400 transition-colors sm:inline">Curriculum</Link>
-        <Link href="/search" className="hidden hover:text-amber-400 transition-colors sm:inline">Search</Link>
-        {user ? (
-          <UserDropdown email={user.email || 'User'} />
-        ) : (
-          <>
-            <Link href="/pricing" className="hover:text-amber-400 transition-colors">Pricing</Link>
-            <Link href="/signup" className="hover:text-amber-400 transition-colors">Sign Up</Link>
-          </>
-        )}
-      </div>
-    </nav>
+    <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 shadow-[0_4px_20px_rgba(15,23,42,0.05)] backdrop-blur">
+      <nav className="mx-auto flex min-h-[4.5rem] w-full max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8" aria-label="Primary navigation">
+        <Link href="/" className="group flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0B1220] text-lg font-black text-[#E8A23D] shadow-sm">LQ</span>
+          <span className="min-w-0">
+            <span className="block truncate text-base font-black tracking-tight text-[#0B1220]">LenxiQ</span>
+            <span className="hidden text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 sm:block">Medical learning</span>
+          </span>
+        </Link>
+
+        <div className="hidden items-center gap-1 lg:flex">
+          {primaryLinks.map((link) => (
+            <Link key={link.href} href={link.href} className="rounded-lg px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 hover:text-[#0B1220]">
+              {link.label}
+            </Link>
+          ))}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <Link href="/pricing" className="hidden rounded-lg px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 sm:inline">Plans</Link>
+          {user ? <UserDropdown email={user.email || 'User'} /> : <Link href="/signup" className="rounded-xl bg-[#0B1220] px-3.5 py-2.5 text-sm font-black text-white shadow-sm hover:bg-slate-800 sm:px-4">Get started</Link>}
+          <details className="relative lg:hidden">
+            <summary className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-black text-slate-700 shadow-sm">☰</summary>
+            <div className="absolute right-0 top-12 w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">
+              {primaryLinks.map((link) => (
+                <Link key={link.href} href={link.href} className="block rounded-xl px-4 py-3 hover:bg-slate-50">
+                  <span className="block text-sm font-black text-slate-900">{link.label}</span>
+                  <span className="block text-xs font-medium text-slate-500">{link.shortLabel}</span>
+                </Link>
+              ))}
+              <Link href="/pricing" className="mt-1 block rounded-xl border-t border-slate-100 px-4 py-3 text-sm font-black text-[#9A5D00]">Plans and access</Link>
+            </div>
+          </details>
+        </div>
+      </nav>
+    </header>
   );
 }

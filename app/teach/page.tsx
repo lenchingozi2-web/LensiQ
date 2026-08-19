@@ -246,7 +246,14 @@ function TeachingRoom() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-64px)] flex-col bg-slate-50 lg:flex-row">
+    <div className="flex min-h-[calc(100vh-4.5rem)] flex-col bg-slate-50">
+      <div className="border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Teaching modes</p><p className="text-sm font-black text-[#0B1220]">Choose text, voice, or live class for this session.</p></div>
+          <div className="flex flex-wrap gap-2"><Link href="/teach" className="rounded-lg bg-[#0B1220] px-3 py-2 text-xs font-black text-white">Text teaching</Link><Link href="/voice" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:border-[#E8A23D]">Voice Tutor</Link><Link href="/voice?mode=class" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:border-[#E8A23D]">Live Class</Link></div>
+        </div>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <aside className="flex w-full shrink-0 flex-col border-b border-slate-200 bg-white lg:w-80 lg:border-b-0 lg:border-r">
         <div className="flex items-center justify-between border-b border-slate-200 p-4">
           <div>
@@ -345,6 +352,7 @@ function TeachingRoom() {
           </div>
         )}
       </section>
+      </div>
     </div>
   );
 }

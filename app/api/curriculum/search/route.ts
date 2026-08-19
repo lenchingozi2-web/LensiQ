@@ -67,14 +67,16 @@ export async function POST(request: Request) {
     }
 
     const documentTerms = extractedText ? extractHighSignalTerms(extractedText) : '';
-    const searchText = cleanSearchText([rawQuery, topic?.title, documentTerms].filter(Boolean).join(' | '));
+    // A typed query is authoritative. Do not append a whole topic title or lecture term list,
+    // because that turns a focused search such as "inflammation" into an accidental AND query.
+    const searchText = cleanSearchText(rawQuery.trim() || documentTerms || topic?.title || '');
     if (!searchText) return NextResponse.json({ error: 'No searchable text was found.' }, { status: 400 });
 
     const results = await searchQuestions(supabase, searchText, {
       course,
       topic,
       subjectFilter: freeSubject,
-      limit: 60,
+      limit: 30,
     });
     const safeResults = visibleResults(results, hasPremiumAccess);
 
@@ -83,7 +85,7 @@ export async function POST(request: Request) {
       sourceName: sourceName || null,
       extractedCharacterCount: extractedText.length || null,
       results: safeResults,
-      totalMatches: results.length,
+      totalMatches: safeResults.length,
       practicalLocked: !hasPremiumAccess && results.some((result) => result.type === 'practical'),
     });
   } catch (error) {

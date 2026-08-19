@@ -1,67 +1,39 @@
-"use client";
-import { useState } from 'react';
+'use client';
+
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { checkBrowseAccess } from '../actions'; // <-- Talks to your secure server
+import { useState } from 'react';
+import { checkBrowseAccess } from '../actions';
+
+const banks = [
+  { id: 'pathology', subject: 'Pathology', label: 'Pathology question bank', description: 'Anatomical Pathology, Chemical Pathology, Haematology / Immunology, and Microbiology divisions.', badge: '4 divisions', tone: 'gold' },
+  { id: 'pharmacology', subject: 'Pharmacology', label: 'Pharmacology question bank', description: 'General, autonomic, antimicrobial, endocrine, CNS, cardiovascular, and clinical pharmacology.', badge: 'Systems and therapeutics', tone: 'blue' },
+];
 
 export default function BrowsePage() {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  // We define your core subjects here since they are columns in your database, not separate tables.
-  const subjects = [
-    { id: 'pharmacology', name: 'Pharmacology', description: 'General & Autonomic, Systems 1-4' },
-    { id: 'pathology', name: 'Pathology', description: 'Anatomical, Chemical, Microbiology, Haematology/Immunology' }
-  ];
-
   const handleSubjectClick = async (subjectId: string, subjectName: string) => {
     setLoadingId(subjectId);
     setError('');
-
     try {
-      // Ask the Gatekeeper if they are allowed in this branch
       const access = await checkBrowseAccess(subjectName);
-      
-      if (!access.allowed) {
-        setError(access.message || "Course locked.");
-        setLoadingId(null);
-        return;
-      }
-
-      // If the Gatekeeper says yes, open the branch!
+      if (!access.allowed) { setError(access.message || 'This question bank is locked.'); setLoadingId(null); return; }
       router.push(`/browse/${subjectId}`);
-    } catch {
-      setError("Failed to verify access. Please try again.");
-      setLoadingId(null);
-    }
+    } catch { setError('Access could not be verified. Please try again.'); setLoadingId(null); }
   };
 
   return (
-    <main className="p-6 max-w-5xl mx-auto mt-10">
-      <h1 className="text-3xl font-bold text-[#0B1220] mb-2">Browse Question Bank</h1>
-      <p className="text-slate-600 mb-8">Select a subject to view its clinical divisions.</p>
-
-      {/* The Paywall Error Message Box */}
-      {error && (
-        <div className="bg-red-50 text-red-800 p-4 rounded-xl mb-6 font-medium text-center border border-red-200 text-sm">
-          ⚠️ {error}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {subjects.map((subject) => (
-          <div 
-            key={subject.id} 
-            onClick={() => handleSubjectClick(subject.id, subject.name)}
-            className={`border border-slate-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow bg-white cursor-pointer group h-full flex flex-col justify-center items-center text-center ${loadingId === subject.id ? 'opacity-50 pointer-events-none' : ''}`}
-          >
-            <h2 className="text-2xl font-bold text-[#0B1220] group-hover:text-[#E8A23D] transition-colors">
-              {loadingId === subject.id ? "Checking Access..." : subject.name}
-            </h2>
-            <p className="text-slate-500 mt-2 text-sm">{subject.description}</p>
-          </div>
-        ))}
-      </div>
-    </main>
+    <div className="min-h-[calc(100vh-4.5rem)] bg-[#F6F8FB] px-4 pb-16 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-6xl pt-8 sm:pt-12">
+        <div className="flex flex-wrap items-center justify-between gap-3"><Link href="/" className="text-sm font-black text-slate-500 hover:text-[#0B1220]">← Home</Link><div className="flex flex-wrap gap-2 text-xs font-black"><Link href="/curriculum" className="rounded-full bg-white px-3 py-2 text-slate-600 shadow-sm">Study path</Link><Link href="/search" className="rounded-full bg-white px-3 py-2 text-slate-600 shadow-sm">Search questions</Link><Link href="/exam" className="rounded-full bg-white px-3 py-2 text-slate-600 shadow-sm">Mock exam</Link></div></div>
+        <section className="mt-8 rounded-[2rem] bg-[#0B1220] p-6 text-white shadow-xl sm:p-10"><p className="text-xs font-black uppercase tracking-[0.24em] text-[#E8A23D]">Practice bank</p><h1 className="mt-4 max-w-3xl text-4xl font-black tracking-[-0.05em] sm:text-5xl">Practise the questions that matter.</h1><p className="mt-4 max-w-2xl text-base leading-8 text-slate-300">Choose a bank to browse by division and format. For a topic-first route, use the curriculum map or search the complete question bank.</p></section>
+        {error && <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{error}</div>}
+        <div className="mt-8 grid gap-5 md:grid-cols-2">{banks.map((bank) => <button key={bank.id} type="button" onClick={() => void handleSubjectClick(bank.id, bank.subject)} disabled={loadingId !== null} className={`group rounded-[2rem] border p-6 text-left shadow-sm hover:-translate-y-1 hover:shadow-xl sm:p-8 ${bank.tone === 'gold' ? 'border-amber-200 bg-[#FFF9EE]' : 'border-blue-100 bg-[#F5F8FF]'}`}><div className="flex items-start justify-between gap-4"><div><span className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">{bank.badge}</span><h2 className="mt-6 text-2xl font-black text-[#0B1220]">{loadingId === bank.id ? 'Checking access…' : bank.label}</h2><p className="mt-3 text-sm leading-7 text-slate-600">{bank.description}</p></div><span className="text-2xl text-slate-300 group-hover:translate-x-1">→</span></div><p className="mt-8 text-sm font-black text-[#9A5D00]">Open question bank →</p></button>)}</div>
+        <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Need a narrower route?</p><h2 className="mt-2 text-xl font-black text-[#0B1220]">Start from a specific timetable topic.</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">The curriculum map keeps each course and topic in context, then connects it to teaching and search.</p></div><Link href="/curriculum" className="rounded-xl bg-[#0B1220] px-5 py-3 text-center text-sm font-black text-white hover:bg-slate-800">Open curriculum</Link></div></div>
+      </main>
+    </div>
   );
 }

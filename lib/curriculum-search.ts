@@ -10,6 +10,11 @@ export type QuestionSearchResult = {
   year: number | null;
   question_text: string;
   image_url: string | null;
+  option_a: string | null;
+  option_b: string | null;
+  option_c: string | null;
+  option_d: string | null;
+  option_e: string | null;
   correct_answer: string | null;
   model_answer: string | null;
   relevance: number;
@@ -19,10 +24,11 @@ const SEARCH_STOP_WORDS = new Set([
   'about', 'after', 'again', 'also', 'because', 'before', 'being', 'between', 'could', 'first', 'from', 'have', 'into',
   'more', 'other', 'over', 'such', 'than', 'their', 'there', 'these', 'those', 'through', 'under', 'which', 'with',
   'would', 'should', 'where', 'when', 'what', 'this', 'that', 'will', 'were', 'your', 'using', 'used', 'patient', 'patients',
+  'following', 'question', 'questions', 'lecture', 'lectures', 'slide', 'slides', 'outline', 'describe', 'discuss',
 ]);
 
 export function cleanSearchText(value: string) {
-  return value.replace(/\s+/g, ' ').trim().slice(0, 180);
+  return value.replace(/[|]+/g, ' OR ').replace(/\s+/g, ' ').trim().slice(0, 240);
 }
 
 export function extractHighSignalTerms(value: string, limit = 14) {
@@ -36,7 +42,7 @@ export function extractHighSignalTerms(value: string, limit = 14) {
     .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
     .slice(0, limit)
     .map(([word]) => word)
-    .join(' | ');
+    .join(' OR ');
 }
 
 export async function searchQuestions(
@@ -50,7 +56,7 @@ export async function searchQuestions(
     search_text: cleanText,
     subject_filter: options?.course ? courseSubject(options.course.name) : options?.subjectFilter ?? null,
     division_filter: null,
-    max_results: Math.min(Math.max(options?.limit ?? 40, 1), 100),
+    max_results: Math.min(Math.max(options?.limit ?? 30, 1), 100),
   });
   if (error) throw error;
   return (data ?? []) as QuestionSearchResult[];
