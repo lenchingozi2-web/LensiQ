@@ -30,7 +30,7 @@ export default function BrowsePage() {
 
       // If the Gatekeeper says yes, open the branch!
       router.push(`/browse/${subjectId}`);
-    } catch (err) {
+    } catch {
       setError("Failed to verify access. Please try again.");
       setLoadingId(null);
     }

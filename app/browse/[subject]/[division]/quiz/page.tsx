@@ -33,9 +33,9 @@ export default async function QuizSetupPage({ params }: { params: Promise<{ subj
          {/* Diagnostic Box to see exactly what Supabase is looking for */}
          <div className="bg-slate-100 p-4 rounded-xl border border-slate-300 text-left mb-8 w-full max-w-md shadow-inner">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-2">Database Query Sent:</p>
-            <code className="text-sm text-slate-800 block mb-1">Subject: "{subjectTitle}"</code>
-            <code className="text-sm text-slate-800 block mb-1">Division: "{divisionName}"</code>
-            <code className="text-sm text-slate-800 block mb-1">Type: "mcq"</code>
+            <code className="text-sm text-slate-800 block mb-1">Subject: &quot;{subjectTitle}&quot;</code>
+            <code className="text-sm text-slate-800 block mb-1">Division: &quot;{divisionName}&quot;</code>
+            <code className="text-sm text-slate-800 block mb-1">Type: &quot;mcq&quot;</code>
             {error && <code className="text-sm text-red-600 block mt-3 font-bold">Error: {error.message}</code>}
          </div>
 

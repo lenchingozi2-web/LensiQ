@@ -13,7 +13,6 @@ export default async function Navbar() {
     // Await the cookies to fix the Next.js 15 type error
     const cookieStore = await cookies();
     
-    // @ts-ignore: Bypassing strict type check for Vercel build
     const localToken = cookieStore.get('session_token')?.value;
 
     const { data: profile } = await supabase

@@ -1,14 +1,19 @@
 import Link from 'next/link';
 
+import Image from 'next/image';
+
 export default function Home() {
   return (
     <main className="w-full max-w-5xl mx-auto flex flex-col items-center p-4">
 
       {/* Branding */}
       <div className="w-full py-6 md:py-8 mb-4 text-center flex flex-col items-center">
-        <img
+        <Image
           src="/icon.png"
           alt="LenxiQ Brand Identity"
+          width={1280}
+          height={720}
+          priority
           className="w-full max-w-2xl mb-6 rounded-xl shadow-md object-cover"
         />
 

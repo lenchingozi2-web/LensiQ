@@ -1,43 +1,47 @@
 import { createClient } from './supabase/server';
+import { isPaidPlan } from './plans';
 
-type FeatureType = 'teaching' | 'explanation' | 'quiz' | 'browse';
+type FeatureType = 'teaching' | 'explanation' | 'quiz' | 'browse' | 'practical';
 
 export async function checkAccess(feature: FeatureType, requestedCourse?: string) {
   try {
     const supabase = await createClient();
-    
     const { data: { user } } = await supabase.auth.getUser();
+
     if (!user) {
-      return { allowed: false, status: 401, message: "Not logged in." };
+      return { allowed: false, status: 401, message: 'Not logged in.' };
     }
 
-    // BULLETPROOF QUERY: Using '*' prevents the database from crashing if a column is missing
-    let { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('*') 
+      .select('*')
       .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
-      return { allowed: false, status: 500, message: "Database error." };
+      return { allowed: false, status: 500, message: 'Database error.' };
     }
 
-    // ==========================================
-    // RULE 1: THE ADMIN BYPASS
-    // ==========================================
     if (profile.role === 'admin') {
       return { allowed: true };
     }
 
-    // ==========================================
-    // AUTOMATED 30-DAY ROLLING RESET (For Free Users)
-    // ==========================================
     const now = new Date();
     const expiresAt = profile.plan_expires_at ? new Date(profile.plan_expires_at) : null;
+    const paidPlanExpired = isPaidPlan(profile.plan) && Boolean(expiresAt && now > expiresAt);
+
+    if (paidPlanExpired) {
+      await supabase
+        .from('profiles')
+        .update({ plan: 'free', plan_duration: 0 })
+        .eq('id', user.id);
+      profile.plan = 'free';
+      profile.plan_duration = 0;
+    }
 
     if (profile.plan === 'free' && (!expiresAt || now > expiresAt)) {
       const nextMonth = new Date();
-      nextMonth.setDate(nextMonth.getDate() + 30); 
+      nextMonth.setDate(nextMonth.getDate() + 30);
 
       await supabase
         .from('profiles')
@@ -45,7 +49,7 @@ export async function checkAccess(feature: FeatureType, requestedCourse?: string
           ai_teachings_used: 0,
           ai_explanations_used: 0,
           quiz_attempts_used: 0,
-          plan_expires_at: nextMonth.toISOString()
+          plan_expires_at: nextMonth.toISOString(),
         })
         .eq('id', user.id);
 
@@ -54,24 +58,28 @@ export async function checkAccess(feature: FeatureType, requestedCourse?: string
       profile.quiz_attempts_used = 0;
     }
 
-    // ==========================================
-    // RULE 2: THE ELITE SCHOLAR BYPASS
-    // ==========================================
-    if (profile.plan && profile.plan !== 'free') {
+    if (isPaidPlan(profile.plan)) {
       return { allowed: true };
     }
 
-    // ==========================================
-    // RULE 3: BROWSE MODE (One Branch Limit - Auto-locks first choice)
-    // ==========================================
+    if (feature === 'practical') {
+      return {
+        allowed: false,
+        status: 403,
+        message: 'Practical materials are available with a paid subscription.',
+      };
+    }
+
     if (feature === 'browse') {
       if (requestedCourse) {
-        // If they already have a locked course and try a different one, block them
         if (profile.selected_free_course && requestedCourse !== profile.selected_free_course) {
-          return { allowed: false, status: 403, message: `Course Locked: Your plan only includes access to ${profile.selected_free_course}.` };
+          return {
+            allowed: false,
+            status: 403,
+            message: `Course locked: your free plan includes ${profile.selected_free_course}.`,
+          };
         }
 
-        // If they haven't picked a free course yet, LOCK IT IN right now!
         if (!profile.selected_free_course) {
           await supabase
             .from('profiles')
@@ -79,35 +87,30 @@ export async function checkAccess(feature: FeatureType, requestedCourse?: string
             .eq('id', user.id);
         }
       }
-      return { allowed: true }; 
+      return { allowed: true };
     }
 
-    // ==========================================
-    // RULE 4: NUMERICAL LIMITS (Teach, MCQ, Mock)
-    // ==========================================
     const limits = {
       teaching: { used: profile.ai_teachings_used || 0, max: 6, column: 'ai_teachings_used' },
       explanation: { used: profile.ai_explanations_used || 0, max: 30, column: 'ai_explanations_used' },
-      quiz: { used: profile.quiz_attempts_used || 0, max: 3, column: 'quiz_attempts_used' }
-    };
+      quiz: { used: profile.quiz_attempts_used || 0, max: 3, column: 'quiz_attempts_used' },
+    } as const;
 
     const currentFeature = limits[feature as keyof typeof limits];
+    if (!currentFeature) return { allowed: false, status: 400, message: 'Unsupported feature.' };
 
     if (currentFeature.used >= currentFeature.max) {
-      return { allowed: false, status: 403, message: "Limit reached." };
+      return { allowed: false, status: 403, message: 'Limit reached.' };
     }
 
-    // ==========================================
-    // RULE 5: CHARGE THE USAGE
-    // ==========================================
     await supabase
       .from('profiles')
       .update({ [currentFeature.column]: currentFeature.used + 1 })
       .eq('id', user.id);
 
     return { allowed: true };
-
-  } catch (error: any) {
-    return { allowed: false, status: 500, message: "Server error." };
+  } catch (error) {
+    console.error('Access check failed:', error);
+    return { allowed: false, status: 500, message: 'Server error.' };
   }
 }

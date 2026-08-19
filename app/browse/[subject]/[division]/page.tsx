@@ -1,44 +1,44 @@
 import Link from 'next/link';
 
 export default async function DivisionPage({ params }: { params: Promise<{ subject: string, division: string }> }) {
-  // Await the URL parameters
   const resolvedParams = await params;
   const subjectId = resolvedParams.subject;
   const divisionName = decodeURIComponent(resolvedParams.division);
-  
-  const title = subjectId
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+  const title = subjectId.split('-').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+
+  const formats = [
+    { type: 'mcq', eyebrow: 'Test yourself', title: 'Multiple Choice', description: 'Practice objective questions with options, answers, and explanations.', icon: '01' },
+    { type: 'theory', eyebrow: 'Build depth', title: 'Theory Questions', description: 'Review long-form questions with structured model answers.', icon: '02' },
+    { type: 'practical', eyebrow: 'Premium practicals', title: 'Practical Materials', description: 'Study specimen images, practical prompts, and verified model answers.', icon: '03', premium: true },
+  ];
 
   return (
-    <main className="p-6 max-w-5xl mx-auto mt-10">
-      <div className="mb-8">
-        <Link href={`/browse/${subjectId}`} className="text-[#E8A23D] hover:underline text-sm font-semibold mb-4 inline-block">
-          &larr; Back to {title} Divisions
-        </Link>
-        <h1 className="text-3xl font-bold text-[#0B1220] mt-2">{divisionName}</h1>
-        <p className="text-slate-600 mt-1">Select the question format you want to study.</p>
-      </div>
+    <main className="min-h-[calc(100vh-64px)] bg-slate-50 px-4 py-8 sm:px-6 sm:py-12">
+      <div className="mx-auto max-w-6xl">
+        <Link href={`/browse/${subjectId}`} className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 transition-colors hover:text-[#E8A23D]">← Back to {title} divisions</Link>
+        <div className="mt-8 max-w-3xl">
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-[#E8A23D]">{title}</p>
+          <h1 className="mt-3 text-4xl font-black tracking-tight text-[#0B1220] sm:text-5xl">{divisionName}</h1>
+          <p className="mt-4 text-lg leading-8 text-slate-500">Choose a study mode for this division. Work from the question format that matches your next revision goal.</p>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Link href={`/browse/${subjectId}/${encodeURIComponent(divisionName)}/mcq`}>
-          <div className="border border-slate-200 p-8 rounded-xl shadow-sm hover:shadow-md transition-shadow bg-white cursor-pointer group h-full flex flex-col justify-center items-center text-center">
-            <h2 className="text-2xl font-bold text-[#0B1220] group-hover:text-[#E8A23D] transition-colors mb-2">
-              Multiple Choice (MCQ)
-            </h2>
-            <p className="text-slate-500 text-sm">Practice with objective questions, options, and explanations.</p>
-          </div>
-        </Link>
-
-        <Link href={`/browse/${subjectId}/${encodeURIComponent(divisionName)}/theory`}>
-          <div className="border border-slate-200 p-8 rounded-xl shadow-sm hover:shadow-md transition-shadow bg-white cursor-pointer group h-full flex flex-col justify-center items-center text-center">
-            <h2 className="text-2xl font-bold text-[#0B1220] group-hover:text-[#E8A23D] transition-colors mb-2">
-              Theory Questions
-            </h2>
-            <p className="text-slate-500 text-sm">Review long-form questions and detailed model answers.</p>
-          </div>
-        </Link>
+        <div className="mt-10 grid gap-5 md:grid-cols-3">
+          {formats.map((format) => (
+            <Link key={format.type} href={`/browse/${subjectId}/${encodeURIComponent(divisionName)}/${format.type}`} className="group block h-full">
+              <article className={`relative flex h-full min-h-64 flex-col justify-between overflow-hidden rounded-3xl border p-7 shadow-sm transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-xl ${format.premium ? 'border-[#E8A23D]/50 bg-[#0B1220] text-white' : 'border-slate-200 bg-white text-[#0B1220]'}`}>
+                <div className="flex items-start justify-between">
+                  <span className={`text-xs font-black uppercase tracking-[0.2em] ${format.premium ? 'text-[#E8A23D]' : 'text-slate-400'}`}>{format.eyebrow}</span>
+                  <span className={`text-3xl font-black ${format.premium ? 'text-white/20' : 'text-slate-100'}`}>{format.icon}</span>
+                </div>
+                <div>
+                  <h2 className={`text-2xl font-black ${format.premium ? 'text-white' : 'text-[#0B1220]'} group-hover:text-[#E8A23D]`}>{format.title}</h2>
+                  <p className={`mt-3 text-sm leading-6 ${format.premium ? 'text-slate-300' : 'text-slate-500'}`}>{format.description}</p>
+                  <span className={`mt-6 inline-flex text-sm font-black ${format.premium ? 'text-[#E8A23D]' : 'text-slate-700'}`}>Open format <span className="ml-2 transition-transform group-hover:translate-x-1">→</span></span>
+                </div>
+              </article>
+            </Link>
+          ))}
+        </div>
       </div>
     </main>
   );

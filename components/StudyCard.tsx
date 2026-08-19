@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -9,13 +10,15 @@ type Question = {
   type?: string; 
   question_text?: string;
   stem?: string;
-  option_a: string;
-  option_b: string;
-  option_c: string;
-  option_d: string;
+  option_a?: string;
+  option_b?: string;
+  option_c?: string;
+  option_d?: string;
   option_e?: string;
   correct_answer?: string;
   model_answer?: string;
+  image_url?: string;
+  topic?: string;
 };
 
 export default function StudyCard({ question, index }: { question: Question, index: number }) {
@@ -26,6 +29,7 @@ export default function StudyCard({ question, index }: { question: Question, ind
 
   // Check if this is a theory question based on the database type
   const isTheory = question.type?.toLowerCase() === 'theory';
+  const isPractical = question.type?.toLowerCase() === 'practical';
 
   const handleSelect = (letter: string) => {
     // Lock in the answer on the first click (Only used for MCQ)
@@ -62,7 +66,7 @@ export default function StudyCard({ question, index }: { question: Question, ind
       } else {
         setAiResponse("Failed to connect to the AI Tutor. Please try again.");
       }
-    } catch (error) {
+    } catch {
       setAiResponse("A network error occurred while reaching out to the AI.");
     } finally {
       setIsAiLoading(false);
@@ -100,6 +104,20 @@ export default function StudyCard({ question, index }: { question: Question, ind
           </ReactMarkdown>
         </div>
       </div>
+
+      {question.image_url && (
+        <div className="border-b border-slate-200 bg-slate-950/5 p-4 sm:p-6">
+          <div className="relative mx-auto aspect-[4/3] max-w-4xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <Image
+              src={question.image_url}
+              alt={`Practical specimen for question ${index + 1}`}
+              fill
+              sizes="(max-width: 768px) 100vw, 896px"
+              className="object-contain"
+            />
+          </div>
+        </div>
+      )}
 
       {/* ========================================== */}
       {/*              THEORY RENDER LOGIC           */}
@@ -148,10 +166,24 @@ export default function StudyCard({ question, index }: { question: Question, ind
         </div>
       )}
 
+      {isPractical && (
+        <div className="p-4 sm:p-6 bg-white border-t border-slate-200">
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <h3 className="font-bold text-slate-900 text-lg">Practical Answer</h3>
+            {question.topic && <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{question.topic}</span>}
+          </div>
+          <div className="prose prose-slate max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {cleanMedicalText(question.model_answer || question.correct_answer || 'No predefined practical answer provided.')}
+            </ReactMarkdown>
+          </div>
+        </div>
+      )}
+
       {/* ========================================== */}
       {/*                MCQ RENDER LOGIC            */}
       {/* ========================================== */}
-      {!isTheory && (
+      {!isTheory && !isPractical && (
         <>
           {/* Interactive Options List */}
           <div className="p-4 sm:p-6 space-y-3">
