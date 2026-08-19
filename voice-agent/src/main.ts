@@ -3,7 +3,7 @@ import * as cartesia from '@livekit/agents-plugin-cartesia';
 import * as deepgram from '@livekit/agents-plugin-deepgram';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
-import { createAgent } from './agent.ts';
+import { createAgent } from './agent';
 
 dotenv.config({ path: '.env.local' });
 
@@ -34,7 +34,8 @@ export default defineAgent({
     await ctx.connect();
 
     session.generateReply({
-      instructions: 'Greet the medical student briefly and ask what topic they would like to study.',
+      instructions:
+        'Greet the medical student briefly and ask what topic they would like to study.',
     });
   },
 });

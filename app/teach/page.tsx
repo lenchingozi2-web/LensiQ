@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -24,9 +25,12 @@ const COURSES = [
   'Haematology / Immunology',
 ];
 
-export default function TeachingRoom() {
-  const [courseName, setCourseName] = useState('Pharmacology');
-  const [currentInput, setCurrentInput] = useState('');
+function TeachingRoom() {
+  const searchParams = useSearchParams();
+  const topicFocus = searchParams.get('topic')?.trim() ?? '';
+  const initialCourse = searchParams.get('course')?.trim() ?? '';
+  const [courseName, setCourseName] = useState(initialCourse || 'Pharmacology');
+  const [currentInput, setCurrentInput] = useState(topicFocus ? `Teach me ${topicFocus}. Start with the core concepts, then connect it to relevant past questions.` : '');
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -72,11 +76,11 @@ export default function TeachingRoom() {
     }
   };
 
-  const createConversation = async (course: string) => {
+  const createConversation = async (course: string, title: string) => {
     const response = await fetch('/api/teaching/conversations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ courseName: course }),
+      body: JSON.stringify({ courseName: course, title: title.slice(0, 120) }),
     });
     if (!response.ok) throw new Error('Unable to create a teaching session.');
     const data = await response.json();
@@ -151,7 +155,7 @@ export default function TeachingRoom() {
     try {
       const activeConversation = conversationId
         ? { id: conversationId }
-        : await createConversation(courseName);
+        : await createConversation(courseName, topicFocus || trimmedInput);
       const activeConversationId = activeConversation.id;
 
       for (const file of selectedFiles) await uploadAttachment(activeConversationId, file);
@@ -278,6 +282,7 @@ export default function TeachingRoom() {
                 <span className="mb-6 block text-6xl">👨‍⚕️</span>
                 <h1 className="mb-4 text-3xl font-black tracking-tight text-[#0B1220] sm:text-4xl">Dynamic Teaching Room</h1>
                 <p className="mx-auto mb-10 max-w-xl text-lg text-slate-500">Select a branch and request a topic. LenxiQ will teach you, test you with past questions, and answer follow-ups.</p>
+                {topicFocus && <p className="mx-auto mb-6 max-w-xl rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">Topic focus loaded: {topicFocus}. Press send to begin your grounded lesson.</p>}
                 <div className="mx-auto max-w-sm rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm">
                   <label htmlFor="course" className="mb-2 block text-sm font-bold text-slate-900">Select your branch</label>
                   <select id="course" value={courseName} onChange={(event) => setCourseName(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-semibold text-slate-800 outline-none focus:border-[#E8A23D] focus:ring-2 focus:ring-[#E8A23D]/20">
@@ -341,5 +346,13 @@ export default function TeachingRoom() {
         )}
       </section>
     </div>
+  );
+}
+
+export default function TeachingPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center text-sm font-bold text-slate-500">Loading Teaching Room…</div>}>
+      <TeachingRoom />
+    </Suspense>
   );
 }

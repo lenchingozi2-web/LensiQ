@@ -53,7 +53,9 @@ export default async function Navbar() {
         LenxiQ AI
       </div>
       
-      <div className="flex gap-4 items-center font-medium">
+      <div className="flex items-center gap-3 font-medium">
+        <Link href="/curriculum" className="hidden hover:text-amber-400 transition-colors sm:inline">Curriculum</Link>
+        <Link href="/search" className="hidden hover:text-amber-400 transition-colors sm:inline">Search</Link>
         {user ? (
           <UserDropdown email={user.email || 'User'} />
         ) : (

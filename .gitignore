@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local source extraction and QA artifacts
+/ocr_review/
+/timetable_extracted.txt
+/scripts/knowledge_chunks_seed.json

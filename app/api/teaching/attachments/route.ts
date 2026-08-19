@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
+import { extractLectureText } from '../../../../lib/curriculum/extract-text';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
@@ -13,7 +14,10 @@ const ALLOWED_TYPES = new Set([
   'audio/mpeg',
   'audio/wav',
   'audio/webm',
+  'text/plain',
 ]);
+
+const PARSEABLE_EXTENSIONS = new Set(['pdf', 'pptx', 'docx', 'txt']);
 
 function safeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 160) || 'attachment';
@@ -56,6 +60,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unable to upload this attachment.' }, { status: 500 });
   }
 
+  let extractionStatus = 'unsupported';
+  let extractedText: string | null = null;
+  let extractionError: string | null = null;
+  const extension = file.name.toLowerCase().split('.').pop() ?? '';
+  if (PARSEABLE_EXTENSIONS.has(extension)) {
+    try {
+      extractedText = await extractLectureText(file);
+      extractionStatus = extractedText ? 'complete' : 'empty';
+    } catch (error) {
+      extractionStatus = 'failed';
+      extractionError = error instanceof Error ? error.message.slice(0, 500) : 'Extraction failed.';
+    }
+  }
+
   const { data: attachment, error: metadataError } = await supabase
     .from('teaching_attachments')
     .insert({
@@ -65,8 +83,12 @@ export async function POST(req: Request) {
       storage_path: storagePath,
       mime_type: file.type,
       size_bytes: file.size,
+      extraction_status: extractionStatus,
+      extracted_text: extractedText,
+      extraction_error: extractionError,
+      extracted_at: extractedText ? new Date().toISOString() : null,
     })
-    .select('id, file_name, mime_type, size_bytes, created_at')
+    .select('id, file_name, mime_type, size_bytes, created_at, extraction_status')
     .single();
 
   if (metadataError) {

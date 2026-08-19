@@ -1,0 +1,2092 @@
+[
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Introduction to Pathology",
+    "slug": "introduction-to-pathology",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Definition and scope of pathology",
+    "slug": "definition-and-scope-of-pathology",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Cellular response to injury",
+    "slug": "cellular-response-to-injury",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Cellular adaptation",
+    "slug": "cellular-adaptation",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Reversible cell injury",
+    "slug": "reversible-cell-injury",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Irreversible cell injury",
+    "slug": "irreversible-cell-injury",
+    "order_index": 6,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Cardiovascular pathology",
+    "slug": "cardiovascular-pathology",
+    "order_index": 7,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Congenital heart diseases",
+    "slug": "congenital-heart-diseases",
+    "order_index": 8,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Heart failure",
+    "slug": "heart-failure",
+    "order_index": 9,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Blood vessel disorders",
+    "slug": "blood-vessel-disorders",
+    "order_index": 10,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Arteriosclerosis",
+    "slug": "arteriosclerosis",
+    "order_index": 11,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Atherosclerosis",
+    "slug": "atherosclerosis",
+    "order_index": 12,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Aneurysms",
+    "slug": "aneurysms",
+    "order_index": 13,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Introduction to Chemical Pathology",
+    "slug": "introduction-to-chemical-pathology",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Biological specimens",
+    "slug": "biological-specimens",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Biological variation",
+    "slug": "biological-variation",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Water balance",
+    "slug": "water-balance",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Sodium disorders",
+    "slug": "sodium-disorders",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Potassium disorders",
+    "slug": "potassium-disorders",
+    "order_index": 6,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Introduction to Haematology",
+    "slug": "introduction-to-haematology",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Haematopoiesis",
+    "slug": "haematopoiesis",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Erythropoiesis",
+    "slug": "erythropoiesis",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Granulopoiesis",
+    "slug": "granulopoiesis",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "White blood cell physiology",
+    "slug": "white-blood-cell-physiology",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Introduction to Medical Microbiology",
+    "slug": "introduction-to-medical-microbiology",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Sterilization",
+    "slug": "sterilization",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Disinfection",
+    "slug": "disinfection",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Bacterial cell structure",
+    "slug": "bacterial-cell-structure",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Culture techniques",
+    "slug": "culture-techniques",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "General Pharmacology",
+    "slug": "general-pharmacology",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Pharmacokinetics",
+    "slug": "pharmacokinetics",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Pharmacodynamics",
+    "slug": "pharmacodynamics",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 1,
+    "day_title": "CARDIOVASCULAR, CELL INJURY & BASIC MICROBIOLOGY",
+    "title": "Drug metabolism",
+    "slug": "drug-metabolism",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Cell death",
+    "slug": "cell-death",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Necrosis",
+    "slug": "necrosis",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Apoptosis",
+    "slug": "apoptosis",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Intracellular accumulations",
+    "slug": "intracellular-accumulations",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Acute inflammation",
+    "slug": "acute-inflammation",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Chronic inflammation",
+    "slug": "chronic-inflammation",
+    "order_index": 6,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Respiratory pathology",
+    "slug": "respiratory-pathology",
+    "order_index": 7,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "COPD",
+    "slug": "copd",
+    "order_index": 8,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Bronchiectasis",
+    "slug": "bronchiectasis",
+    "order_index": 9,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Asthma",
+    "slug": "asthma",
+    "order_index": 10,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Tuberculosis",
+    "slug": "tuberculosis",
+    "order_index": 11,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Pneumonia",
+    "slug": "pneumonia",
+    "order_index": 12,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Pulmonary embolism",
+    "slug": "pulmonary-embolism",
+    "order_index": 13,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Lung cancers",
+    "slug": "lung-cancers",
+    "order_index": 14,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Mesothelioma",
+    "slug": "mesothelioma",
+    "order_index": 15,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Calcium metabolism",
+    "slug": "calcium-metabolism",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Phosphate metabolism",
+    "slug": "phosphate-metabolism",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Acid-base balance",
+    "slug": "acid-base-balance",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Renal function tests",
+    "slug": "renal-function-tests",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Primary immune response",
+    "slug": "primary-immune-response",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Secondary immune response",
+    "slug": "secondary-immune-response",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Antigen-antibody reactions",
+    "slug": "antigen-antibody-reactions",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Lymphoid tissues",
+    "slug": "lymphoid-tissues",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Gram positive bacteria",
+    "slug": "gram-positive-bacteria",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Gram negative bacteria",
+    "slug": "gram-negative-bacteria",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Staphylococcus",
+    "slug": "staphylococcus",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Streptococcus",
+    "slug": "streptococcus",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Cholinergic drugs",
+    "slug": "cholinergic-drugs",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Anticholinergics",
+    "slug": "anticholinergics",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 2,
+    "day_title": "INFLAMMATION, RESPIRATORY & IMMUNOLOGY",
+    "title": "Adrenergic drugs",
+    "slug": "adrenergic-drugs",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Mediators of inflammation",
+    "slug": "mediators-of-inflammation",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Wound healing",
+    "slug": "wound-healing",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Renal pathology overview",
+    "slug": "renal-pathology-overview",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Glomerular diseases",
+    "slug": "glomerular-diseases",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Tubulo-interstitial diseases",
+    "slug": "tubulo-interstitial-diseases",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Pyelonephritis",
+    "slug": "pyelonephritis",
+    "order_index": 6,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Acute tubular injury",
+    "slug": "acute-tubular-injury",
+    "order_index": 7,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Cystic kidney diseases",
+    "slug": "cystic-kidney-diseases",
+    "order_index": 8,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Renal stones",
+    "slug": "renal-stones",
+    "order_index": 9,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Renal cancers",
+    "slug": "renal-cancers",
+    "order_index": 10,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Glucose metabolism",
+    "slug": "glucose-metabolism",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Diabetes mellitus",
+    "slug": "diabetes-mellitus",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Bilirubin metabolism",
+    "slug": "bilirubin-metabolism",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Liver function tests",
+    "slug": "liver-function-tests",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Iron metabolism",
+    "slug": "iron-metabolism",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Iron deficiency anaemia",
+    "slug": "iron-deficiency-anaemia",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Folate metabolism",
+    "slug": "folate-metabolism",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Vitamin B12 metabolism",
+    "slug": "vitamin-b12-metabolism",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Megaloblastic anaemia",
+    "slug": "megaloblastic-anaemia",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Virology",
+    "slug": "virology",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "DNA viruses",
+    "slug": "dna-viruses",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "RNA viruses",
+    "slug": "rna-viruses",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Hepatitis viruses",
+    "slug": "hepatitis-viruses",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "HIV",
+    "slug": "hiv",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Antimicrobials",
+    "slug": "antimicrobials",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Penicillins",
+    "slug": "penicillins",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Cephalosporins",
+    "slug": "cephalosporins",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Aminoglycosides",
+    "slug": "aminoglycosides",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 3,
+    "day_title": "RENAL, ANAEMIAS & VIROLOGY",
+    "title": "Tetracyclines",
+    "slug": "tetracyclines",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Thrombosis",
+    "slug": "thrombosis",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Embolism",
+    "slug": "embolism",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Shock",
+    "slug": "shock",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Esophageal disorders",
+    "slug": "esophageal-disorders",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Gastritis",
+    "slug": "gastritis",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Peptic ulcer disease",
+    "slug": "peptic-ulcer-disease",
+    "order_index": 6,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Gastric cancers",
+    "slug": "gastric-cancers",
+    "order_index": 7,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Inflammatory bowel disease",
+    "slug": "inflammatory-bowel-disease",
+    "order_index": 8,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Colonic polyps",
+    "slug": "colonic-polyps",
+    "order_index": 9,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Colonic cancers",
+    "slug": "colonic-cancers",
+    "order_index": 10,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Liver cirrhosis",
+    "slug": "liver-cirrhosis",
+    "order_index": 11,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Liver cancer",
+    "slug": "liver-cancer",
+    "order_index": 12,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Gall stones",
+    "slug": "gall-stones",
+    "order_index": 13,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Cholecystitis",
+    "slug": "cholecystitis",
+    "order_index": 14,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Plasma proteins",
+    "slug": "plasma-proteins",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Immunoglobulins",
+    "slug": "immunoglobulins",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Plasma lipids",
+    "slug": "plasma-lipids",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Tumour markers",
+    "slug": "tumour-markers",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "ABO blood group system",
+    "slug": "abo-blood-group-system",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Rh blood group system",
+    "slug": "rh-blood-group-system",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Blood transfusion",
+    "slug": "blood-transfusion",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Blood component therapy",
+    "slug": "blood-component-therapy",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Transfusion reactions",
+    "slug": "transfusion-reactions",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Mycology",
+    "slug": "mycology",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Candida",
+    "slug": "candida",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Aspergillus",
+    "slug": "aspergillus",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Opportunistic fungal infections",
+    "slug": "opportunistic-fungal-infections",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Antifungal drugs",
+    "slug": "antifungal-drugs",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Antiviral drugs",
+    "slug": "antiviral-drugs",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Antituberculous drugs",
+    "slug": "antituberculous-drugs",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 4,
+    "day_title": "GIT, TRANSFUSION & MYCOLOGY",
+    "title": "Antimalarial drugs",
+    "slug": "antimalarial-drugs",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Genetic disorders",
+    "slug": "genetic-disorders",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Thyroid diseases",
+    "slug": "thyroid-diseases",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Diabetes mellitus",
+    "slug": "diabetes-mellitus",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "MEN syndrome",
+    "slug": "men-syndrome",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Ovarian tumours",
+    "slug": "ovarian-tumours",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Leiomyoma",
+    "slug": "leiomyoma",
+    "order_index": 6,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Endometrial cancer",
+    "slug": "endometrial-cancer",
+    "order_index": 7,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Cervical cancer",
+    "slug": "cervical-cancer",
+    "order_index": 8,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "GTD",
+    "slug": "gtd",
+    "order_index": 9,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Prostate disorders",
+    "slug": "prostate-disorders",
+    "order_index": 10,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Bladder cancers",
+    "slug": "bladder-cancers",
+    "order_index": 11,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Breast pathology",
+    "slug": "breast-pathology",
+    "order_index": 12,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Hormone mechanisms",
+    "slug": "hormone-mechanisms",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Pituitary gland",
+    "slug": "pituitary-gland",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Thyroid axis",
+    "slug": "thyroid-axis",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Adrenal axis",
+    "slug": "adrenal-axis",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Pregnancy chemistry",
+    "slug": "pregnancy-chemistry",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Sickle cell anaemia",
+    "slug": "sickle-cell-anaemia",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Alpha thalassaemia",
+    "slug": "alpha-thalassaemia",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Beta thalassaemia",
+    "slug": "beta-thalassaemia",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Haemoglobinopathies",
+    "slug": "haemoglobinopathies",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Parasitology",
+    "slug": "parasitology",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Malaria",
+    "slug": "malaria",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Protozoa",
+    "slug": "protozoa",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Helminths",
+    "slug": "helminths",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Antidiabetic drugs",
+    "slug": "antidiabetic-drugs",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Steroids",
+    "slug": "steroids",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Thyroid drugs",
+    "slug": "thyroid-drugs",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 5,
+    "day_title": "ENDOCRINE, REPRODUCTIVE & PARASITOLOGY",
+    "title": "Reproductive pharmacology",
+    "slug": "reproductive-pharmacology",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Neoplasia",
+    "slug": "neoplasia",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Carcinogenesis",
+    "slug": "carcinogenesis",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Tumour grading",
+    "slug": "tumour-grading",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Tumour staging",
+    "slug": "tumour-staging",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "CNS infections",
+    "slug": "cns-infections",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Meningitis",
+    "slug": "meningitis",
+    "order_index": 6,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Encephalitis",
+    "slug": "encephalitis",
+    "order_index": 7,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Prion diseases",
+    "slug": "prion-diseases",
+    "order_index": 8,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Intracranial haemorrhage",
+    "slug": "intracranial-haemorrhage",
+    "order_index": 9,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Hydrocephalus",
+    "slug": "hydrocephalus",
+    "order_index": 10,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "CNS tumours",
+    "slug": "cns-tumours",
+    "order_index": 11,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Stroke",
+    "slug": "stroke",
+    "order_index": 12,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Neurodegenerative diseases",
+    "slug": "neurodegenerative-diseases",
+    "order_index": 13,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Inborn errors of metabolism",
+    "slug": "inborn-errors-of-metabolism",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Amino acid disorders",
+    "slug": "amino-acid-disorders",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "CSF chemistry",
+    "slug": "csf-chemistry",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Clinical chemistry in elderly",
+    "slug": "clinical-chemistry-in-elderly",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Leukaemogenesis",
+    "slug": "leukaemogenesis",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Haematological malignancies",
+    "slug": "haematological-malignancies",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Immunoproliferative disorders",
+    "slug": "immunoproliferative-disorders",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Neutropenia",
+    "slug": "neutropenia",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Thrombocytopenia",
+    "slug": "thrombocytopenia",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Infection control",
+    "slug": "infection-control",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Nosocomial infections",
+    "slug": "nosocomial-infections",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Antimicrobial resistance",
+    "slug": "antimicrobial-resistance",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Anticancer drugs",
+    "slug": "anticancer-drugs",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "Immunosuppressants",
+    "slug": "immunosuppressants",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 6,
+    "day_title": "NEOPLASIA, CNS & MALIGNANCIES",
+    "title": "CNS pharmacology",
+    "slug": "cns-pharmacology",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Hypersensitivity reactions",
+    "slug": "hypersensitivity-reactions",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Autoimmune diseases",
+    "slug": "autoimmune-diseases",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Immunodeficiency disorders",
+    "slug": "immunodeficiency-disorders",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Amyloidosis",
+    "slug": "amyloidosis",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Osteomyelitis",
+    "slug": "osteomyelitis",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Bone tumours",
+    "slug": "bone-tumours",
+    "order_index": 6,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Osteoarthritis",
+    "slug": "osteoarthritis",
+    "order_index": 7,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Rheumatoid arthritis",
+    "slug": "rheumatoid-arthritis",
+    "order_index": 8,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Soft tissue tumours",
+    "slug": "soft-tissue-tumours",
+    "order_index": 9,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Skin lesions",
+    "slug": "skin-lesions",
+    "order_index": 10,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Inflammatory dermatoses",
+    "slug": "inflammatory-dermatoses",
+    "order_index": 11,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Skin neoplasms",
+    "slug": "skin-neoplasms",
+    "order_index": 12,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Autopsy pathology",
+    "slug": "autopsy-pathology",
+    "order_index": 13,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Therapeutic drug monitoring",
+    "slug": "therapeutic-drug-monitoring",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Trace elements",
+    "slug": "trace-elements",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Vitamins",
+    "slug": "vitamins",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Hypertension chemistry",
+    "slug": "hypertension-chemistry",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Laboratory quality assurance",
+    "slug": "laboratory-quality-assurance",
+    "order_index": 5,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Complement system",
+    "slug": "complement-system",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Plasma cell disorders",
+    "slug": "plasma-cell-disorders",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Comprehensive anaemia revision",
+    "slug": "comprehensive-anaemia-revision",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Integrated immunology revision",
+    "slug": "integrated-immunology-revision",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Organism identification",
+    "slug": "organism-identification",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Diagnostic microbiology",
+    "slug": "diagnostic-microbiology",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Clinical microbiology review",
+    "slug": "clinical-microbiology-review",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Drug adverse effects",
+    "slug": "drug-adverse-effects",
+    "order_index": 1,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Contraindications",
+    "slug": "contraindications",
+    "order_index": 2,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Mechanism revision",
+    "slug": "mechanism-revision",
+    "order_index": 3,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 7,
+    "day_title": "IMMUNE DISORDERS, SKIN & CONSOLIDATION",
+    "title": "Clinical pharmacology review",
+    "slug": "clinical-pharmacology-review",
+    "order_index": 4,
+    "source": "Year4_7Day_Master_Timetable.pdf"
+  }
+]

@@ -1,0 +1,7 @@
+# Curriculum browser QA — 2026-08-19
+
+The local Supabase-backed Next.js server rendered `/curriculum` successfully after passing the injected Supabase values through the process environment. The page displayed the Year 4 learning-map hero, links to `/search` and `/teach`, and five course cards with the parsed timetable counts: Anatomical Pathology 90, Chemical Pathology 32, Haematology / Immunology 32, Microbiology 28, and Pharmacology 27.
+
+The `/curriculum/anatomical-pathology` page rendered successfully. It displayed the course pathway header, course-level Teaching Room and Search actions, seven timetable day sections, and clickable topic cards. The browser extracted 90 topic links, including foundational topics such as Introduction to Pathology, acute inflammation, renal pathology, neoplasia, CNS infections, and autopsy pathology. No server error or missing route appeared in either page during this pass.
+
+The `/curriculum/anatomical-pathology/acute-inflammation` topic page rendered with the topic header, timetable day context, Start AI teaching CTA, and connected-question search form with keyword and lecture-file inputs. The launched `/teach?course=Anatomical%20Pathology&topic=Acute%20inflammation` route rendered the Anatomical Pathology branch selected and preloaded the prompt: “Teach me Acute inflammation. Start with the core concepts, then connect it to relevant past questions.”

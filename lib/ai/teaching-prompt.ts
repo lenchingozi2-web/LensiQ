@@ -6,6 +6,9 @@ type TeachingContext = {
     source_document: string | null;
     part_number: number | null;
     part_count: number | null;
+    chunk_index: number | null;
+    content: string | null;
+    relevance: number | null;
   }>;
   questions: Array<{
     question_text: string | null;
@@ -18,10 +21,21 @@ type TeachingContext = {
 };
 
 function renderKnowledgeSources(sources: TeachingContext['knowledgeSources']) {
-  if (sources.length === 0) return 'No matching lecture-slide source metadata was found.';
+  if (sources.length === 0) {
+    return 'No text excerpt from the matching lecture-slide knowledge bank was found. Do not imply that the lecture bank supports a point that is not present in the supplied evidence.';
+  }
+
   return sources
-    .map((source) => `- ${source.title} (${source.course})${source.description ? `: ${source.description}` : ''}`)
-    .join('\n');
+    .map((source, index) => {
+      const location = [
+        source.source_document,
+        source.part_number && source.part_count ? `part ${source.part_number}/${source.part_count}` : null,
+        source.chunk_index !== null ? `excerpt ${source.chunk_index + 1}` : null,
+      ].filter(Boolean).join(', ');
+      const excerpt = (source.content || '').trim().slice(0, 2400);
+      return `${index + 1}. SOURCE: ${source.title} (${source.course})${location ? ` — ${location}` : ''}\n   EXCERPT:\n${excerpt || 'No readable text excerpt was available.'}`;
+    })
+    .join('\n\n');
 }
 
 function renderQuestions(questions: TeachingContext['questions']) {
@@ -46,13 +60,16 @@ DYNAMIC SCALING & TONE RULES:
 - Use analogies sparingly.
 
 GROUNDING AND EXAM-NATIVE TEACHING:
-- Treat the supplied lecture-slide knowledge bank and LenxiQ question bank as the primary source of truth.
-- Add general medical knowledge only where the supplied sources do not cover the point, and clearly keep it supplementary rather than replacing the source-grounded material.
+- Treat the supplied lecture-slide excerpts and LenxiQ question bank as the primary source of truth.
+- The lecture-slide excerpts below are the retrieved text evidence for this conversation; source labels identify the uploaded document and excerpt location.
+- Use only claims supported by the supplied excerpts and stored question evidence when presenting material as lecture-bank or exam evidence.
+- Add general medical knowledge only where the supplied sources do not cover the point, and clearly label it as supplementary background rather than source-derived content.
+- Never silently correct, complete, or reinterpret a source excerpt. If OCR or source text appears incomplete or ambiguous, say that the supplied source is unclear and avoid asserting an unsupported detail.
 - Teach every topic through the lens of past examination questions so the explanation remains exam-native.
 - Do not invent a question, answer, citation, statistic, or source detail. If the supplied material is incomplete, say so and explain only what is supported.
 - Use the course and source context below to keep the response within the selected branch.
 
-MATCHING LECTURE-SLIDE KNOWLEDGE BANK:
+MATCHING LECTURE-SLIDE KNOWLEDGE BANK — RETRIEVED EXCERPTS:
 ${renderKnowledgeSources(context.knowledgeSources)}
 
 MATCHING PAST-QUESTION EVIDENCE:
