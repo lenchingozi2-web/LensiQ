@@ -281,8 +281,8 @@ function TeachingRoom() {
               <div className="mt-10 text-center sm:mt-20">
                 <span className="mb-6 block text-6xl">👨‍⚕️</span>
                 <h1 className="mb-4 text-3xl font-black tracking-tight text-[#0B1220] sm:text-4xl">Dynamic Teaching Room</h1>
-                <p className="mx-auto mb-10 max-w-xl text-lg text-slate-500">Select a branch and request a topic. LenxiQ will teach you, test you with past questions, and answer follow-ups.</p>
-                {topicFocus && <p className="mx-auto mb-6 max-w-xl rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">Topic focus loaded: {topicFocus}. Press send to begin your grounded lesson.</p>}
+                <p className="mx-auto mb-10 max-w-xl text-lg text-slate-500">Select a branch and request a topic. LenxiQ prioritises your course material and past questions, then enriches the lesson with broader medical knowledge and follow-up teaching.</p>
+                {topicFocus && <p className="mx-auto mb-6 max-w-xl rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">Topic focus loaded: {topicFocus}. Press send to begin your source-prioritised lesson, enriched with broader medical explanations where useful.</p>}
                 <div className="mx-auto max-w-sm rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm">
                   <label htmlFor="course" className="mb-2 block text-sm font-bold text-slate-900">Select your branch</label>
                   <select id="course" value={courseName} onChange={(event) => setCourseName(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-semibold text-slate-800 outline-none focus:border-[#E8A23D] focus:ring-2 focus:ring-[#E8A23D]/20">
