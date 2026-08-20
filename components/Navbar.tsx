@@ -63,7 +63,7 @@ export default async function Navbar() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <Link href="/pricing" className="hidden rounded-lg px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 sm:inline">Plans</Link>
+          <Link href="/pricing" className="rounded-lg border border-[#E8A23D]/50 bg-[#FFF8E9] px-3 py-2 text-xs font-black text-[#8B5709] hover:bg-[#FFF0CF] sm:text-sm">Plans</Link>
           {user ? <UserDropdown email={user.email || 'User'} /> : <Link href="/signup" className="rounded-xl bg-[#0B1220] px-3.5 py-2.5 text-sm font-black text-white shadow-sm hover:bg-slate-800 sm:px-4">Get started</Link>}
           <details className="relative lg:hidden">
             <summary className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-black text-slate-700 shadow-sm">☰</summary>

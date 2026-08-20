@@ -3,60 +3,11 @@ import Link from 'next/link';
 
 export default async function SubjectPage({ params }: { params: Promise<{ subject: string }> }) {
   const supabase = await createClient();
-  
-  // Next.js 16 requires us to await the URL parameters first
   const resolvedParams = await params;
-  const subjectId = resolvedParams.subject; 
+  const subjectId = resolvedParams.subject;
+  const title = subjectId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  const { data, error } = await supabase.from('questions').select('division').ilike('subject', title).limit(5000);
+  const divisions = data ? Array.from(new Set(data.map((question) => question.division).filter(Boolean))).sort() : [];
 
-  const title = subjectId
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-
-  const { data, error } = await supabase
-    .from('questions')
-    .select('division')
-    .ilike('subject', title);
-
-  let divisions: string[] = [];
-  if (data) {
-    const allDivisions = data.map(q => q.division).filter(Boolean);
-    divisions = Array.from(new Set(allDivisions)).sort();
-  }
-
-  return (
-    <main className="p-6 max-w-5xl mx-auto mt-10">
-      <div className="mb-8">
-        <Link href="/browse" className="text-[#E8A23D] hover:underline text-sm font-semibold mb-4 inline-block">
-          &larr; Back to Subjects
-        </Link>
-        <h1 className="text-3xl font-bold text-[#0B1220] mt-2">{title} Divisions</h1>
-        <p className="text-slate-600 mt-1">Select a division to view its specific topics.</p>
-      </div>
-
-      {error ? (
-        <div className="bg-red-100 p-4 rounded text-red-700">
-          <strong>Database Error:</strong> {error.message}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {divisions.length > 0 ? (
-             divisions.map((division, i) => (
-               <Link key={i} href={`/browse/${subjectId}/${encodeURIComponent(division)}`}>
-                 <div className="border border-slate-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow bg-white cursor-pointer group h-full flex flex-col justify-center items-start">
-                   <h2 className="text-xl font-bold text-[#0B1220] group-hover:text-[#E8A23D] transition-colors">
-                     {division}
-                   </h2>
-                 </div>
-               </Link>
-             ))
-          ) : (
-             <div className="col-span-2 bg-slate-50 p-8 text-center border rounded-xl text-slate-500">
-               <p className="font-semibold text-lg mb-2">No divisions found.</p>
-             </div>
-          )}
-        </div>
-      )}
-    </main>
-  );
+  return <div className="min-h-[calc(100vh-4.5rem)] bg-[#F6F8FB] px-4 pb-16 sm:px-6 lg:px-8"><main className="mx-auto max-w-6xl pt-8 sm:pt-12"><div className="flex flex-wrap items-center justify-between gap-3"><Link href="/browse" className="text-sm font-black text-slate-500 hover:text-[#0B1220]">← Back to practice bank</Link><div className="flex flex-wrap gap-2 text-xs font-black"><Link href="/curriculum" className="rounded-full bg-white px-3 py-2 text-slate-600 shadow-sm">Study path</Link><Link href="/search" className="rounded-full bg-white px-3 py-2 text-slate-600 shadow-sm">Search questions</Link><Link href="/voice" className="rounded-full bg-white px-3 py-2 text-slate-600 shadow-sm">Voice Tutor</Link></div></div><section className="mt-8 rounded-[2rem] bg-[#0B1220] p-6 text-white shadow-xl sm:p-10"><p className="text-xs font-black uppercase tracking-[0.24em] text-[#E8A23D]">{title} practice bank</p><h1 className="mt-4 text-4xl font-black tracking-[-0.05em] sm:text-5xl">Choose a division. Then choose a format.</h1><p className="mt-4 max-w-2xl text-base leading-8 text-slate-300">Practical materials are grouped by organ system where appropriate. Open a division to choose MCQ, theory, or premium practical study.</p></section>{error ? <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-800">The question bank could not be loaded: {error.message}</div> : divisions.length === 0 ? <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm"><p className="font-black text-slate-800">No divisions found.</p><p className="mt-2 text-sm text-slate-500">Return to the main practice bank or use search.</p></div> : <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{divisions.map((division) => <Link key={division} href={`/browse/${subjectId}/${encodeURIComponent(division)}`} className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm hover:-translate-y-1 hover:border-[#E8A23D] hover:shadow-lg"><p className="text-xs font-black uppercase tracking-[0.15em] text-slate-400">Division</p><h2 className="mt-4 text-xl font-black text-[#0B1220] group-hover:text-[#9A5D00]">{division}</h2><p className="mt-5 text-sm font-black text-[#9A5D00]">Choose format →</p></Link>)}</div>}</main></div>;
 }

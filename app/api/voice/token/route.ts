@@ -2,13 +2,29 @@ import { NextResponse } from 'next/server';
 import { AccessToken } from 'livekit-server-sdk';
 import { createClient } from '../../../../lib/supabase/server';
 
+function normalizeLiveKitUrl(value: string) {
+  const trimmed = value.trim().replace(/\/$/, '');
+  const withWebSocketProtocol = trimmed.replace(/^https:\/\//i, 'wss://').replace(/^http:\/\//i, 'ws://');
+  const candidate = /^wss?:\/\//i.test(withWebSocketProtocol) ? withWebSocketProtocol : `wss://${withWebSocketProtocol}`;
+  const parsed = new URL(candidate);
+  if (!['ws:', 'wss:'].includes(parsed.protocol)) throw new Error('LIVEKIT_URL must use ws:// or wss://.');
+  return parsed.toString().replace(/\/$/, '');
+}
+
 export async function POST() {
-  const livekitUrl = process.env.LIVEKIT_URL;
+  const rawLivekitUrl = process.env.LIVEKIT_URL;
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
 
-  if (!livekitUrl || !apiKey || !apiSecret) {
-    return NextResponse.json({ error: 'Voice tutoring is not configured yet.' }, { status: 503 });
+  if (!rawLivekitUrl || !apiKey || !apiSecret) {
+    return NextResponse.json({ error: 'Voice tutoring is not configured yet. Please check the LiveKit server settings.' }, { status: 503 });
+  }
+
+  let livekitUrl: string;
+  try {
+    livekitUrl = normalizeLiveKitUrl(rawLivekitUrl);
+  } catch {
+    return NextResponse.json({ error: 'The LiveKit server URL is invalid. It must be a LiveKit ws:// or wss:// endpoint.' }, { status: 503 });
   }
 
   const supabase = await createClient();
