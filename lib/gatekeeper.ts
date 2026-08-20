@@ -1,6 +1,6 @@
 import { createClient } from './supabase/server';
 import { isPaidPlan } from './plans';
-import { FREE_PRACTICAL_BRANCH, normalizePracticalBranch } from './practical-catalogue';
+import { FREE_ANATOMICAL_PATHOLOGY_SYSTEM, isFreeAnatomicalPathologySystem } from './practical-catalogue';
 
 type FeatureType = 'teaching' | 'explanation' | 'quiz' | 'browse' | 'practical';
 
@@ -53,11 +53,10 @@ export async function checkAccess(feature: FeatureType, requestedCourse?: string
     if (isPaidPlan(profile.plan)) return { allowed: true, unlimited: true };
 
     if (feature === 'practical') {
-      const requestedBranch = normalizePracticalBranch(requestedPracticalBranch);
-      if (requestedBranch === normalizePracticalBranch(FREE_PRACTICAL_BRANCH)) {
-        return { allowed: true, freePracticalBranch: FREE_PRACTICAL_BRANCH };
+      if (isFreeAnatomicalPathologySystem(requestedPracticalBranch)) {
+        return { allowed: true, freePracticalBranch: FREE_ANATOMICAL_PATHOLOGY_SYSTEM };
       }
-      return { allowed: false, status: 403, message: `Free access includes the ${FREE_PRACTICAL_BRANCH} practical branch. Upgrade to unlock every practical system.` };
+      return { allowed: false, status: 403, message: `Free access includes one Anatomical Pathology organ/system: ${FREE_ANATOMICAL_PATHOLOGY_SYSTEM}. Upgrade to unlock every practical system.` };
     }
 
     if (feature === 'browse') {

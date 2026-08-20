@@ -38,7 +38,7 @@ export default function PricingClient() {
       <div className="max-w-7xl mx-auto text-center">
         <p className="mb-4 text-xs font-black uppercase tracking-[0.24em] text-[#E8A23D]">Simple, transparent access</p>
         <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight sm:text-5xl">
-          Master Medical School with <span className="text-[#E8A23D]">lensiqAI</span>
+          Master Medical School with <span className="text-[#E8A23D]">LenxiQ AI</span>
         </h1>
         <p className="mt-4 max-w-2xl text-lg text-slate-500 mx-auto">
           One premium subscription unlocks every course, practical material, explanation, quiz, and AI teaching feature.
@@ -56,7 +56,7 @@ export default function PricingClient() {
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 flex flex-col justify-between">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Basic Trainee</h2>
-            <p className="text-slate-500 mt-2 text-sm">A focused free introduction to lensiqAI.</p>
+            <p className="text-slate-500 mt-2 text-sm">A focused free introduction to LenxiQ AI.</p>
             <p className="mt-6 flex items-baseline gap-x-2">
               <span className="text-5xl font-extrabold tracking-tight text-slate-900">₦0</span>
               <span className="text-slate-500 font-medium">/ forever</span>
@@ -66,7 +66,7 @@ export default function PricingClient() {
               <li className="flex gap-x-3"><span className="text-green-500">✓</span> 30 AI explanations/month</li>
               <li className="flex gap-x-3"><span className="text-green-500">✓</span> 6 AI teaching sessions/month</li>
               <li className="flex gap-x-3"><span className="text-green-500">✓</span> 3 quiz attempts/month</li>
-              <li className="flex gap-x-3 text-slate-600"><span className="text-emerald-500">✓</span> Breast practicals are free; other systems are premium</li>
+              <li className="flex gap-x-3 text-slate-600"><span className="text-emerald-500">✓</span> One Anatomical Pathology organ/system is free; other systems are premium</li>
             </ul>
           </div>
           <Link href="/dashboard" className="mt-8 block w-full bg-slate-100 text-slate-900 rounded-xl px-3 py-3 text-center text-sm font-semibold hover:bg-slate-200 transition-colors">

@@ -57,7 +57,7 @@ export default function LoginPage() {
   return (
     <main className="flex-1 flex flex-col w-full px-8 sm:max-w-md justify-center gap-2 mx-auto mt-20">
       <form className="flex-1 flex flex-col w-full justify-center gap-2 text-slate-800">
-        <h1 className="text-3xl font-bold mb-6 text-center text-[#0B1220]">lensiqAI access</h1>
+        <h1 className="text-3xl font-bold mb-6 text-center text-[#0B1220]">LenxiQ AI access</h1>
         
         <label className="text-sm font-semibold" htmlFor="email">Email Address</label>
         <input 

@@ -54,7 +54,7 @@ function ResultCard({ result, index }: { result: SearchResult; index: number }) 
         )}
         {result.image_url && <p className="mt-4 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-800">This question has an attached practical image. Open the practice bank for the premium image view.</p>}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-          <p className="text-xs font-bold text-slate-400">{[result.subject, result.division, result.topic].filter(Boolean).join(' · ') || 'lensiqAI question bank'}</p>
+          <p className="text-xs font-bold text-slate-400">{[result.subject, result.division, result.topic].filter(Boolean).join(' · ') || 'LenxiQ AI question bank'}</p>
           {result.type === 'mcq' && <span className="text-xs font-black text-slate-500">{options.filter(Boolean).length} options shown</span>}
         </div>
       </div>
@@ -126,11 +126,11 @@ export default function TopicDiscoveryPanel({ courseSlug, topicSlug, topicTitle 
           <div className="mt-8">
             <div className="mb-5 flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Results for</p><h3 className="mt-1 text-xl font-black text-[#0B1220]">{searchedQuery}</h3></div><p className="text-sm font-bold text-slate-500">{totalMatches} close match{totalMatches === 1 ? '' : 'es'}</p></div>
             {sourceName && <p className="mb-4 rounded-xl bg-blue-50 px-4 py-3 text-xs font-bold text-blue-900">Lecture source analysed: {sourceName}</p>}
-            {results.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center"><p className="font-black text-slate-800">No sufficiently close matches.</p><p className="mt-2 text-sm leading-6 text-slate-500">Try the central clinical term, remove extra words, or upload a clearer lecture document. lensiqAI will not pad the list with loosely related questions.</p></div> : <div className="space-y-4">{results.map((result, index) => <ResultCard key={result.id} result={result} index={index} />)}</div>}
+            {results.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center"><p className="font-black text-slate-800">No sufficiently close matches.</p><p className="mt-2 text-sm leading-6 text-slate-500">Try the central clinical term, remove extra words, or upload a clearer lecture document. LenxiQ AI will not pad the list with loosely related questions.</p></div> : <div className="space-y-4">{results.map((result, index) => <ResultCard key={result.id} result={result} index={index} />)}</div>}
           </div>
         )}
 
-        {practicalLocked && <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-black text-amber-950">Some practical matches are locked.</p><p className="mt-1 text-sm leading-6 text-amber-900/70">Breast practicals are available on the free plan. Upgrade to unlock the other organ systems, specimen images, and the complete practical bank.</p></div><Link href="/pricing" className="rounded-xl bg-[#0B1220] px-5 py-3 text-center text-sm font-black text-white hover:bg-slate-700">View plans</Link></div>}
+        {practicalLocked && <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-black text-amber-950">Some practical matches are locked.</p><p className="mt-1 text-sm leading-6 text-amber-900/70">One Anatomical Pathology organ/system is available on the free plan. Upgrade to unlock the other organ systems, specimen images, and the complete practical bank.</p></div><Link href="/pricing" className="rounded-xl bg-[#0B1220] px-5 py-3 text-center text-sm font-black text-white hover:bg-slate-700">View plans</Link></div>}
       </div>
     </section>
   );

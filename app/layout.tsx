@@ -3,7 +3,7 @@ import './globals.css';
 import Navbar from '@/components/Navbar';
 
 export const metadata: Metadata = {
-  title: 'lensiqAI',
+  title: 'LenxiQ AI',
   description: 'Professional medical learning with curriculum pathways, complete past questions, and an AI tutor.',
   manifest: '/manifest.json',
 };

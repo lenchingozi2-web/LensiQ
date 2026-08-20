@@ -10,7 +10,7 @@ const primaryLinks = [
   { href: '/browse', label: 'Practice', shortLabel: 'Question bank' },
   { href: '/search', label: 'Search', shortLabel: 'Find questions' },
   { href: '/teach', label: 'Teach', shortLabel: 'AI Teaching' },
-  { href: '/voice', label: 'Voice Tutor', shortLabel: 'Speak with lensiqAI' },
+  { href: '/voice', label: 'Voice Tutor', shortLabel: 'Speak with LenxiQ AI' },
   { href: '/voice?mode=class', label: 'Live Class', shortLabel: 'Live teaching room' },
 ];
 
@@ -50,7 +50,7 @@ export default async function Navbar() {
         <Link href="/" className="group flex min-w-0 items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0B1220] text-lg font-black text-[#E8A23D] shadow-sm">LQ</span>
           <span className="min-w-0">
-            <span className="block truncate text-base font-black tracking-tight text-[#0B1220]">lensiqAI</span>
+            <span className="block truncate text-base font-black tracking-tight text-[#0B1220]">LenxiQ AI</span>
             <span className="hidden text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 sm:block">Medical learning</span>
           </span>
         </Link>

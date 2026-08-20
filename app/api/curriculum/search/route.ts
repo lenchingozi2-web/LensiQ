@@ -4,13 +4,13 @@ import { checkAccess } from '@/lib/gatekeeper';
 import { courseSubject, getCurriculumCourse, getCurriculumTopic } from '@/lib/curriculum';
 import { cleanSearchText, extractHighSignalTerms, searchQuestions } from '@/lib/curriculum-search';
 import { extractLectureText } from '@/lib/curriculum/extract-text';
-import { FREE_PRACTICAL_BRANCH, normalizePracticalBranch } from '@/lib/practical-catalogue';
+import { isFreeAnatomicalPathologySystem } from '@/lib/practical-catalogue';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function visibleResults<T extends { type: string; division?: string | null }>(results: T[], hasPremiumAccess: boolean) {
-  return hasPremiumAccess ? results : results.filter((result) => result.type !== 'practical' || normalizePracticalBranch(result.division ?? '') === normalizePracticalBranch(FREE_PRACTICAL_BRANCH));
+function visibleResults<T extends { subject: string; type: string; division?: string | null }>(results: T[], hasPremiumAccess: boolean) {
+  return hasPremiumAccess ? results : results.filter((result) => result.type !== 'practical' || (result.subject.toLowerCase() === 'pathology' && isFreeAnatomicalPathologySystem(result.division ?? '')));
 }
 
 export async function POST(request: Request) {
