@@ -28,7 +28,7 @@ const journeys = [
 ];
 
 const teachingModes = [
-  { href: '/teach', eyebrow: 'Text teaching', title: 'Ask LenxiQ anything', description: 'A persistent teaching room grounded in your course material and past questions.', icon: 'Aa' },
+  { href: '/teach', eyebrow: 'Text teaching', title: 'Ask lensiqAI anything', description: 'A persistent teaching room grounded in your course material and past questions.', icon: 'Aa' },
   { href: '/voice', eyebrow: 'Voice Tutor', title: 'Learn by speaking', description: 'Start a secure realtime voice session with the medical tutor.', icon: '◉' },
   { href: '/voice?mode=class', eyebrow: 'Live Class', title: 'Enter the live room', description: 'A focused live-teaching foundation for guided classroom-style sessions.', icon: '▶' },
 ];
@@ -42,7 +42,7 @@ export default function Home() {
             <span className="h-2 w-2 rounded-full bg-[#E8A23D]" /> Year 4 medical learning platform
           </div>
           <h1 className="max-w-3xl text-4xl font-black leading-[1.02] tracking-[-0.055em] text-[#0B1220] sm:text-6xl lg:text-7xl">Study with a plan. Practise with purpose.</h1>
-          <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">LenxiQ brings your curriculum, preserved past questions, grounded AI teaching, and realtime voice learning into one focused study system.</p>
+          <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">lensiqAI brings your curriculum, preserved past questions, grounded AI teaching, and realtime voice learning into one focused study system.</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/curriculum" className="rounded-xl bg-[#0B1220] px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800">Open my study path</Link>
             <Link href="/teach" className="rounded-xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-black text-[#0B1220] shadow-sm hover:border-slate-400 hover:bg-slate-50">Start AI teaching</Link>

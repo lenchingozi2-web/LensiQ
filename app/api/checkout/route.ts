@@ -42,10 +42,10 @@ export async function POST(req: Request) {
         },
         customer: {
           email: user.email,
-          name: 'LensiqAI Scholar',
+          name: 'lensiqAI Scholar',
         },
         customizations: {
-          title: 'LensiqAI Premium Access',
+          title: 'lensiqAI Premium Access',
           description: `${plan.label} subscription with full course and practical access`,
           logo: `${siteUrl}/icon.png`,
         },

@@ -43,6 +43,7 @@ function TeachingRoom() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const historyContainerRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);
   const speechSupported = typeof window !== 'undefined' && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
 
@@ -59,10 +60,31 @@ function TeachingRoom() {
   }, []);
 
   useEffect(() => {
-    if (shouldAutoScrollRef.current) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    if (!shouldAutoScrollRef.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      const element = scrollAreaRef.current;
+      if (element) element.scrollTop = element.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [messages, loading]);
 
   useEffect(() => () => recognitionRef.current?.stop(), []);
+
+  useEffect(() => {
+    if (!showHistory) return;
+    const closeOnOutside = (event: PointerEvent) => {
+      if (historyContainerRef.current && !historyContainerRef.current.contains(event.target as Node)) setShowHistory(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowHistory(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [showHistory]);
 
   const loadConversations = async () => {
     try {
@@ -205,7 +227,7 @@ function TeachingRoom() {
       <header className="sticky top-[4.5rem] z-30 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3"><Link href="/curriculum" className="hidden text-sm font-black text-slate-400 hover:text-[#0B1220] sm:block">← Study path</Link><span className="hidden h-5 w-px bg-slate-200 sm:block" /><div className="min-w-0"><p className="truncate text-sm font-black text-[#0B1220]">Teaching Room</p><p className="truncate text-xs font-bold text-slate-400">{courseName} · source-prioritised, broadly enriched</p></div></div>
-          <div className="relative flex shrink-0 items-center gap-2"><Link href="/pricing" className="rounded-lg border border-[#E8A23D]/50 bg-[#FFF8E9] px-3 py-2 text-xs font-black text-[#8B5709] hover:bg-[#FFF0CF]">Plans</Link><button type="button" onClick={() => setShowHistory((open) => !open)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:border-slate-400" aria-expanded={showHistory}>History{conversations.length > 0 ? ` · ${conversations.length}` : ''}</button><button type="button" onClick={handleNewSession} className="rounded-lg bg-[#0B1220] px-3 py-2 text-xs font-black text-white hover:bg-slate-800">New</button>
+          <div ref={historyContainerRef} className="relative flex shrink-0 items-center gap-2"><Link href="/pricing" className="rounded-lg border border-[#E8A23D]/50 bg-[#FFF8E9] px-3 py-2 text-xs font-black text-[#8B5709] hover:bg-[#FFF0CF]">Plans</Link><button type="button" onClick={() => setShowHistory((open) => !open)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:border-slate-400" aria-expanded={showHistory}>History{conversations.length > 0 ? ` · ${conversations.length}` : ''}</button><button type="button" onClick={handleNewSession} className="rounded-lg bg-[#0B1220] px-3 py-2 text-xs font-black text-white hover:bg-slate-800">New</button>
             {showHistory && <div className="absolute right-0 top-12 z-50 w-[min(88vw,22rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl"><div className="flex items-center justify-between px-3 py-2"><p className="text-xs font-black uppercase tracking-[0.15em] text-slate-400">Continue a session</p><button type="button" onClick={() => setShowHistory(false)} className="text-xs font-bold text-slate-400">Close</button></div>{historyLoading && <p className="p-3 text-sm text-slate-400">Loading history…</p>}{!historyLoading && conversations.length === 0 && <p className="p-3 text-sm leading-6 text-slate-500">Your completed teaching sessions will appear here.</p>}{conversations.slice(0, 12).map((conversation) => <button key={conversation.id} type="button" onClick={() => void loadConversation(conversation.id)} className={`w-full rounded-xl px-3 py-3 text-left hover:bg-slate-50 ${conversation.id === conversationId ? 'bg-slate-100' : ''}`}><span className="block truncate text-sm font-black text-slate-800">{conversation.title}</span><span className="mt-1 block truncate text-xs font-bold text-slate-400">{conversation.course_name}</span></button>)}</div>}
           </div>
         </div>
@@ -213,7 +235,7 @@ function TeachingRoom() {
 
       <main ref={scrollAreaRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-4xl pt-8 sm:pt-12">
-          {messages.length === 0 && !showPaywall && <div className="mx-auto max-w-3xl pb-8 text-center sm:pb-14"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0B1220] text-xl font-black text-[#E8A23D] shadow-lg">LQ</div><p className="mt-6 text-xs font-black uppercase tracking-[0.22em] text-[#9A5D00]">Guided medical teaching</p><h1 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[#0B1220] sm:text-5xl">Build understanding, not just notes.</h1><p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-slate-600">Start from your course material and preserved past questions. LenxiQ then adds broader medical explanation when it helps connect the gaps.</p>{topicFocus && <p className="mx-auto mt-6 max-w-xl rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">Topic focus loaded: {topicFocus}. Your first message is ready in the composer below.</p>}<div className="mx-auto mt-8 max-w-sm rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm"><label htmlFor="course" className="mb-2 block text-sm font-black text-slate-900">Select your branch</label><select id="course" value={courseName} onChange={(event) => setCourseName(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-semibold text-slate-800 outline-none focus:border-[#E8A23D] focus:ring-2 focus:ring-[#E8A23D]/20">{COURSES.map((course) => <option key={course} value={course}>{course}</option>)}</select></div><div className="mt-5 flex flex-wrap justify-center gap-2 text-xs font-bold text-slate-400"><Link href="/search" className="rounded-full bg-white px-3 py-2 shadow-sm hover:text-[#0B1220]">Search past questions</Link><Link href="/voice" className="rounded-full bg-white px-3 py-2 shadow-sm hover:text-[#0B1220]">Use Voice Tutor</Link><Link href="/voice?mode=class" className="rounded-full bg-white px-3 py-2 shadow-sm hover:text-[#0B1220]">Enter Live Class</Link></div></div>}
+          {messages.length === 0 && !showPaywall && <div className="mx-auto max-w-3xl pb-8 text-center sm:pb-14"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0B1220] text-xl font-black text-[#E8A23D] shadow-lg">LQ</div><p className="mt-6 text-xs font-black uppercase tracking-[0.22em] text-[#9A5D00]">Guided medical teaching</p><h1 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[#0B1220] sm:text-5xl">Build understanding, not just notes.</h1><p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-slate-600">Start from your course material and preserved past questions. lensiqAI then adds broader medical explanation when it helps connect the gaps.</p>{topicFocus && <p className="mx-auto mt-6 max-w-xl rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">Topic focus loaded: {topicFocus}. Your first message is ready in the composer below.</p>}<div className="mx-auto mt-8 max-w-sm rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm"><label htmlFor="course" className="mb-2 block text-sm font-black text-slate-900">Select your branch</label><select id="course" value={courseName} onChange={(event) => setCourseName(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-semibold text-slate-800 outline-none focus:border-[#E8A23D] focus:ring-2 focus:ring-[#E8A23D]/20">{COURSES.map((course) => <option key={course} value={course}>{course}</option>)}</select></div><div className="mt-5 flex flex-wrap justify-center gap-2 text-xs font-bold text-slate-400"><Link href="/search" className="rounded-full bg-white px-3 py-2 shadow-sm hover:text-[#0B1220]">Search past questions</Link><Link href="/voice" className="rounded-full bg-white px-3 py-2 shadow-sm hover:text-[#0B1220]">Use Voice Tutor</Link><Link href="/voice?mode=class" className="rounded-full bg-white px-3 py-2 shadow-sm hover:text-[#0B1220]">Enter Live Class</Link></div></div>}
           {showPaywall && <div className="mx-auto mt-10 max-w-2xl rounded-3xl border border-slate-700 bg-gradient-to-br from-slate-900 to-slate-800 p-8 text-center shadow-xl sm:p-10"><span className="mb-5 block text-3xl font-black text-[#E8A23D]">Premium access</span><h3 className="mb-3 text-3xl font-black text-white">Continue teaching without limits.</h3><p className="mb-8 text-base leading-7 text-slate-300">Upgrade to premium for unlimited lectures, follow-up teaching, practical material, and complete learning access.</p><Link href="/pricing" className="inline-block rounded-xl bg-[#E8A23D] px-8 py-3.5 font-black text-slate-900 shadow-lg hover:bg-amber-500">View subscription plans</Link></div>}
           {error && <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-center text-sm font-bold text-red-800">{error}</div>}
           <div className="space-y-8 pb-4">{messages.map((message, index) => <div key={message.id ?? `${message.role}-${index}`} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[96%] rounded-3xl p-5 sm:max-w-[85%] sm:p-6 ${message.role === 'user' ? 'rounded-br-none bg-[#0B1220] text-white shadow-md' : 'rounded-bl-none border border-slate-200 bg-white shadow-sm'}`}>{message.role === 'user' ? <p className="text-base font-medium leading-7">{message.content}</p> : <div className="prose prose-slate max-w-none leading-relaxed prose-headings:text-[#0B1220] prose-strong:text-[#E8A23D]">{message.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown> : <span className="italic text-slate-400">Thinking…</span>}</div>}</div></div>)}{loading && <div className="flex justify-start"><div className="flex items-center gap-2 rounded-3xl rounded-bl-none border border-slate-200 bg-white p-5 shadow-sm"><span className="h-2.5 w-2.5 animate-bounce rounded-full bg-[#E8A23D]" /><span className="h-2.5 w-2.5 animate-bounce rounded-full bg-[#E8A23D] [animation-delay:100ms]" /><span className="h-2.5 w-2.5 animate-bounce rounded-full bg-[#E8A23D] [animation-delay:200ms]" /></div></div>}<div ref={messagesEndRef} /></div>

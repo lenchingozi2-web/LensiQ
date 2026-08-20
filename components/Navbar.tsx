@@ -1,6 +1,7 @@
 import { createClient } from '../lib/supabase/server';
 import Link from 'next/link';
 import UserDropdown from './UserDropdown';
+import MobileNav from './MobileNav';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -9,7 +10,7 @@ const primaryLinks = [
   { href: '/browse', label: 'Practice', shortLabel: 'Question bank' },
   { href: '/search', label: 'Search', shortLabel: 'Find questions' },
   { href: '/teach', label: 'Teach', shortLabel: 'AI Teaching' },
-  { href: '/voice', label: 'Voice Tutor', shortLabel: 'Speak with LenxiQ' },
+  { href: '/voice', label: 'Voice Tutor', shortLabel: 'Speak with lensiqAI' },
   { href: '/voice?mode=class', label: 'Live Class', shortLabel: 'Live teaching room' },
 ];
 
@@ -49,7 +50,7 @@ export default async function Navbar() {
         <Link href="/" className="group flex min-w-0 items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0B1220] text-lg font-black text-[#E8A23D] shadow-sm">LQ</span>
           <span className="min-w-0">
-            <span className="block truncate text-base font-black tracking-tight text-[#0B1220]">LenxiQ</span>
+            <span className="block truncate text-base font-black tracking-tight text-[#0B1220]">lensiqAI</span>
             <span className="hidden text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 sm:block">Medical learning</span>
           </span>
         </Link>
@@ -65,18 +66,7 @@ export default async function Navbar() {
         <div className="flex shrink-0 items-center gap-2">
           <Link href="/pricing" className="rounded-lg border border-[#E8A23D]/50 bg-[#FFF8E9] px-3 py-2 text-xs font-black text-[#8B5709] hover:bg-[#FFF0CF] sm:text-sm">Plans</Link>
           {user ? <UserDropdown email={user.email || 'User'} /> : <Link href="/signup" className="rounded-xl bg-[#0B1220] px-3.5 py-2.5 text-sm font-black text-white shadow-sm hover:bg-slate-800 sm:px-4">Get started</Link>}
-          <details className="relative lg:hidden">
-            <summary className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-black text-slate-700 shadow-sm">☰</summary>
-            <div className="absolute right-0 top-12 w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">
-              {primaryLinks.map((link) => (
-                <Link key={link.href} href={link.href} className="block rounded-xl px-4 py-3 hover:bg-slate-50">
-                  <span className="block text-sm font-black text-slate-900">{link.label}</span>
-                  <span className="block text-xs font-medium text-slate-500">{link.shortLabel}</span>
-                </Link>
-              ))}
-              <Link href="/pricing" className="mt-1 block rounded-xl border-t border-slate-100 px-4 py-3 text-sm font-black text-[#9A5D00]">Plans and access</Link>
-            </div>
-          </details>
+          <MobileNav links={primaryLinks} />
         </div>
       </nav>
     </header>

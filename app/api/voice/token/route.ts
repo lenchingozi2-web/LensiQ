@@ -3,7 +3,7 @@ import { AccessToken } from 'livekit-server-sdk';
 import { createClient } from '../../../../lib/supabase/server';
 
 function normalizeLiveKitUrl(value: string) {
-  const trimmed = value.trim().replace(/\/$/, '');
+  const trimmed = value.trim().replace(/^['"]|['"]$/g, '').replace(/\/$/, '');
   const withWebSocketProtocol = trimmed.replace(/^https:\/\//i, 'wss://').replace(/^http:\/\//i, 'ws://');
   const candidate = /^wss?:\/\//i.test(withWebSocketProtocol) ? withWebSocketProtocol : `wss://${withWebSocketProtocol}`;
   const parsed = new URL(candidate);
@@ -34,7 +34,7 @@ export async function POST() {
   const roomName = `lensiq-voice-${user.id.slice(0, 8)}-${crypto.randomUUID()}`;
   const token = new AccessToken(apiKey, apiSecret, {
     identity: user.id,
-    name: user.email ?? 'LenxiQ learner',
+    name: user.email ?? 'lensiqAI learner',
     ttl: '10m',
   });
 

@@ -1,9 +1,8 @@
 import { createClient } from '../../../../../lib/supabase/server';
 import { checkAccess } from '../../../../../lib/gatekeeper';
+import { ANATOMICAL_PATHOLOGY_SYSTEMS, isAnatomicalPathologyAggregate } from '../../../../../lib/practical-catalogue';
 import StudyCard from '../../../../../components/StudyCard';
 import Link from 'next/link';
-
-const ANATOMICAL_PATHOLOGY_DIVISIONS = ['Breast', 'Cardiovascular', 'Central Nervous System', 'Female Genital Tract', 'Gastrointestinal System', 'Genitourinary System', 'Hepatobiliary System', 'Lymphoreticular / Haematopoietic', 'Other / Congenital', 'Other / Surface', 'Respiratory System', 'Thyroid'];
 
 function titleFromSlug(value: string) {
   return value.split('-').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
@@ -16,18 +15,17 @@ export default async function BrowseModePage({ params }: { params: Promise<{ sub
   const rawDivision = decodeURIComponent(resolvedParams.division);
   const questionType = resolvedParams.type.toLowerCase();
   const subjectTitle = titleFromSlug(subjectId);
-  const divisionSlug = rawDivision.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  const isAnatomicalAggregate = subjectId === 'pathology' && divisionSlug === 'anatomical-pathology';
+  const isAnatomicalAggregate = isAnatomicalPathologyAggregate(subjectId, rawDivision);
   const displayDivision = isAnatomicalAggregate ? 'Anatomical Pathology practicals' : (rawDivision.includes('-') ? titleFromSlug(rawDivision) : rawDivision);
   const canonicalDivision = isAnatomicalAggregate ? 'Anatomical Pathology' : rawDivision;
 
   if (questionType === 'practical') {
-    const practicalAccess = await checkAccess('practical');
-    if (!practicalAccess.allowed) return <main className="min-h-[calc(100vh-4.5rem)] bg-[#F6F8FB] px-4 py-12 text-center sm:px-6"><div className="mx-auto max-w-xl rounded-3xl border border-amber-200 bg-white p-8 shadow-xl"><p className="text-xs font-black uppercase tracking-[0.18em] text-[#9A5D00]">Premium practicals</p><h1 className="mt-3 text-3xl font-black text-[#0B1220]">Unlock the practical question bank</h1><p className="mt-4 leading-7 text-slate-600">{practicalAccess.message}</p><div className="mt-7 flex flex-wrap justify-center gap-3"><Link href="/pricing" className="rounded-xl bg-[#E8A23D] px-6 py-3 font-black text-[#0B1220] hover:bg-amber-500">View subscription plans</Link><Link href="/browse" className="rounded-xl border border-slate-200 px-6 py-3 font-bold text-slate-700">Back to practice</Link></div></div></main>;
+    const practicalAccess = await checkAccess('practical', undefined, isAnatomicalAggregate ? undefined : rawDivision);
+    if (!practicalAccess.allowed) return <main className="min-h-[calc(100vh-4.5rem)] bg-[#F6F8FB] px-4 py-12 text-center sm:px-6"><div className="mx-auto max-w-xl rounded-3xl border border-amber-200 bg-white p-8 shadow-xl"><p className="text-xs font-black uppercase tracking-[0.18em] text-[#9A5D00]">Practical access</p><h1 className="mt-3 text-3xl font-black text-[#0B1220]">Continue with verified practicals</h1><p className="mt-4 leading-7 text-slate-600">{practicalAccess.message}</p>{isAnatomicalAggregate && <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-left"><p className="text-xs font-black uppercase tracking-[0.15em] text-emerald-700">Free branch</p><p className="mt-1 text-sm font-bold leading-6 text-emerald-900">Breast practicals are available on the free plan. Other organ systems require premium access.</p></div>}<div className="mt-7 flex flex-wrap justify-center gap-3">{isAnatomicalAggregate && <Link href={`/browse/${subjectId}/${encodeURIComponent('Breast')}/practical`} className="rounded-xl bg-emerald-600 px-6 py-3 font-black text-white hover:bg-emerald-700">Open Breast practicals</Link>}<Link href="/pricing" className="rounded-xl bg-[#E8A23D] px-6 py-3 font-black text-[#0B1220] hover:bg-amber-500">View subscription plans</Link><Link href="/browse" className="rounded-xl border border-slate-200 px-6 py-3 font-bold text-slate-700">Back to practice</Link></div></div></main>;
   }
 
   let query = supabase.from('questions').select('*').ilike('subject', subjectTitle).eq('type', questionType);
-  query = isAnatomicalAggregate ? query.in('division', ANATOMICAL_PATHOLOGY_DIVISIONS) : query.eq('division', rawDivision);
+  query = isAnatomicalAggregate ? query.in('division', [...ANATOMICAL_PATHOLOGY_SYSTEMS]) : query.eq('division', rawDivision);
   const { data: questions, error } = await query.order('created_at', { ascending: true });
 
   if (error || !questions || questions.length === 0) return <main className="min-h-[calc(100vh-4.5rem)] bg-[#F6F8FB] px-4 py-12 text-center sm:px-6"><div className="mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white p-8 shadow-xl"><p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Practice bank</p><h1 className="mt-3 text-3xl font-black text-[#0B1220]">No {questionType.toUpperCase()} questions found</h1><p className="mt-4 leading-7 text-slate-600">There are no stored {questionType} questions for {displayDivision} yet. Try another format or return to the division menu.</p><div className="mt-7 flex flex-wrap justify-center gap-3"><Link href={`/browse/${subjectId}/${encodeURIComponent(canonicalDivision)}`} className="rounded-xl bg-[#0B1220] px-6 py-3 font-black text-white">Back to formats</Link><Link href="/search" className="rounded-xl border border-slate-200 px-6 py-3 font-bold text-slate-700">Search question bank</Link></div></div></main>;
