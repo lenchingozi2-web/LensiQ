@@ -394,6 +394,7 @@ function VoiceTutorContent() {
     if (greetingTimerRef.current) window.clearTimeout(greetingTimerRef.current);
     clearAttachedAudio();
     ambientAudioRef.current?.pause();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     setConnected(false);
     setVoiceActive(false);
     setSessionId(null);
@@ -477,6 +478,13 @@ function VoiceTutorContent() {
         const greeting: Message = { role: 'assistant', content: 'Welcome to LenxiQ AI Live Class. I’m ready to learn with you—what medical topic would you like to study first?' };
         setMessages([greeting]);
         void persistMessage(activeConversation.id, greeting);
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(greeting.content);
+          utterance.rate = 0.94;
+          utterance.pitch = 0.98;
+          window.speechSynthesis.speak(utterance);
+        }
         setStatus('Your tutor is ready. Speak naturally, interrupt anytime, or use the text box below.');
       }, 3500);
       if (ambientEnabled && ambientAudioRef.current) { ambientAudioRef.current.volume = soundscapeVolume; void ambientAudioRef.current.play().catch(() => setSoundscapeStatus('Tap Test sound to resume ambience')); }
