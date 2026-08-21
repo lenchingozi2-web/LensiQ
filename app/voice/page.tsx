@@ -139,10 +139,37 @@ function VoiceTutorContent() {
     if (!audio) throw new Error('The soundscape player is not available yet.');
     audio.pause();
     audio.src = selected.src;
-    audio.load();
     audio.currentTime = 0;
     audio.volume = 0.055;
-    await audio.play();
+    if (audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+      await new Promise<void>((resolve, reject) => {
+        const onReady = () => {
+          cleanup();
+          resolve();
+        };
+        const onError = () => {
+          cleanup();
+          reject(audio.error ?? new Error('The soundscape file could not be loaded.'));
+        };
+        const cleanup = () => {
+          audio.removeEventListener('canplay', onReady);
+          audio.removeEventListener('error', onError);
+        };
+        audio.addEventListener('canplay', onReady, { once: true });
+        audio.addEventListener('error', onError, { once: true });
+      });
+    }
+    try {
+      await audio.play();
+    } catch (playError) {
+      // A source switch can briefly interrupt the first play request on mobile browsers.
+      // Retry from the same user gesture after the media element has settled.
+      if (playError instanceof DOMException && playError.name === 'AbortError') {
+        await audio.play();
+      } else {
+        throw playError;
+      }
+    }
     setAmbientEnabled(true);
     setSoundscapeStatus(`${selected.label} is playing softly`);
   };
