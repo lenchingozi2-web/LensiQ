@@ -69,8 +69,10 @@ export default function CbtEngine({ questions, testTitle }: { questions: Questio
     if (!isStarted || isSubmitted) return;
 
     if (timeLeft <= 0) {
-      handleFinalSubmit(true); // Forces auto-submit when time is up
-      return;
+      const submitTimer = window.setTimeout(() => {
+        void handleFinalSubmit(true); // Forces auto-submit when time is up
+      }, 0);
+      return () => window.clearTimeout(submitTimer);
     }
 
     const timerId = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);

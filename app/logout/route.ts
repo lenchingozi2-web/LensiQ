@@ -2,7 +2,7 @@ import { createClient } from '../../lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-export async function GET(request: Request) {
+export async function GET() {
   const supabase = await createClient();
   
   // 1. Identify the user BEFORE destroying the session

@@ -1,27 +1,19 @@
-import type { Metadata } from "next";
-import "./globals.css";
-import Navbar from "@/components/Navbar";
+import type { Metadata } from 'next';
+import './globals.css';
+import Navbar from '@/components/Navbar';
 
 export const metadata: Metadata = {
-  title: "Lensiq AI",
-  description: "Elite Medical Study Platform & AI Tutor",manifest: "/manifest.json",
+  title: 'LenxiQ AI',
+  description: 'Professional medical learning with curriculum pathways, complete past questions, and an AI tutor.',
+  manifest: '/manifest.json',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
-        {/* This is the Navbar that will now sit at the top of every page */}
+      <body className="min-h-screen bg-[#F6F8FB] text-[#0B1220] antialiased">
         <Navbar />
-        
-        {/* This is where the rest of your app's pages will load */}
-        <main className="flex-grow max-w-4xl mx-auto w-full p-4">
-          {children}
-        </main>
+        <main className="min-h-[calc(100vh-4.5rem)] w-full">{children}</main>
       </body>
     </html>
   );

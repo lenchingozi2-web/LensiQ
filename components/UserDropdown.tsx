@@ -1,65 +1,37 @@
-"use client";
+'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 export default function UserDropdown({ email }: { email: string }) {
   const [isOpen, setIsOpen] = useState(false);
-
-  // Get the first letter of the email for the avatar (e.g., "L" for your admin email)
+  const containerRef = useRef<HTMLDivElement>(null);
   const initial = email ? email.charAt(0).toUpperCase() : 'U';
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setIsOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
 
   const handleLogout = async () => {
     localStorage.clear();
     sessionStorage.clear();
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    document.cookie.split(';').forEach((cookie) => {
+      document.cookie = cookie.replace(/^ +/, '').replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`);
     });
-    // SEND THEM TO THE AUTH PAGE WHEN LOGGING OUT
-    window.location.href = '/signup'; 
+    window.location.href = '/signup';
   };
 
-  return (
-    <div className="relative">
-      {/* Avatar Button */}
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-10 h-10 rounded-full bg-[#E8A23D] text-slate-900 font-bold flex items-center justify-center border-2 border-transparent hover:border-white transition-all shadow-sm"
-      >
-        {initial}
-      </button>
-
-      {/* Dropdown Menu */}
-      {isOpen && (
-        <div className="absolute right-0 mt-3 w-48 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden z-50">
-          <div className="p-3 border-b border-slate-100 bg-slate-50">
-            <p className="text-xs text-slate-500 font-medium truncate">{email}</p>
-          </div>
-          <div className="p-2">
-            <Link 
-              href="/" 
-              onClick={() => setIsOpen(false)}
-              className="block px-4 py-2 text-sm text-slate-700 font-medium hover:bg-slate-50 hover:text-[#E8A23D] rounded-xl transition-colors"
-            >
-              home
-            </Link>
-            <Link 
-              href="/admin" 
-              onClick={() => setIsOpen(false)}
-              className="block px-4 py-2 text-sm text-slate-700 font-medium hover:bg-slate-50 hover:text-[#E8A23D] rounded-xl transition-colors"
-            >
-              Admin Panel
-            </Link>
-            <div className="h-px bg-slate-100 my-1"></div>
-            <button 
-              onClick={handleLogout}
-              className="w-full text-left px-4 py-2 text-sm text-red-600 font-bold hover:bg-red-50 rounded-xl transition-colors"
-            >
-              Log Out
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return <div ref={containerRef} className="relative"><button type="button" aria-label="Open account menu" aria-expanded={isOpen} onClick={() => setIsOpen((open) => !open)} className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-transparent bg-[#E8A23D] font-bold text-slate-900 shadow-sm transition-all hover:border-white">{initial}</button>{isOpen && <div role="menu" className="absolute right-0 z-50 mt-3 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"><div className="border-b border-slate-100 bg-slate-50 p-3"><p className="truncate text-xs font-medium text-slate-500">{email}</p></div><div className="p-2"><Link href="/" onClick={() => setIsOpen(false)} className="block rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-[#E8A23D]">Home</Link><Link href="/pricing" onClick={() => setIsOpen(false)} className="block rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-[#E8A23D]">Subscription plans</Link><Link href="/admin" onClick={() => setIsOpen(false)} className="block rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-[#E8A23D]">Admin Panel</Link><div className="my-1 h-px bg-slate-100" /><button type="button" onClick={() => void handleLogout()} className="w-full rounded-xl px-4 py-2.5 text-left text-sm font-bold text-red-600 transition-colors hover:bg-red-50">Log Out</button></div></div>}</div>;
 }

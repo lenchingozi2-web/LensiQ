@@ -2,6 +2,10 @@
   "name": "lensiq",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.15.1",
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build",
@@ -12,7 +16,11 @@
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",
     "@tailwindcss/typography": "^0.5.20",
+    "jszip": "^3.10.1",
+    "livekit-client": "^2.22.0",
+    "livekit-server-sdk": "^2.18.0",
     "next": "16.2.10",
+    "pdf-parse": "1.1.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-markdown": "^10.1.0",

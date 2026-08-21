@@ -58,7 +58,7 @@ export default function MockExamSetup() {
       
       // If the Gatekeeper says yes, launch the quiz!
       router.push(examUrl);
-    } catch (err) {
+    } catch {
       setError("Failed to verify access. Please try again.");
       setLoading(false);
     }

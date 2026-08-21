@@ -1,63 +1,34 @@
 import { createClient } from '../../../../../lib/supabase/server';
+import { checkAccess } from '../../../../../lib/gatekeeper';
+import { ANATOMICAL_PATHOLOGY_SYSTEMS, FREE_ANATOMICAL_PATHOLOGY_SYSTEM, isAnatomicalPathologyAggregate } from '../../../../../lib/practical-catalogue';
 import StudyCard from '../../../../../components/StudyCard';
 import Link from 'next/link';
+
+function titleFromSlug(value: string) {
+  return value.split('-').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
 
 export default async function BrowseModePage({ params }: { params: Promise<{ subject: string, division: string, type: string }> }) {
   const supabase = await createClient();
   const resolvedParams = await params;
-  
   const subjectId = resolvedParams.subject;
-  const divisionName = decodeURIComponent(resolvedParams.division);
-  const questionType = resolvedParams.type;
+  const rawDivision = decodeURIComponent(resolvedParams.division);
+  const questionType = resolvedParams.type.toLowerCase();
+  const subjectTitle = titleFromSlug(subjectId);
+  const isAnatomicalAggregate = isAnatomicalPathologyAggregate(subjectId, rawDivision);
+  const displayDivision = isAnatomicalAggregate ? 'Anatomical Pathology practicals' : (rawDivision.includes('-') ? titleFromSlug(rawDivision) : rawDivision);
+  const canonicalDivision = isAnatomicalAggregate ? 'Anatomical Pathology' : rawDivision;
 
-  // Format subject title for the query
-  const subjectTitle = subjectId
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-
-  // Fetch all questions for this division and type (mcq or theory)
-  const { data: questions, error } = await supabase
-    .from('questions')
-    .select('*')
-    .ilike('subject', subjectTitle)
-    .eq('division', divisionName)
-    .eq('type', questionType);
-
-  // Fallback UI if no questions are found
-  if (error || !questions || questions.length === 0) {
-    return (
-      <main className="p-6 max-w-3xl mx-auto mt-10 text-center">
-         <h1 className="text-2xl font-bold mb-4">No Questions Found</h1>
-         <p className="text-slate-600 mb-6">We couldn't find any {questionType.toUpperCase()} questions for {divisionName}.</p>
-         <Link href={`/browse/${subjectId}/${encodeURIComponent(divisionName)}`} className="text-[#E8A23D] font-bold hover:underline">
-           &larr; Go Back
-         </Link>
-      </main>
-    );
+  if (questionType === 'practical') {
+    const practicalAccess = await checkAccess('practical', undefined, isAnatomicalAggregate ? undefined : rawDivision);
+    if (!practicalAccess.allowed) return <main className="min-h-[calc(100vh-4.5rem)] bg-[#F6F8FB] px-4 py-12 text-center sm:px-6"><div className="mx-auto max-w-xl rounded-3xl border border-amber-200 bg-white p-8 shadow-xl"><p className="text-xs font-black uppercase tracking-[0.18em] text-[#9A5D00]">Practical access</p><h1 className="mt-3 text-3xl font-black text-[#0B1220]">Continue with verified practicals</h1><p className="mt-4 leading-7 text-slate-600">{practicalAccess.message}</p>{isAnatomicalAggregate && <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-left"><p className="text-xs font-black uppercase tracking-[0.15em] text-emerald-700">Free branch</p><p className="mt-1 text-sm font-bold leading-6 text-emerald-900">One Anatomical Pathology organ/system is available on the free plan: {FREE_ANATOMICAL_PATHOLOGY_SYSTEM}. Other organ systems require premium access.</p></div>}<div className="mt-7 flex flex-wrap justify-center gap-3">{isAnatomicalAggregate && <Link href={`/browse/${subjectId}/${encodeURIComponent(FREE_ANATOMICAL_PATHOLOGY_SYSTEM)}/practical`} className="rounded-xl bg-emerald-600 px-6 py-3 font-black text-white hover:bg-emerald-700">Open free practicals</Link>}<Link href="/pricing" className="rounded-xl bg-[#E8A23D] px-6 py-3 font-black text-[#0B1220] hover:bg-amber-500">View subscription plans</Link><Link href="/browse" className="rounded-xl border border-slate-200 px-6 py-3 font-bold text-slate-700">Back to practice</Link></div></div></main>;
   }
 
-  return (
-    <main className="p-4 sm:p-8 bg-slate-100 min-h-screen">
-      <div className="max-w-4xl mx-auto">
-        
-        {/* Header Section */}
-        <div className="mb-8">
-          <Link href={`/browse/${subjectId}/${encodeURIComponent(divisionName)}`} className="text-sm font-bold text-[#E8A23D] hover:underline mb-2 inline-block">
-            &larr; Back to Formats
-          </Link>
-          <h1 className="text-3xl font-bold text-[#0B1220] leading-tight mb-2">{divisionName}</h1>
-          <p className="text-slate-500 font-medium">Study Mode • {questions.length} Questions</p>
-        </div>
+  let query = supabase.from('questions').select('*').ilike('subject', subjectTitle).eq('type', questionType);
+  query = isAnatomicalAggregate ? query.in('division', [...ANATOMICAL_PATHOLOGY_SYSTEMS]) : query.eq('division', rawDivision);
+  const { data: questions, error } = await query.order('created_at', { ascending: true });
 
-        {/* Map out the AI Study Cards */}
-        <div className="space-y-8">
-          {questions.map((q, index) => (
-            <StudyCard key={q.id} question={q} index={index} />
-          ))}
-        </div>
+  if (error || !questions || questions.length === 0) return <main className="min-h-[calc(100vh-4.5rem)] bg-[#F6F8FB] px-4 py-12 text-center sm:px-6"><div className="mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white p-8 shadow-xl"><p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Practice bank</p><h1 className="mt-3 text-3xl font-black text-[#0B1220]">No {questionType.toUpperCase()} questions found</h1><p className="mt-4 leading-7 text-slate-600">There are no stored {questionType} questions for {displayDivision} yet. Try another format or return to the division menu.</p><div className="mt-7 flex flex-wrap justify-center gap-3"><Link href={`/browse/${subjectId}/${encodeURIComponent(canonicalDivision)}`} className="rounded-xl bg-[#0B1220] px-6 py-3 font-black text-white">Back to formats</Link><Link href="/search" className="rounded-xl border border-slate-200 px-6 py-3 font-bold text-slate-700">Search question bank</Link></div></div></main>;
 
-      </div>
-    </main>
-  );
+  return <main className="min-h-[calc(100vh-4.5rem)] bg-[#F6F8FB] px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><div className="mx-auto max-w-5xl"><div className="mb-8 flex flex-wrap items-center justify-between gap-3"><div><Link href={`/browse/${subjectId}/${encodeURIComponent(canonicalDivision)}`} className="text-sm font-black text-slate-500 hover:text-[#9A5D00]">← Back to formats</Link><p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-[#9A5D00]">{subjectTitle} · {questionType}</p><h1 className="mt-2 text-4xl font-black tracking-[-0.04em] text-[#0B1220] sm:text-5xl">{displayDivision}</h1><p className="mt-3 text-base leading-7 text-slate-600">{questions.length} preserved question{questions.length === 1 ? '' : 's'} in this study set.</p></div><div className="flex gap-2"><Link href="/curriculum" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">Study path</Link><Link href="/voice" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">Voice Tutor</Link></div></div><div className="space-y-6">{questions.map((question, index) => <StudyCard key={question.id} question={question} index={index} />)}</div></div></main>;
 }

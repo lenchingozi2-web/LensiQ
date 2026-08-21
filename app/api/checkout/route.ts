@@ -1,29 +1,28 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
+import { getPaidPlan } from '../../../lib/plans';
 
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
-    
-    // 1. Verify the user is logged in
     const { data: { user } } = await supabase.auth.getUser();
+
     if (!user) {
       return NextResponse.json({ error: 'You must be logged in to upgrade.' }, { status: 401 });
     }
 
-    // 2. Get the requested plan duration and amount from the frontend
     const body = await req.json();
-    const { amount, duration } = body;
+    const plan = getPaidPlan(body?.planId);
 
-    // 3. Create a unique transaction reference
-    const tx_ref = `lensiq_${user.id}_${Date.now()}`;
-    
-    // STRICT HARDCODE: Forces the exact working domain in production, ignores 'www' completely
-    const siteUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://lenxiq.online' 
+    if (!plan) {
+      return NextResponse.json({ error: 'Invalid subscription plan.' }, { status: 400 });
+    }
+
+    const tx_ref = `lensiq_${user.id}_${plan.id}_${Date.now()}`;
+    const siteUrl = process.env.NODE_ENV === 'production'
+      ? 'https://lenxiq.online'
       : 'http://localhost:3000';
 
-    // 4. Call Flutterwave's v3 Payment API
     const response = await fetch('https://api.flutterwave.com/v3/payments', {
       method: 'POST',
       headers: {
@@ -32,39 +31,39 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         tx_ref,
-        amount,
+        amount: plan.amountNaira,
         currency: 'NGN',
         redirect_url: `${siteUrl}/api/checkout/verify`,
         meta: {
           user_id: user.id,
-          plan_duration: duration,
+          plan_id: plan.id,
+          plan_duration: plan.durationMonths,
+          plan_amount: plan.amountNaira,
         },
         customer: {
           email: user.email,
-          name: 'LensiqAI Scholar',
+          name: 'lensiqAI Scholar',
         },
         customizations: {
-          title: 'LensiqAI Elite Scholar',
-          description: `${duration} Months Premium Subscription`,
-          logo: 'https://your-logo-url-here.com/logo.png'
+          title: 'lensiqAI Premium Access',
+          description: `${plan.label} subscription with full course and practical access`,
+          logo: `${siteUrl}/icon.png`,
         },
       }),
     });
 
     const data = await response.json();
 
-    // 5. Return the secure payment link to the frontend
-    if (data.status === 'success') {
-      return NextResponse.json({ checkoutUrl: data.data.link });
-    } else {
-      throw new Error(data.message);
+    if (data.status !== 'success' || !data.data?.link) {
+      throw new Error(data.message || 'Payment gateway rejected the checkout request.');
     }
-    
+
+    return NextResponse.json({ checkoutUrl: data.data.link });
   } catch (error) {
     console.error('Flutterwave API Error:', error);
     return NextResponse.json(
-      { error: 'Failed to initialize payment gateway.' }, 
-      { status: 500 }
+      { error: 'Failed to initialize payment gateway.' },
+      { status: 500 },
     );
   }
 }

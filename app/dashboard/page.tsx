@@ -4,161 +4,87 @@ import Link from 'next/link';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-
-  // 1. Authenticate the user
   const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect('/login');
 
-  // If they aren't logged in, kick them back to the login page
-  if (authError || !user) {
-    redirect('/login');
-  }
-
-  // 2. Fetch all of their past mock exams, newest first
   const { data: results } = await supabase
     .from('exam_results')
-    .select('*')
+    .select('id, test_title, score, total_questions, percentage, created_at')
     .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(50);
 
-  // 3. Calculate their overall statistics
-  const totalExams = results?.length || 0;
-  const averagePercentage =
-    totalExams > 0
-      ? Math.round(
-          results!.reduce((acc, curr) => acc + curr.percentage, 0) / totalExams
-        )
-      : 0;
-
-  // Formatting the date nicely
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  };
+  const totalExams = results?.length ?? 0;
+  const averagePercentage = totalExams > 0 ? Math.round(results!.reduce((sum, result) => sum + result.percentage, 0) / totalExams) : 0;
+  const latestScore = results?.[0]?.percentage ?? 0;
+  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
-    <main className="p-4 sm:p-8 bg-slate-50 min-h-screen">
-      <div className="max-w-5xl mx-auto mt-6">
-
-        {/* Header Section */}
-        <div className="mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold text-[#0B1220] mb-2">
-            Welcome back, <span className="text-[#E8A23D]">Doctor.</span>
-          </h1>
-          <p className="text-slate-500 font-medium text-lg">
-            Here is an overview of your recent performance.
-          </p>
-        </div>
-
-        {/* Top Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-12">
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-6">
-            <div className="bg-indigo-50 w-16 h-16 rounded-xl flex items-center justify-center text-indigo-500 text-2xl font-black">
-              📝
-            </div>
+    <main className="min-h-[calc(100vh-64px)] bg-slate-50 px-4 py-8 sm:px-6 sm:py-12">
+      <div className="mx-auto max-w-6xl">
+        <header className="rounded-3xl bg-gradient-to-br from-[#0B1220] to-[#1c2d46] p-8 text-white shadow-xl sm:p-10">
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-[#E8A23D]">Learner dashboard</p>
+          <div className="mt-4 flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div>
-              <p className="text-slate-400 font-bold uppercase tracking-wider text-sm mb-1">
-                Total Exams
-              </p>
-              <p className="text-4xl font-black text-[#0B1220]">
-                {totalExams}
-              </p>
+              <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Welcome back, Doctor.</h1>
+              <p className="mt-3 max-w-xl text-base leading-7 text-slate-300">Track your mock-exam performance, continue with grounded teaching, and keep your revision moving.</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/teach" className="rounded-xl bg-[#E8A23D] px-5 py-3 text-sm font-black text-[#0B1220] hover:bg-amber-500">Open teaching room</Link>
+              <Link href="/voice" className="rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-bold text-white hover:bg-white/15">Voice tutor</Link>
             </div>
           </div>
+        </header>
 
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-6">
-            <div className="bg-amber-50 w-16 h-16 rounded-xl flex items-center justify-center text-[#E8A23D] text-2xl font-black">
-              🎯
-            </div>
-            <div>
-              <p className="text-slate-400 font-bold uppercase tracking-wider text-sm mb-1">
-                Average Score
-              </p>
-              <p className="text-4xl font-black text-[#0B1220]">
-                {averagePercentage}%
-              </p>
-            </div>
+        <section className="mt-8 grid gap-5 sm:grid-cols-3">
+          {[
+            { label: 'Mock exams completed', value: totalExams.toString(), detail: 'All recorded attempts' },
+            { label: 'Average score', value: `${averagePercentage}%`, detail: 'Across completed exams' },
+            { label: 'Latest score', value: `${latestScore}%`, detail: totalExams ? formatDate(results![0].created_at) : 'No exam yet' },
+          ].map((stat) => (
+            <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{stat.label}</p>
+              <p className="mt-3 text-4xl font-black text-[#0B1220]">{stat.value}</p>
+              <p className="mt-2 text-sm font-medium text-slate-500">{stat.detail}</p>
+            </article>
+          ))}
+        </section>
+
+        <section className="mt-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#E8A23D]">Revision activity</p>
+            <h2 className="mt-2 text-2xl font-black text-[#0B1220]">Recent mock exams</h2>
           </div>
-        </div>
+          <Link href="/exam" className="inline-flex rounded-xl bg-[#0B1220] px-5 py-3 text-sm font-bold text-white hover:bg-slate-800">Take a new mock exam →</Link>
+        </section>
 
-        {/* Quick Action */}
-        <div className="mb-12">
-          <Link
-            href="/exam"
-            className="bg-[#0B1220] text-white px-8 py-4 rounded-xl font-bold hover:bg-slate-800 transition-colors shadow-md inline-block"
-          >
-            Take a New Mock Exam &rarr;
-          </Link>
-        </div>
-
-        {/* Recent Exams History Table */}
-        <div>
-          <h2 className="text-2xl font-bold text-[#0B1220] mb-6">
-            Recent Mock Exams
-          </h2>
-
+        <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           {totalExams === 0 ? (
-            <div className="bg-white p-10 text-center rounded-2xl border border-slate-200 shadow-sm">
-              <span className="text-4xl mb-4 block">📭</span>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">
-                No exams taken yet
-              </h3>
-              <p className="text-slate-500">
-                Your test history will appear here once you complete a mock
-                exam.
-              </p>
+            <div className="p-10 text-center sm:p-16">
+              <h3 className="text-xl font-black text-slate-900">Your exam history is ready for its first entry.</h3>
+              <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-500">Complete a mock exam to see scores, percentages, and your progress over time.</p>
+              <Link href="/exam" className="mt-6 inline-flex rounded-xl bg-[#E8A23D] px-5 py-3 text-sm font-black text-[#0B1220] hover:bg-amber-500">Start your first exam</Link>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm uppercase tracking-wider">
-                      <th className="p-4 sm:p-6 font-bold">Exam Title</th>
-                      <th className="p-4 sm:p-6 font-bold">Score</th>
-                      <th className="p-4 sm:p-6 font-bold">Percentage</th>
-                      <th className="p-4 sm:p-6 font-bold text-right">Date</th>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left">
+                <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-[0.14em] text-slate-500">
+                  <tr><th className="px-6 py-4 font-black">Exam title</th><th className="px-6 py-4 font-black">Score</th><th className="px-6 py-4 font-black">Percentage</th><th className="px-6 py-4 text-right font-black">Completed</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {results?.map((result) => (
+                    <tr key={result.id} className="transition-colors hover:bg-slate-50">
+                      <td className="px-6 py-5 font-bold text-slate-800">{result.test_title}</td>
+                      <td className="px-6 py-5 font-medium text-slate-600">{result.score} / {result.total_questions}</td>
+                      <td className="px-6 py-5"><span className={`rounded-full px-3 py-1 text-sm font-black ${result.percentage >= 50 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{result.percentage}%</span></td>
+                      <td className="px-6 py-5 text-right text-sm font-medium text-slate-400">{formatDate(result.created_at)}</td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {results?.map((result) => (
-                      <tr
-                        key={result.id}
-                        className="hover:bg-slate-50 transition-colors"
-                      >
-                        <td className="p-4 sm:p-6 font-bold text-slate-800">
-                          {result.test_title}
-                        </td>
-                        <td className="p-4 sm:p-6 text-slate-600 font-medium">
-                          {result.score} / {result.total_questions}
-                        </td>
-                        <td className="p-4 sm:p-6">
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm font-bold ${
-                              result.percentage >= 50
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-red-100 text-red-700'
-                            }`}
-                          >
-                            {result.percentage}%
-                          </span>
-                        </td>
-                        <td className="p-4 sm:p-6 text-slate-400 text-sm text-right whitespace-nowrap">
-                          {formatDate(result.created_at)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-        </div>
-
+        </section>
       </div>
     </main>
   );
