@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { AccessToken } from 'livekit-server-sdk';
 import { createClient } from '../../../../lib/supabase/server';
+import { buildLiveClassSeed } from '../../../../lib/ai/live-class-context';
 
 function normalizeLiveKitUrl(value: string) {
   const trimmed = value.trim().replace(/^['"]|['"]$/g, '').replace(/\/$/, '');
@@ -38,6 +39,7 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}));
   const courseName = typeof body?.courseName === 'string' && body.courseName.trim() ? body.courseName.trim().slice(0, 120) : 'Live Class';
+  const topicFocus = typeof body?.topicFocus === 'string' && body.topicFocus.trim() ? body.topicFocus.trim().slice(0, 300) : '';
   const conversationId = typeof body?.conversationId === 'string' && body.conversationId.trim() ? body.conversationId.trim() : null;
   const roomName = `lensiq-voice-${user.id.slice(0, 8)}-${crypto.randomUUID()}`;
 
@@ -71,9 +73,11 @@ export async function POST(req: Request) {
   }
 
   const isUnlimited = Boolean(quota.is_unlimited);
+  const evidenceSeed = await buildLiveClassSeed(supabase, courseName, topicFocus);
   const token = new AccessToken(apiKey, apiSecret, {
     identity: user.id,
     name: user.email ?? 'LenxiQ AI learner',
+    metadata: JSON.stringify({ courseName, topicFocus, sessionType: 'live_class', evidenceSeed }),
     ttl: isUnlimited ? '24h' : '10m',
   });
 
