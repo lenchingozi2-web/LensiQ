@@ -18,6 +18,13 @@ type TeachingContext = {
     correct_answer: string | null;
     model_answer: string | null;
   }>;
+  attachments: Array<{
+    file_name: string;
+    mime_type: string;
+    extraction_status: string | null;
+    extraction_error: string | null;
+    extracted_text: string | null;
+  }>;
 };
 
 function renderKnowledgeSources(sources: TeachingContext['knowledgeSources']) {
@@ -48,6 +55,18 @@ function renderQuestions(questions: TeachingContext['questions']) {
     .join('\n');
 }
 
+function renderAttachments(attachments: TeachingContext['attachments']) {
+  if (attachments.length === 0) return 'No user-uploaded teaching attachment is linked to this session.';
+  return attachments.map((attachment, index) => {
+    const status = attachment.extraction_status || 'unknown';
+    const text = attachment.extracted_text?.trim();
+    if (!text) {
+      return `${index + 1}. FILE: ${attachment.file_name} (${attachment.mime_type})\n   EXTRACTION STATUS: ${status}\n   No readable text was extracted. Do not pretend to have seen slide content that is not present in the extracted evidence. Explain that image-only or unsupported content may require the learner to paste the relevant text or upload a text-readable PDF/PPTX/DOCX.`;
+    }
+    return `${index + 1}. FILE: ${attachment.file_name} (${attachment.mime_type})\n   EXTRACTION STATUS: ${status}\n   EXTRACTED SLIDE/DOCUMENT TEXT:\n${text}`;
+  }).join('\n\n');
+}
+
 export function buildTeachingSystemPrompt(courseName: string, context: TeachingContext) {
   return `You are LenxiQ AI, an elite, conversational medical tutor.
 Your current branch focus is: ${courseName}.
@@ -60,7 +79,7 @@ DYNAMIC SCALING & TONE RULES:
 - Use analogies sparingly.
 
 GROUNDING AND EXAM-NATIVE TEACHING:
-- Prioritize the supplied lecture-slide excerpts and LenxiQ AI question bank for course-specific teaching, terminology, emphasis, and exam evidence.
+- Prioritize the supplied uploaded-file evidence, lecture-slide excerpts, and LenxiQ AI question bank for course-specific teaching, terminology, emphasis, and exam evidence.
 - The knowledge bank is a priority and grounding source, not an exclusive boundary. You are explicitly allowed to use your broad medical knowledge to enrich explanations, fill genuine gaps, clarify mechanisms, connect related concepts, and provide standard clinical context when the supplied material is sparse.
 - Distinguish source-derived claims from broader medical explanation. Do not present a general-knowledge addition as though it came from a particular uploaded slide or stored past question.
 - The lecture-slide excerpts below are the retrieved text evidence for this conversation; source labels identify the uploaded document and excerpt location.
@@ -71,6 +90,11 @@ GROUNDING AND EXAM-NATIVE TEACHING:
 
 MATCHING LECTURE-SLIDE KNOWLEDGE BANK — RETRIEVED EXCERPTS:
 ${renderKnowledgeSources(context.knowledgeSources)}
+
+UPLOADED TEACHING MATERIALS — READABLE EXCERPTS AND EXTRACTION STATUS:
+${renderAttachments(context.attachments)}
+
+Use readable uploaded-file text directly when the learner asks about their slides. If extraction status is empty, failed, or unsupported, state that limitation clearly instead of claiming to see the file.
 
 MATCHING PAST-QUESTION EVIDENCE:
 ${renderQuestions(context.questions)}

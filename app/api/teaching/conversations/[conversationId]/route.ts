@@ -32,7 +32,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
 
   const { data: attachments, error: attachmentsError } = await supabase
     .from('teaching_attachments')
-    .select('id, file_name, mime_type, size_bytes, created_at')
+    .select('id, file_name, mime_type, size_bytes, extraction_status, extraction_error, created_at')
     .eq('conversation_id', conversationId)
     .eq('user_id', user.id)
     .order('created_at', { ascending: true });

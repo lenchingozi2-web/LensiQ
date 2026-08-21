@@ -32,6 +32,14 @@ type KnowledgeSource = {
   relevance: number | null;
 };
 
+type TeachingAttachment = {
+  file_name: string;
+  mime_type: string;
+  extraction_status: string | null;
+  extraction_error: string | null;
+  extracted_text: string | null;
+};
+
 function subjectForCourse(courseName: string) {
   return courseName.toLowerCase() === 'pharmacology' ? 'Pharmacology' : 'Pathology';
 }
@@ -63,6 +71,7 @@ export async function buildTeachingContext(
   supabase: SupabaseClient,
   courseName: string,
   messages: ChatMessage[],
+  conversationId?: string,
 ) {
   const subject = subjectForCourse(courseName);
   const searchText = evidenceQuery(messages) || courseName;
@@ -130,9 +139,23 @@ export async function buildTeachingContext(
     questions = (fallbackQuestions ?? []) as QuestionContext[];
   }
 
+  const { data: attachmentRows } = conversationId
+    ? await supabase
+      .from('teaching_attachments')
+      .select('file_name,mime_type,extraction_status,extraction_error,extracted_text')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true })
+    : { data: [] };
+
+  const attachments = ((attachmentRows ?? []) as TeachingAttachment[]).map((attachment) => ({
+    ...attachment,
+    extracted_text: attachment.extracted_text?.trim().slice(0, 50000) || null,
+  }));
+
   return {
     subject,
     knowledgeSources,
     questions,
+    attachments,
   };
 }

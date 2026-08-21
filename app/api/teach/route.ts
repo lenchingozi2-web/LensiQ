@@ -33,6 +33,16 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const courseName = typeof body?.courseName === 'string' ? body.courseName : 'Pharmacology';
+    const conversationId = typeof body?.conversationId === 'string' ? body.conversationId : '';
+    if (conversationId) {
+      const { data: conversation } = await supabase
+        .from('teaching_conversations')
+        .select('id')
+        .eq('id', conversationId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!conversation) return NextResponse.json({ error: 'Teaching session not found.' }, { status: 404 });
+    }
     const messages = Array.isArray(body?.messages)
       ? body.messages.filter(
           (message: unknown): message is ChatMessage =>
@@ -56,7 +66,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const context = await buildTeachingContext(supabase, courseName, messages);
+    const context = await buildTeachingContext(supabase, courseName, messages, conversationId || undefined);
     const systemPrompt = buildTeachingSystemPrompt(courseName, context);
 
     const response = await fetch('https://api.deepseek.com/chat/completions', {
