@@ -8,6 +8,15 @@ function normalizeLiveKitUrl(value: string) {
   const candidate = /^wss?:\/\//i.test(withWebSocketProtocol) ? withWebSocketProtocol : `wss://${withWebSocketProtocol}`;
   const parsed = new URL(candidate);
   if (!['ws:', 'wss:'].includes(parsed.protocol)) throw new Error('LIVEKIT_URL must use ws:// or wss://.');
+
+  // LiveKit Cloud credentials are sometimes supplied as only the project
+  // subdomain (for example, `abc123`) rather than the full host. A bare host
+  // cannot resolve in the browser; normalize it to the public Cloud endpoint
+  // while preserving fully-qualified/custom WebSocket URLs unchanged.
+  if (!parsed.hostname.includes('.') && !parsed.hostname.includes(':')) {
+    parsed.hostname = `${parsed.hostname}.livekit.cloud`;
+  }
+
   return parsed.toString().replace(/\/$/, '');
 }
 
