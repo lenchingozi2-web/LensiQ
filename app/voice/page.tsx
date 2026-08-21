@@ -345,12 +345,12 @@ function VoiceTutorContent() {
         if (tokenData.error === 'live_class_limit') throw new Error(tokenData.message);
         throw new Error(tokenData.error || 'Unable to create a secure live session.');
       }
-      const activeConversation = await createConversation();
-      const linkResponse = await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: tokenData.sessionId, action: 'link', conversationId: activeConversation.id }) });
-      if (!linkResponse.ok) throw new Error('Unable to save the Live Class history link.');
       setSessionId(tokenData.sessionId);
       sessionIdRef.current = tokenData.sessionId;
       setQuota(tokenData.quota ?? null);
+      const activeConversation = await createConversation();
+      const linkResponse = await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: tokenData.sessionId, action: 'link', conversationId: activeConversation.id }) });
+      if (!linkResponse.ok) throw new Error('Unable to save the Live Class history link.');
       setMessages([]);
       setReplaying(false);
       const room = new Room({ adaptiveStream: true, dynacast: true });
