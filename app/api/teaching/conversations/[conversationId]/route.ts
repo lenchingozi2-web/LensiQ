@@ -11,7 +11,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
   const { conversationId } = await params;
   const { data: conversation, error: conversationError } = await supabase
     .from('teaching_conversations')
-    .select('id, course_name, title, created_at, updated_at')
+    .select('id, course_name, title, session_type, created_at, updated_at')
     .eq('id', conversationId)
     .eq('user_id', user.id)
     .single();

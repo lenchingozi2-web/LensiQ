@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
 import { checkAccess } from '../../../lib/gatekeeper';
+import { isPaidPlan } from '../../../lib/plans';
 import { buildTeachingContext } from '../../../lib/ai/teaching-context';
 import { buildTeachingSystemPrompt } from '../../../lib/ai/teaching-prompt';
 
@@ -34,15 +35,22 @@ export async function POST(req: Request) {
     const body = await req.json();
     const courseName = typeof body?.courseName === 'string' ? body.courseName : 'Pharmacology';
     const conversationId = typeof body?.conversationId === 'string' ? body.conversationId : '';
+    const sessionType = body?.sessionType === 'live_class' ? 'live_class' : 'teaching_room';
+    const liveClassSessionId = typeof body?.liveClassSessionId === 'string' ? body.liveClassSessionId : '';
+
     if (conversationId) {
       const { data: conversation } = await supabase
         .from('teaching_conversations')
-        .select('id')
+        .select('id, session_type')
         .eq('id', conversationId)
         .eq('user_id', user.id)
         .maybeSingle();
       if (!conversation) return NextResponse.json({ error: 'Teaching session not found.' }, { status: 404 });
+      if (sessionType === 'live_class' && conversation.session_type !== 'live_class') {
+        return NextResponse.json({ error: 'This conversation is not a Live Class session.' }, { status: 400 });
+      }
     }
+
     const messages = Array.isArray(body?.messages)
       ? body.messages.filter(
           (message: unknown): message is ChatMessage =>
@@ -59,7 +67,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid teaching conversation.' }, { status: 400 });
     }
 
-    if (messages.length === 1) {
+    if (sessionType === 'live_class') {
+      if (!liveClassSessionId) return NextResponse.json({ error: 'Live Class session is required.' }, { status: 400 });
+      const { data: liveSession } = await supabase
+        .from('live_class_sessions')
+        .select('id, status, started_at')
+        .eq('id', liveClassSessionId)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (!liveSession) return NextResponse.json({ error: 'The Live Class session has ended. Start a new session to continue.' }, { status: 403 });
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, plan, plan_expires_at')
+        .eq('id', user.id)
+        .maybeSingle();
+      const unlimited = profile?.role === 'admin' || (isPaidPlan(profile?.plan) && (!profile?.plan_expires_at || new Date(profile.plan_expires_at) > new Date()));
+      if (!unlimited && new Date(liveSession.started_at).getTime() + 600_000 <= Date.now()) {
+        await supabase.from('live_class_sessions').update({ status: 'expired', ended_at: new Date().toISOString() }).eq('id', liveClassSessionId).eq('user_id', user.id);
+        return NextResponse.json({ error: 'Your free Live Class session has reached its 10-minute limit. You can start another session if you have allowance remaining.' }, { status: 403 });
+      }
+    } else if (messages.length === 1) {
       const access = await checkAccess('teaching');
       if (!access.allowed) {
         return NextResponse.json({ error: access.message }, { status: access.status });
@@ -67,7 +96,7 @@ export async function POST(req: Request) {
     }
 
     const context = await buildTeachingContext(supabase, courseName, messages, conversationId || undefined);
-    const systemPrompt = buildTeachingSystemPrompt(courseName, context);
+    const systemPrompt = buildTeachingSystemPrompt(courseName, context, sessionType === 'live_class');
 
     const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',

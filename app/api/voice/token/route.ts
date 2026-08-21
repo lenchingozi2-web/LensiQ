@@ -9,10 +9,6 @@ function normalizeLiveKitUrl(value: string) {
   const parsed = new URL(candidate);
   if (!['ws:', 'wss:'].includes(parsed.protocol)) throw new Error('LIVEKIT_URL must use ws:// or wss://.');
 
-  // LiveKit Cloud credentials are sometimes supplied as only the project
-  // subdomain (for example, `abc123`) rather than the full host. A bare host
-  // cannot resolve in the browser; normalize it to the public Cloud endpoint
-  // while preserving fully-qualified/custom WebSocket URLs unchanged.
   if (!parsed.hostname.includes('.') && !parsed.hostname.includes(':')) {
     parsed.hostname = `${parsed.hostname}.livekit.cloud`;
   }
@@ -20,7 +16,7 @@ function normalizeLiveKitUrl(value: string) {
   return parsed.toString().replace(/\/$/, '');
 }
 
-export async function POST() {
+export async function POST(req: Request) {
   const rawLivekitUrl = process.env.LIVEKIT_URL;
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
@@ -40,11 +36,45 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
 
+  const body = await req.json().catch(() => ({}));
+  const courseName = typeof body?.courseName === 'string' && body.courseName.trim() ? body.courseName.trim().slice(0, 120) : 'Live Class';
+  const conversationId = typeof body?.conversationId === 'string' && body.conversationId.trim() ? body.conversationId.trim() : null;
   const roomName = `lensiq-voice-${user.id.slice(0, 8)}-${crypto.randomUUID()}`;
+
+  const { data: reservation, error: reservationError } = await supabase.rpc('reserve_live_class_session', {
+    p_room_name: roomName,
+    p_course_name: courseName,
+    p_conversation_id: conversationId,
+  });
+  const quota = Array.isArray(reservation) ? reservation[0] : reservation;
+
+  if (reservationError || !quota) {
+    console.error('Live Class reservation failed:', reservationError);
+    return NextResponse.json({ error: 'Unable to reserve a Live Class session right now. Please try again.' }, { status: 500 });
+  }
+
+  if (!quota.allowed) {
+    const limitMessage = quota.reason === 'limit_reached'
+      ? 'Your free plan includes 3 Live Class sessions per calendar month, with each session lasting up to 10 minutes. Upgrade for unlimited Live Class access.'
+      : 'Sign in to start Live Class.';
+    return NextResponse.json({
+      error: 'live_class_limit',
+      message: limitMessage,
+      quota: {
+        isUnlimited: false,
+        usedSessions: quota.used_sessions ?? 3,
+        maxSessions: quota.max_sessions ?? 3,
+        maxDurationSeconds: quota.max_duration_seconds ?? 600,
+        resetsAt: quota.expires_at,
+      },
+    }, { status: 403 });
+  }
+
+  const isUnlimited = Boolean(quota.is_unlimited);
   const token = new AccessToken(apiKey, apiSecret, {
     identity: user.id,
-    name: user.email ?? 'lensiqAI learner',
-    ttl: '10m',
+    name: user.email ?? 'LenxiQ AI learner',
+    ttl: isUnlimited ? '24h' : '10m',
   });
 
   token.addGrant({
@@ -59,6 +89,15 @@ export async function POST() {
     token: await token.toJwt(),
     url: livekitUrl,
     roomName,
-    expiresInSeconds: 600,
+    sessionId: quota.session_id,
+    expiresInSeconds: isUnlimited ? 86400 : 600,
+    quota: {
+      isUnlimited,
+      usedSessions: quota.used_sessions ?? null,
+      maxSessions: quota.max_sessions ?? null,
+      maxDurationSeconds: quota.max_duration_seconds ?? null,
+      expiresAt: quota.expires_at ?? null,
+      resetsAt: isUnlimited ? null : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString(),
+    },
   });
 }
