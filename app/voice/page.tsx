@@ -360,41 +360,42 @@ function VoiceTutorContent() {
 
   const startTutorPcmProbe = (track: Track) => {
     const mediaTrack = track.mediaStreamTrack;
-    const AudioContextConstructor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (track.kind !== Track.Kind.Audio || !mediaTrack || !AudioContextConstructor || (window as typeof window & { __lensiqRemotePcmProbeStarted?: boolean }).__lensiqRemotePcmProbeStarted) return;
+    type BrowserAudioFrame = { numberOfFrames: number; numberOfChannels: number; copyTo: (destination: Float32Array, options: { planeIndex: number }) => void; close: () => void };
+    type BrowserTrackProcessor = new (options: { track: MediaStreamTrack }) => { readable: ReadableStream<BrowserAudioFrame> };
+    const Processor = (window as unknown as { MediaStreamTrackProcessor?: BrowserTrackProcessor }).MediaStreamTrackProcessor;
+    if (track.kind !== Track.Kind.Audio || !mediaTrack || !Processor || (window as typeof window & { __lensiqRemotePcmProbeStarted?: boolean }).__lensiqRemotePcmProbeStarted) return;
     Object.defineProperty(window, '__lensiqRemotePcmProbeStarted', { configurable: true, value: true });
     const clone = mediaTrack.clone();
-    const stream = new MediaStream([clone]);
-    const context = new AudioContextConstructor();
-    const source = context.createMediaStreamSource(stream);
-    const analyser = context.createAnalyser();
-    const sink = context.createGain();
-    analyser.fftSize = 2048;
-    sink.gain.value = 0;
-    source.connect(analyser).connect(sink).connect(context.destination);
-    const buffer = new Float32Array(analyser.fftSize);
+    const processor = new Processor({ track: clone });
+    const reader = processor.readable.getReader();
     let windows = 0;
     let sumRms = 0;
     let maxRms = 0;
     Object.defineProperty(window, '__lensiqRemotePcmProbe', { configurable: true, value: { windows, maxRms, avgRms: 0, nonSilent: false, status: 'running' } });
-    void context.resume().then(() => {
-      const poll = window.setInterval(() => {
-        analyser.getFloatTimeDomainData(buffer);
-        let sumSquares = 0;
-        for (const sample of buffer) sumSquares += sample * sample;
-        const rms = Math.sqrt(sumSquares / buffer.length);
-        windows += 1;
-        sumRms += rms;
-        maxRms = Math.max(maxRms, rms);
-        Object.defineProperty(window, '__lensiqRemotePcmProbe', { configurable: true, value: { windows, maxRms, avgRms: sumRms / windows, nonSilent: maxRms > 0.001, status: 'running' } });
-      }, 100);
-      window.setTimeout(() => {
-        window.clearInterval(poll);
-        Object.defineProperty(window, '__lensiqRemotePcmProbe', { configurable: true, value: { windows, maxRms, avgRms: windows ? sumRms / windows : 0, nonSilent: maxRms > 0.001, status: 'complete' } });
+    void (async () => {
+      const started = performance.now();
+      try {
+        while (performance.now() - started < 7000 && windows < 350) {
+          const result = await reader.read();
+          if (result.done) break;
+          const frame = result.value;
+          const buffer = new Float32Array(frame.numberOfFrames * frame.numberOfChannels);
+          frame.copyTo(buffer, { planeIndex: 0 });
+          let sumSquares = 0;
+          for (const sample of buffer) sumSquares += sample * sample;
+          const rms = Math.sqrt(sumSquares / Math.max(1, buffer.length));
+          windows += 1;
+          sumRms += rms;
+          maxRms = Math.max(maxRms, rms);
+          Object.defineProperty(window, '__lensiqRemotePcmProbe', { configurable: true, value: { windows, maxRms, avgRms: sumRms / windows, nonSilent: maxRms > 0.001, status: 'running' } });
+          frame.close();
+        }
+      } finally {
+        await reader.cancel().catch(() => undefined);
         clone.stop();
-        void context.close();
-      }, 7000);
-    }).catch(() => { clone.stop(); void context.close(); });
+        Object.defineProperty(window, '__lensiqRemotePcmProbe', { configurable: true, value: { windows, maxRms, avgRms: windows ? sumRms / windows : 0, nonSilent: maxRms > 0.001, status: 'complete' } });
+      }
+    })();
   };
 
   const attachAudioTrack = (track: Track) => {
