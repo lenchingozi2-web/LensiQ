@@ -26,6 +26,8 @@ export default async function TopicWorkspacePage({ params }: { params: Promise<{
           </div>
         </div>
 
+        {topic.subtopics.length > 0 ? <section className="mt-6 rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-8"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#E8A23D]">Cardinal subtopics</p><h2 className="mt-2 text-2xl font-black text-[#0B1220]">What this topic covers</h2><div className="mt-5 grid gap-3 sm:grid-cols-2">{topic.subtopics.map((subtopic) => <div key={subtopic} className="rounded-xl bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">{subtopic}</div>)}</div></section> : null}
+
         <TopicDiscoveryPanel courseSlug={course.slug} topicSlug={topic.slug} topicTitle={topic.title} />
       </section>
     </div>

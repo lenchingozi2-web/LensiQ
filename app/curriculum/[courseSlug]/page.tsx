@@ -45,7 +45,8 @@ export default async function CourseCurriculumPage({ params }: { params: Promise
                   {dayTopics.map((topic) => (
                     <Link key={topic.id} href={`/curriculum/${course.slug}/${topic.slug}`} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg">
                       <div className="flex items-start justify-between gap-3"><h3 className="text-base font-black leading-6 text-[#0B1220] group-hover:text-slate-700">{topic.title}</h3><span className="text-lg text-slate-300 group-hover:text-[#E8A23D]">↗</span></div>
-                      <p className="mt-4 text-xs font-bold text-slate-400">Open topic workspace</p>
+                      {topic.subtopics.length > 0 ? <div className="mt-4 space-y-1.5">{topic.subtopics.slice(0, 3).map((subtopic) => <p key={subtopic} className="text-xs leading-5 text-slate-500">• {subtopic}</p>)}{topic.subtopics.length > 3 ? <p className="text-xs font-bold text-slate-400">+ {topic.subtopics.length - 3} more cardinal subtopics</p> : null}</div> : null}
+                      <p className="mt-4 text-xs font-bold text-slate-400">Open topic workspace · teach with AI</p>
                     </Link>
                   ))}
                 </div>

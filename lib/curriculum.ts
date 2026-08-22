@@ -17,6 +17,7 @@ export type CurriculumTopic = {
   day_number: number;
   day_title: string;
   order_index: number;
+  subtopics: string[];
 };
 
 export const CURRICULUM_COURSES = [
@@ -53,12 +54,12 @@ export async function getCurriculumCourse(supabase: SupabaseClient, slug: string
 export async function getCurriculumTopics(supabase: SupabaseClient, courseId: string) {
   const { data, error } = await supabase
     .from('curriculum_topics')
-    .select('id,course_id,slug,title,day_number,day_title,order_index')
+    .select('id,course_id,slug,title,day_number,day_title,order_index,subtopics')
     .eq('course_id', courseId)
     .order('day_number', { ascending: true })
     .order('order_index', { ascending: true });
   if (error) throw error;
-  return (data ?? []) as CurriculumTopic[];
+  return (data ?? []).map((topic) => ({ ...topic, subtopics: Array.isArray(topic.subtopics) ? topic.subtopics : [] })) as CurriculumTopic[];
 }
 
 export async function getCurriculumTopic(supabase: SupabaseClient, courseSlug: string, topicSlug: string) {
@@ -66,10 +67,10 @@ export async function getCurriculumTopic(supabase: SupabaseClient, courseSlug: s
   if (!course) return { course: null, topic: null };
   const { data, error } = await supabase
     .from('curriculum_topics')
-    .select('id,course_id,slug,title,day_number,day_title,order_index')
+    .select('id,course_id,slug,title,day_number,day_title,order_index,subtopics')
     .eq('course_id', course.id)
     .eq('slug', topicSlug)
     .maybeSingle();
   if (error) throw error;
-  return { course, topic: (data ?? null) as CurriculumTopic | null };
+  return { course, topic: data ? ({ ...data, subtopics: Array.isArray(data.subtopics) ? data.subtopics : [] } as CurriculumTopic) : null };
 }

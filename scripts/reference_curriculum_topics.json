@@ -1,0 +1,4545 @@
+[
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 1,
+    "day_title": "General Pharmacology",
+    "title": "Introduction to Pharmacology",
+    "slug": "general-pharmacology-introduction-to-pharmacology",
+    "order_index": 1,
+    "subtopics": [
+      "Definitions and scope (pharmacology, pharmacy, therapeutics, toxicology)",
+      "Sources and nomenclature of drugs",
+      "Essential/generic drug concepts"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 1,
+    "day_title": "General Pharmacology",
+    "title": "Pharmacokinetics",
+    "slug": "general-pharmacology-pharmacokinetics",
+    "order_index": 2,
+    "subtopics": [
+      "Drug absorption and bioavailability",
+      "Drug distribution and protein binding",
+      "Biotransformation/metabolism (Phase I and Phase II reactions)",
+      "Drug excretion (renal, biliary, other routes)",
+      "Kinetics of elimination (zero-order vs first-order), half-life, clearance"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 1,
+    "day_title": "General Pharmacology",
+    "title": "Routes of Drug Administration",
+    "slug": "general-pharmacology-routes-of-drug-administration",
+    "order_index": 3,
+    "subtopics": [
+      "Enteral routes",
+      "Parenteral routes",
+      "Other routes (topical, inhalational, transdermal)"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 1,
+    "day_title": "General Pharmacology",
+    "title": "Pharmacodynamics",
+    "slug": "general-pharmacology-pharmacodynamics",
+    "order_index": 4,
+    "subtopics": [
+      "Drug receptors and mechanisms of drug action",
+      "Dose-response relationships",
+      "Agonists, partial agonists, antagonists",
+      "Therapeutic index and margin of safety"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 1,
+    "day_title": "General Pharmacology",
+    "title": "Drug Interactions",
+    "slug": "general-pharmacology-drug-interactions",
+    "order_index": 5,
+    "subtopics": [
+      "Pharmacokinetic interactions",
+      "Pharmacodynamic interactions"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 1,
+    "day_title": "General Pharmacology",
+    "title": "Adverse Drug Reactions and Drug Toxicity",
+    "slug": "general-pharmacology-adverse-drug-reactions-and-drug-toxicity",
+    "order_index": 6,
+    "subtopics": [
+      "Types of adverse drug reactions",
+      "Drug allergy and idiosyncrasy",
+      "Drug tolerance and dependence"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 1,
+    "day_title": "General Pharmacology",
+    "title": "Factors Modifying Drug Action",
+    "slug": "general-pharmacology-factors-modifying-drug-action",
+    "order_index": 7,
+    "subtopics": [
+      "Age (paediatric and geriatric pharmacology)",
+      "Pregnancy and lactation",
+      "Genetic/pharmacogenetic factors",
+      "Disease states (hepatic and renal impairment)"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 1,
+    "day_title": "General Pharmacology",
+    "title": "Drug Development, Trials and Pharmacovigilance",
+    "slug": "general-pharmacology-drug-development-trials-and-pharmacovigilance",
+    "order_index": 8,
+    "subtopics": [
+      "Stages of drug development",
+      "Clinical trial phases",
+      "Pharmacovigilance and adverse event reporting"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 1,
+    "day_title": "General Pharmacology",
+    "title": "Prescription Writing and Rational Drug Use",
+    "slug": "general-pharmacology-prescription-writing-and-rational-drug-use",
+    "order_index": 9,
+    "subtopics": [
+      "Principles of rational prescribing",
+      "Essential elements of a prescription"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 2,
+    "day_title": "Autonomic Nervous System Pharmacology",
+    "title": "Overview of Autonomic Nervous System",
+    "slug": "autonomic-nervous-system-pharmacology-overview-of-autonomic-nervous-system",
+    "order_index": 1,
+    "subtopics": [
+      "Sympathetic and parasympathetic divisions",
+      "Neurotransmitters and receptor subtypes"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 2,
+    "day_title": "Autonomic Nervous System Pharmacology",
+    "title": "Cholinergic Pharmacology",
+    "slug": "autonomic-nervous-system-pharmacology-cholinergic-pharmacology",
+    "order_index": 2,
+    "subtopics": [
+      "Direct-acting cholinergic agonists",
+      "Indirect-acting agents (anticholinesterases)",
+      "Clinical uses and toxicity (organophosphate poisoning)"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 2,
+    "day_title": "Autonomic Nervous System Pharmacology",
+    "title": "Anticholinergic (Antimuscarinic) Drugs",
+    "slug": "autonomic-nervous-system-pharmacology-anticholinergic-antimuscarinic-drugs",
+    "order_index": 3,
+    "subtopics": [
+      "Mechanism of action",
+      "Clinical uses and adverse effects"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 2,
+    "day_title": "Autonomic Nervous System Pharmacology",
+    "title": "Ganglionic Stimulants and Blockers",
+    "slug": "autonomic-nervous-system-pharmacology-ganglionic-stimulants-and-blockers",
+    "order_index": 4,
+    "subtopics": [
+      "Mechanism of action",
+      "Clinical relevance"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 2,
+    "day_title": "Autonomic Nervous System Pharmacology",
+    "title": "Neuromuscular Blocking Agents",
+    "slug": "autonomic-nervous-system-pharmacology-neuromuscular-blocking-agents",
+    "order_index": 5,
+    "subtopics": [
+      "Depolarizing agents",
+      "Non-depolarizing agents"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 2,
+    "day_title": "Autonomic Nervous System Pharmacology",
+    "title": "Adrenergic Pharmacology",
+    "slug": "autonomic-nervous-system-pharmacology-adrenergic-pharmacology",
+    "order_index": 6,
+    "subtopics": [
+      "Direct-acting adrenergic agonists (alpha and beta)",
+      "Indirect and mixed-acting sympathomimetics",
+      "Clinical uses"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 2,
+    "day_title": "Autonomic Nervous System Pharmacology",
+    "title": "Adrenergic Antagonists",
+    "slug": "autonomic-nervous-system-pharmacology-adrenergic-antagonists",
+    "order_index": 7,
+    "subtopics": [
+      "Alpha-blockers",
+      "Beta-blockers (selective and non-selective)"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 3,
+    "day_title": "Cardiovascular Pharmacology",
+    "title": "Antihypertensive Drugs",
+    "slug": "cardiovascular-pharmacology-antihypertensive-drugs",
+    "order_index": 1,
+    "subtopics": [
+      "Diuretics",
+      "ACE inhibitors and ARBs",
+      "Calcium channel blockers",
+      "Beta-blockers",
+      "Centrally-acting agents and direct vasodilators"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 3,
+    "day_title": "Cardiovascular Pharmacology",
+    "title": "Antianginal Drugs",
+    "slug": "cardiovascular-pharmacology-antianginal-drugs",
+    "order_index": 2,
+    "subtopics": [
+      "Nitrates",
+      "Beta-blockers",
+      "Calcium channel blockers"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 3,
+    "day_title": "Cardiovascular Pharmacology",
+    "title": "Antiarrhythmic Drugs",
+    "slug": "cardiovascular-pharmacology-antiarrhythmic-drugs",
+    "order_index": 3,
+    "subtopics": [
+      "Class I (sodium channel blockers)",
+      "Class II (beta-blockers)",
+      "Class III (potassium channel blockers)",
+      "Class IV (calcium channel blockers)"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 3,
+    "day_title": "Cardiovascular Pharmacology",
+    "title": "Drugs Used in Heart Failure",
+    "slug": "cardiovascular-pharmacology-drugs-used-in-heart-failure",
+    "order_index": 4,
+    "subtopics": [
+      "Cardiac glycosides (digoxin)",
+      "Diuretics",
+      "ACE inhibitors/ARBs and beta-blockers",
+      "Other inotropes"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 3,
+    "day_title": "Cardiovascular Pharmacology",
+    "title": "Antihyperlipidaemic Drugs",
+    "slug": "cardiovascular-pharmacology-antihyperlipidaemic-drugs",
+    "order_index": 5,
+    "subtopics": [
+      "Statins (HMG-CoA reductase inhibitors)",
+      "Fibrates",
+      "Bile acid sequestrants",
+      "Other lipid-lowering agents"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 4,
+    "day_title": "Renal Pharmacology",
+    "title": "Diuretics",
+    "slug": "renal-pharmacology-diuretics",
+    "order_index": 1,
+    "subtopics": [
+      "Loop diuretics",
+      "Thiazide diuretics",
+      "Potassium-sparing diuretics",
+      "Osmotic diuretics",
+      "Carbonic anhydrase inhibitors",
+      "Mechanisms, indications and adverse effects"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 5,
+    "day_title": "Gastrointestinal Pharmacology",
+    "title": "Anti-ulcer Drugs",
+    "slug": "gastrointestinal-pharmacology-anti-ulcer-drugs",
+    "order_index": 1,
+    "subtopics": [
+      "H2-receptor antagonists",
+      "Proton pump inhibitors",
+      "Antacids",
+      "Mucosal protective agents"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 5,
+    "day_title": "Gastrointestinal Pharmacology",
+    "title": "Antiemetics",
+    "slug": "gastrointestinal-pharmacology-antiemetics",
+    "order_index": 2,
+    "subtopics": [
+      "Classification and mechanisms"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 5,
+    "day_title": "Gastrointestinal Pharmacology",
+    "title": "Laxatives and Antidiarrhoeal Agents",
+    "slug": "gastrointestinal-pharmacology-laxatives-and-antidiarrhoeal-agents",
+    "order_index": 3,
+    "subtopics": [
+      "Classification and mechanisms"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 5,
+    "day_title": "Gastrointestinal Pharmacology",
+    "title": "Drugs for Inflammatory Bowel Disease",
+    "slug": "gastrointestinal-pharmacology-drugs-for-inflammatory-bowel-disease",
+    "order_index": 4,
+    "subtopics": [
+      "Aminosalicylates, corticosteroids, immunomodulators, biologics"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 6,
+    "day_title": "Respiratory Pharmacology",
+    "title": "Bronchodilators",
+    "slug": "respiratory-pharmacology-bronchodilators",
+    "order_index": 1,
+    "subtopics": [
+      "Beta-2 agonists",
+      "Methylxanthines",
+      "Anticholinergics"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 6,
+    "day_title": "Respiratory Pharmacology",
+    "title": "Anti-inflammatory Drugs for Asthma",
+    "slug": "respiratory-pharmacology-anti-inflammatory-drugs-for-asthma",
+    "order_index": 2,
+    "subtopics": [
+      "Corticosteroids",
+      "Leukotriene modifiers",
+      "Mast cell stabilisers"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 6,
+    "day_title": "Respiratory Pharmacology",
+    "title": "Antitussives, Expectorants and Mucolytics",
+    "slug": "respiratory-pharmacology-antitussives-expectorants-and-mucolytics",
+    "order_index": 3,
+    "subtopics": [
+      "Classification and mechanisms"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 6,
+    "day_title": "Respiratory Pharmacology",
+    "title": "Drugs for COPD",
+    "slug": "respiratory-pharmacology-drugs-for-copd",
+    "order_index": 4,
+    "subtopics": [
+      "Treatment principles"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 7,
+    "day_title": "Haemopoietic Pharmacology",
+    "title": "Haematinics",
+    "slug": "haemopoietic-pharmacology-haematinics",
+    "order_index": 1,
+    "subtopics": [
+      "Iron preparations",
+      "Folic acid",
+      "Vitamin B12"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 7,
+    "day_title": "Haemopoietic Pharmacology",
+    "title": "Erythropoietin and Colony Stimulating Factors",
+    "slug": "haemopoietic-pharmacology-erythropoietin-and-colony-stimulating-factors",
+    "order_index": 2,
+    "subtopics": [
+      "Mechanism and clinical use"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 7,
+    "day_title": "Haemopoietic Pharmacology",
+    "title": "Anticoagulants",
+    "slug": "haemopoietic-pharmacology-anticoagulants",
+    "order_index": 3,
+    "subtopics": [
+      "Heparin (unfractionated and low molecular weight)",
+      "Warfarin",
+      "Direct oral anticoagulants (DOACs)"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 7,
+    "day_title": "Haemopoietic Pharmacology",
+    "title": "Antiplatelet Drugs",
+    "slug": "haemopoietic-pharmacology-antiplatelet-drugs",
+    "order_index": 4,
+    "subtopics": [
+      "Mechanism and clinical use"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 7,
+    "day_title": "Haemopoietic Pharmacology",
+    "title": "Fibrinolytics/Thrombolytics",
+    "slug": "haemopoietic-pharmacology-fibrinolytics-thrombolytics",
+    "order_index": 5,
+    "subtopics": [
+      "Mechanism and clinical use"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 7,
+    "day_title": "Haemopoietic Pharmacology",
+    "title": "Drugs for Bleeding Disorders",
+    "slug": "haemopoietic-pharmacology-drugs-for-bleeding-disorders",
+    "order_index": 6,
+    "subtopics": [
+      "Vitamin K",
+      "Antifibrinolytics"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 8,
+    "day_title": "Endocrine Pharmacology",
+    "title": "Hypothalamic-Pituitary Hormones and Analogues",
+    "slug": "endocrine-pharmacology-hypothalamic-pituitary-hormones-and-analogues",
+    "order_index": 1,
+    "subtopics": [
+      "Growth hormone, gonadotropins, ADH analogues"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 8,
+    "day_title": "Endocrine Pharmacology",
+    "title": "Thyroid and Antithyroid Drugs",
+    "slug": "endocrine-pharmacology-thyroid-and-antithyroid-drugs",
+    "order_index": 2,
+    "subtopics": [
+      "Thyroid hormone replacement",
+      "Antithyroid drugs (thionamides, iodine, radioactive iodine)"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 8,
+    "day_title": "Endocrine Pharmacology",
+    "title": "Insulin and Oral Hypoglycaemic Agents",
+    "slug": "endocrine-pharmacology-insulin-and-oral-hypoglycaemic-agents",
+    "order_index": 3,
+    "subtopics": [
+      "Insulin types and regimens",
+      "Sulfonylureas, biguanides, other oral agents",
+      "Newer agents (GLP-1 agonists, SGLT2 inhibitors)"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 8,
+    "day_title": "Endocrine Pharmacology",
+    "title": "Corticosteroids",
+    "slug": "endocrine-pharmacology-corticosteroids",
+    "order_index": 4,
+    "subtopics": [
+      "Glucocorticoids and mineralocorticoids",
+      "Clinical uses and adverse effects"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 8,
+    "day_title": "Endocrine Pharmacology",
+    "title": "Sex Hormones and Contraceptives",
+    "slug": "endocrine-pharmacology-sex-hormones-and-contraceptives",
+    "order_index": 5,
+    "subtopics": [
+      "Estrogens, progestins, androgens",
+      "Hormonal contraceptives"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 8,
+    "day_title": "Endocrine Pharmacology",
+    "title": "Drugs Affecting Bone Mineral Homeostasis",
+    "slug": "endocrine-pharmacology-drugs-affecting-bone-mineral-homeostasis",
+    "order_index": 6,
+    "subtopics": [
+      "Calcium and vitamin D",
+      "Bisphosphonates and other bone agents"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 9,
+    "day_title": "Immunopharmacology",
+    "title": "Immunosuppressant Drugs",
+    "slug": "immunopharmacology-immunosuppressant-drugs",
+    "order_index": 1,
+    "subtopics": [
+      "Calcineurin inhibitors",
+      "Antiproliferative/cytotoxic agents",
+      "Corticosteroids"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 9,
+    "day_title": "Immunopharmacology",
+    "title": "Immunostimulants",
+    "slug": "immunopharmacology-immunostimulants",
+    "order_index": 2,
+    "subtopics": [
+      "Mechanism and clinical use"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 9,
+    "day_title": "Immunopharmacology",
+    "title": "Antihistamines",
+    "slug": "immunopharmacology-antihistamines",
+    "order_index": 3,
+    "subtopics": [
+      "H1-receptor antagonists (first- and second-generation)"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 9,
+    "day_title": "Immunopharmacology",
+    "title": "Biologics and Monoclonal Antibodies",
+    "slug": "immunopharmacology-biologics-and-monoclonal-antibodies",
+    "order_index": 4,
+    "subtopics": [
+      "Mechanism and clinical use in autoimmune disease"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 10,
+    "day_title": "Central Nervous System Pharmacology",
+    "title": "General and Local Anaesthetics",
+    "slug": "central-nervous-system-pharmacology-general-and-local-anaesthetics",
+    "order_index": 1,
+    "subtopics": [
+      "Mechanism of action",
+      "Stages of general anaesthesia",
+      "Local anaesthetic agents"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 10,
+    "day_title": "Central Nervous System Pharmacology",
+    "title": "Sedative-Hypnotics and Anxiolytics",
+    "slug": "central-nervous-system-pharmacology-sedative-hypnotics-and-anxiolytics",
+    "order_index": 2,
+    "subtopics": [
+      "Benzodiazepines",
+      "Barbiturates",
+      "Newer non-benzodiazepine agents"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 10,
+    "day_title": "Central Nervous System Pharmacology",
+    "title": "Antiepileptic Drugs",
+    "slug": "central-nervous-system-pharmacology-antiepileptic-drugs",
+    "order_index": 3,
+    "subtopics": [
+      "Classification by mechanism",
+      "Choice of drug by seizure type"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 10,
+    "day_title": "Central Nervous System Pharmacology",
+    "title": "Antipsychotic Drugs",
+    "slug": "central-nervous-system-pharmacology-antipsychotic-drugs",
+    "order_index": 4,
+    "subtopics": [
+      "Typical and atypical antipsychotics"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 10,
+    "day_title": "Central Nervous System Pharmacology",
+    "title": "Antidepressants and Mood Stabilisers",
+    "slug": "central-nervous-system-pharmacology-antidepressants-and-mood-stabilisers",
+    "order_index": 5,
+    "subtopics": [
+      "SSRIs, TCAs, MAOIs, others",
+      "Lithium and mood stabilisers"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 10,
+    "day_title": "Central Nervous System Pharmacology",
+    "title": "Opioid Analgesics",
+    "slug": "central-nervous-system-pharmacology-opioid-analgesics",
+    "order_index": 6,
+    "subtopics": [
+      "Mechanism, agonists, partial agonists, antagonists"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 10,
+    "day_title": "Central Nervous System Pharmacology",
+    "title": "Non-opioid Analgesics/NSAIDs",
+    "slug": "central-nervous-system-pharmacology-non-opioid-analgesics-nsaids",
+    "order_index": 7,
+    "subtopics": [
+      "Mechanism of action",
+      "Adverse effects"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 10,
+    "day_title": "Central Nervous System Pharmacology",
+    "title": "Drugs for Parkinson's Disease",
+    "slug": "central-nervous-system-pharmacology-drugs-for-parkinsons-disease",
+    "order_index": 8,
+    "subtopics": [
+      "Dopaminergic agents",
+      "Other classes"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 10,
+    "day_title": "Central Nervous System Pharmacology",
+    "title": "Drugs for Alzheimer's Disease/Dementia",
+    "slug": "central-nervous-system-pharmacology-drugs-for-alzheimers-disease-dementia",
+    "order_index": 9,
+    "subtopics": [
+      "Cholinesterase inhibitors",
+      "NMDA receptor antagonists"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 10,
+    "day_title": "Central Nervous System Pharmacology",
+    "title": "CNS Stimulants",
+    "slug": "central-nervous-system-pharmacology-cns-stimulants",
+    "order_index": 10,
+    "subtopics": [
+      "Classification and uses"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 11,
+    "day_title": "Toxicology",
+    "title": "General Principles of Toxicology",
+    "slug": "toxicology-general-principles-of-toxicology",
+    "order_index": 1,
+    "subtopics": [
+      "Mechanisms of toxicity",
+      "Dose-response and toxicokinetics"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 11,
+    "day_title": "Toxicology",
+    "title": "Management of Poisoning",
+    "slug": "toxicology-management-of-poisoning",
+    "order_index": 2,
+    "subtopics": [
+      "General approach to the poisoned patient",
+      "Decontamination methods",
+      "Specific antidotes"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 11,
+    "day_title": "Toxicology",
+    "title": "Specific Poisonings",
+    "slug": "toxicology-specific-poisonings",
+    "order_index": 3,
+    "subtopics": [
+      "Heavy metals",
+      "Organophosphates",
+      "Other common poisons"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 11,
+    "day_title": "Toxicology",
+    "title": "Drug and Alcohol Abuse",
+    "slug": "toxicology-drug-and-alcohol-abuse",
+    "order_index": 4,
+    "subtopics": [
+      "Dependence and withdrawal syndromes"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 12,
+    "day_title": "System 4: Chemotherapy",
+    "title": "Antibacterial Agents",
+    "slug": "system-4-chemotherapy-antibacterial-agents",
+    "order_index": 1,
+    "subtopics": [
+      "Beta-lactams (penicillins, cephalosporins, carbapenems)",
+      "Aminoglycosides",
+      "Macrolides",
+      "Tetracyclines",
+      "Fluoroquinolones",
+      "Sulfonamides and trimethoprim",
+      "Other classes"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 12,
+    "day_title": "System 4: Chemotherapy",
+    "title": "Antifungal Agents",
+    "slug": "system-4-chemotherapy-antifungal-agents",
+    "order_index": 2,
+    "subtopics": [
+      "Classification and mechanisms"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 12,
+    "day_title": "System 4: Chemotherapy",
+    "title": "Antiviral Agents",
+    "slug": "system-4-chemotherapy-antiviral-agents",
+    "order_index": 3,
+    "subtopics": [
+      "Antiretrovirals",
+      "Other antivirals"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 12,
+    "day_title": "System 4: Chemotherapy",
+    "title": "Antiprotozoal Agents",
+    "slug": "system-4-chemotherapy-antiprotozoal-agents",
+    "order_index": 4,
+    "subtopics": [
+      "Antimalarials",
+      "Agents for other protozoal infections"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 12,
+    "day_title": "System 4: Chemotherapy",
+    "title": "Anthelmintics",
+    "slug": "system-4-chemotherapy-anthelmintics",
+    "order_index": 5,
+    "subtopics": [
+      "Classification and mechanisms"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 12,
+    "day_title": "System 4: Chemotherapy",
+    "title": "Anticancer/Antineoplastic Drugs",
+    "slug": "system-4-chemotherapy-anticancer-antineoplastic-drugs",
+    "order_index": 6,
+    "subtopics": [
+      "Cell-cycle specific and non-specific agents",
+      "Principles of combination chemotherapy"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Pharmacology",
+    "course_slug": "pharmacology",
+    "day_number": 12,
+    "day_title": "System 4: Chemotherapy",
+    "title": "Principles of Chemotherapy and Antimicrobial Resistance",
+    "slug": "system-4-chemotherapy-principles-of-chemotherapy-and-antimicrobial-resistance",
+    "order_index": 7,
+    "subtopics": [
+      "Selective toxicity",
+      "Mechanisms of resistance"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Introduction to Pathology",
+    "slug": "general-pathology-introduction-to-pathology",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Cellular Response to Injury (Part 1)",
+    "slug": "general-pathology-cellular-response-to-injury-part-1",
+    "order_index": 2,
+    "subtopics": [
+      "Definition",
+      "Types of cellular response",
+      "Causes of cell injury",
+      "Cellular adaptation",
+      "Reversible cell injury",
+      "Irreversible cell injury",
+      "Mechanism of injury"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Cellular Response to Injury (Part 2)",
+    "slug": "general-pathology-cellular-response-to-injury-part-2",
+    "order_index": 3,
+    "subtopics": [
+      "Cell death and types",
+      "Intracellular accumulations",
+      "Pathological calcifications",
+      "Cellular aging"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Inflammation (Part 1)",
+    "slug": "general-pathology-inflammation-part-1",
+    "order_index": 4,
+    "subtopics": [
+      "Definition",
+      "Classification",
+      "Events of inflammation",
+      "Mediators of inflammation",
+      "Outcome of acute inflammation"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Inflammation (Part 2)",
+    "slug": "general-pathology-inflammation-part-2",
+    "order_index": 5,
+    "subtopics": [
+      "Morphologic pattern of acute inflammation",
+      "Chronic inflammation",
+      "Systemic effect of inflammation",
+      "Consequences of defective or excessive inflammation"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Wound Healing",
+    "slug": "general-pathology-wound-healing",
+    "order_index": 6,
+    "subtopics": [
+      "Definition",
+      "Classification",
+      "Process of wound healing",
+      "Factors influencing wound healing",
+      "Abnormalities of wound healing"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Haemodynamic Disorders (Part 1)",
+    "slug": "general-pathology-haemodynamic-disorders-part-1",
+    "order_index": 7,
+    "subtopics": [
+      "Introduction",
+      "Hyperaemia and congestion",
+      "Thrombosis",
+      "Embolism",
+      "Oedema"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Haemodynamic Disorders (Part 2)",
+    "slug": "general-pathology-haemodynamic-disorders-part-2",
+    "order_index": 8,
+    "subtopics": [
+      "Infarction",
+      "Shock"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Genetic Disorders (Part 1)",
+    "slug": "general-pathology-genetic-disorders-part-1",
+    "order_index": 9,
+    "subtopics": [
+      "Introduction",
+      "Terminologies",
+      "Chromosomal disorders"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Genetic Disorders (Part 2)",
+    "slug": "general-pathology-genetic-disorders-part-2",
+    "order_index": 10,
+    "subtopics": [
+      "Single gene disorders",
+      "Classification (classical and non-classical disorders)",
+      "Classical disorders (Mendelian): Autosomal Dominant, Autosomal Recessive, X-linked Recessive, X-linked Dominant",
+      "Complex mutagenic disorders"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Neoplasm (Part 1)",
+    "slug": "general-pathology-neoplasm-part-1",
+    "order_index": 11,
+    "subtopics": [
+      "Definition",
+      "Epidemiology",
+      "Classification",
+      "Nomenclature",
+      "Difference between benign and malignant neoplasms",
+      "Molecular basis of cancer"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Neoplasm (Part 2)",
+    "slug": "general-pathology-neoplasm-part-2",
+    "order_index": 12,
+    "subtopics": [
+      "Carcinogenesis (chemical, radiation and microbial)",
+      "Spread of cancer",
+      "Clinical manifestation",
+      "Grading and staging",
+      "Laboratory diagnosis of cancer"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Disease of the Immune System (Part 1)",
+    "slug": "general-pathology-disease-of-the-immune-system-part-1",
+    "order_index": 13,
+    "subtopics": [
+      "Introduction",
+      "Classification of normal immunity (innate and adaptive)",
+      "Components of adaptive immunity",
+      "Immune disorder types",
+      "Hypersensitivity reactions",
+      "Autoimmunity disorders"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Disease of the Immune System (Part 2)",
+    "slug": "general-pathology-disease-of-the-immune-system-part-2",
+    "order_index": 14,
+    "subtopics": [
+      "Immune deficiency disease (primary and secondary)",
+      "Amyloidosis",
+      "Transplant rejection"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Disease of Infancy and Childhood",
+    "slug": "general-pathology-disease-of-infancy-and-childhood",
+    "order_index": 15,
+    "subtopics": [
+      "Classification",
+      "Specific types",
+      "Congenital anomalies",
+      "Prematurity disorders",
+      "Cystic fibrosis",
+      "Tumour and tumour-like lesions"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Disease of Environment / Nutrition",
+    "slug": "general-pathology-disease-of-environment-nutrition",
+    "order_index": 16,
+    "subtopics": [
+      "Definition of environmental disease",
+      "Classification of environmental factors (personal and external)",
+      "Effects of tobacco/smoking",
+      "Effects of alcohol",
+      "Nutritional disease",
+      "Malnutrition (kwashiorkor and marasmus)",
+      "Obesity"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Infectious Disease",
+    "slug": "general-pathology-infectious-disease",
+    "order_index": 17,
+    "subtopics": [
+      "Definition of infection",
+      "Route of entry of microbes",
+      "Spread in the body",
+      "Release from the body",
+      "Host-pathogen interaction",
+      "Host damage by microbes",
+      "Spectrum of inflammatory response to infection",
+      "Specific diseases: tuberculosis, malaria, syphilis"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 1,
+    "day_title": "General Pathology",
+    "title": "Forensic Pathology",
+    "slug": "general-pathology-forensic-pathology",
+    "order_index": 18,
+    "subtopics": [
+      "Definition",
+      "Types (coroner and hospital)",
+      "Indications",
+      "Uses of autopsy",
+      "Examination (internal and external)",
+      "Death certification"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "Cardiovascular Pathology",
+    "title": "Congenital Heart Diseases",
+    "slug": "cardiovascular-pathology-congenital-heart-diseases",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "Cardiovascular Pathology",
+    "title": "Heart Failure",
+    "slug": "cardiovascular-pathology-heart-failure",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "Cardiovascular Pathology",
+    "title": "Blood Vessel Disorders",
+    "slug": "cardiovascular-pathology-blood-vessel-disorders",
+    "order_index": 3,
+    "subtopics": [
+      "Brief history of blood vessels",
+      "Arteriosclerosis",
+      "Atherosclerosis",
+      "Aneurysms"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "Cardiovascular Pathology",
+    "title": "Myocardial Diseases",
+    "slug": "cardiovascular-pathology-myocardial-diseases",
+    "order_index": 4,
+    "subtopics": [
+      "Emphasis on ischaemic heart disease and cardiomyopathies"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "Cardiovascular Pathology",
+    "title": "Valvular Heart Disease",
+    "slug": "cardiovascular-pathology-valvular-heart-disease",
+    "order_index": 5,
+    "subtopics": [
+      "Emphasis on rheumatic and infective endocarditis"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 2,
+    "day_title": "Cardiovascular Pathology",
+    "title": "Pericardial Diseases",
+    "slug": "cardiovascular-pathology-pericardial-diseases",
+    "order_index": 6,
+    "subtopics": [
+      "Emphasis on pericarditis"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "Central Nervous System Pathology",
+    "title": "CNS Infections",
+    "slug": "central-nervous-system-pathology-cns-infections",
+    "order_index": 1,
+    "subtopics": [
+      "Meningitis",
+      "Encephalitis",
+      "Prion diseases (definition, types and clinical features)"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "Central Nervous System Pathology",
+    "title": "Intracranial Haemorrhages",
+    "slug": "central-nervous-system-pathology-intracranial-haemorrhages",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "Central Nervous System Pathology",
+    "title": "Herniations",
+    "slug": "central-nervous-system-pathology-herniations",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "Central Nervous System Pathology",
+    "title": "Hydrocephalus",
+    "slug": "central-nervous-system-pathology-hydrocephalus",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "Central Nervous System Pathology",
+    "title": "Space-Occupying Lesions",
+    "slug": "central-nervous-system-pathology-space-occupying-lesions",
+    "order_index": 5,
+    "subtopics": [
+      "Emphasis on classification"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "Central Nervous System Pathology",
+    "title": "CNS Tumours",
+    "slug": "central-nervous-system-pathology-cns-tumours",
+    "order_index": 6,
+    "subtopics": [
+      "Emphasis on classification, clinical features and complications"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "Central Nervous System Pathology",
+    "title": "Cerebrovascular Disease (Stroke)",
+    "slug": "central-nervous-system-pathology-cerebrovascular-disease-stroke",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 3,
+    "day_title": "Central Nervous System Pathology",
+    "title": "Neurodegenerative Diseases",
+    "slug": "central-nervous-system-pathology-neurodegenerative-diseases",
+    "order_index": 8,
+    "subtopics": [
+      "Definition and classification"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 4,
+    "day_title": "Autopsy Pathology",
+    "title": "Autopsy Pathology",
+    "slug": "autopsy-pathology-autopsy-pathology",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "Respiratory Pathology",
+    "title": "Obstructive vs Restrictive Lung Disease",
+    "slug": "respiratory-pathology-obstructive-vs-restrictive-lung-disease",
+    "order_index": 1,
+    "subtopics": [
+      "Difference between obstructive and restrictive lung diseases"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "Respiratory Pathology",
+    "title": "Obstructive Lung Diseases",
+    "slug": "respiratory-pathology-obstructive-lung-diseases",
+    "order_index": 2,
+    "subtopics": [
+      "Emphasis on COPD and bronchiectasis"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "Respiratory Pathology",
+    "title": "Respiratory Neoplasms",
+    "slug": "respiratory-pathology-respiratory-neoplasms",
+    "order_index": 3,
+    "subtopics": [
+      "Lung cancer",
+      "Mesothelioma"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "Respiratory Pathology",
+    "title": "Pneumonia",
+    "slug": "respiratory-pathology-pneumonia",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "Respiratory Pathology",
+    "title": "Pulmonary Embolism",
+    "slug": "respiratory-pathology-pulmonary-embolism",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "Respiratory Pathology",
+    "title": "Asthma",
+    "slug": "respiratory-pathology-asthma",
+    "order_index": 6,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "Respiratory Pathology",
+    "title": "Tuberculosis",
+    "slug": "respiratory-pathology-tuberculosis",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 5,
+    "day_title": "Respiratory Pathology",
+    "title": "Restrictive Lung Disease",
+    "slug": "respiratory-pathology-restrictive-lung-disease",
+    "order_index": 8,
+    "subtopics": [
+      "Classification",
+      "Short note on pneumoconiosis"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "Renal Pathology",
+    "title": "Overview of Renal Diseases",
+    "slug": "renal-pathology-overview-of-renal-diseases",
+    "order_index": 1,
+    "subtopics": [
+      "Emphasis on classification"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "Renal Pathology",
+    "title": "Glomerular Diseases",
+    "slug": "renal-pathology-glomerular-diseases",
+    "order_index": 2,
+    "subtopics": [
+      "Classification, syndrome manifestation, terminologies (e.g. hypercellularity, sclerosis)"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "Renal Pathology",
+    "title": "Tubulo-interstitial Diseases",
+    "slug": "renal-pathology-tubulo-interstitial-diseases",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "Renal Pathology",
+    "title": "Pyelonephritis",
+    "slug": "renal-pathology-pyelonephritis",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "Renal Pathology",
+    "title": "Acute Tubular Injury",
+    "slug": "renal-pathology-acute-tubular-injury",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "Renal Pathology",
+    "title": "Cystic Diseases of the Kidney",
+    "slug": "renal-pathology-cystic-diseases-of-the-kidney",
+    "order_index": 6,
+    "subtopics": [
+      "Emphasis on classification and polycystic kidney disease"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "Renal Pathology",
+    "title": "Congenital Anomalies",
+    "slug": "renal-pathology-congenital-anomalies",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "Renal Pathology",
+    "title": "Renal Stones",
+    "slug": "renal-pathology-renal-stones",
+    "order_index": 8,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 6,
+    "day_title": "Renal Pathology",
+    "title": "Renal Cancers",
+    "slug": "renal-pathology-renal-cancers",
+    "order_index": 9,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "Gastrointestinal Pathology",
+    "title": "Oesophageal Disorders",
+    "slug": "gastrointestinal-pathology-oesophageal-disorders",
+    "order_index": 1,
+    "subtopics": [
+      "Congenital disorders",
+      "Obstructive lesions",
+      "Inflammatory conditions",
+      "Barrett's oesophagus",
+      "Cancers"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "Gastrointestinal Pathology",
+    "title": "Stomach Disorders",
+    "slug": "gastrointestinal-pathology-stomach-disorders",
+    "order_index": 2,
+    "subtopics": [
+      "Gastritis (acute/chronic/peptic ulcer disease)",
+      "Gastric cancers"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "Gastrointestinal Pathology",
+    "title": "Intestinal Disorders",
+    "slug": "gastrointestinal-pathology-intestinal-disorders",
+    "order_index": 3,
+    "subtopics": [
+      "Intussusception",
+      "Inflammatory bowel disease",
+      "Carcinoid tumour (short note; relationship to neuroendocrine tumour)"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "Gastrointestinal Pathology",
+    "title": "Colonic Disorders",
+    "slug": "gastrointestinal-pathology-colonic-disorders",
+    "order_index": 4,
+    "subtopics": [
+      "Colonic polyps",
+      "Colonic cancers",
+      "Hirschsprung's disease"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 7,
+    "day_title": "Gastrointestinal Pathology",
+    "title": "Liver Disease",
+    "slug": "gastrointestinal-pathology-liver-disease",
+    "order_index": 5,
+    "subtopics": [
+      "Liver cirrhosis",
+      "Liver cancer"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 8,
+    "day_title": "Hepatobiliary Pathology",
+    "title": "Gallbladder Disease",
+    "slug": "hepatobiliary-pathology-gallbladder-disease",
+    "order_index": 1,
+    "subtopics": [
+      "Gall stones",
+      "Cholecystitis"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 9,
+    "day_title": "Female Genital Tract Pathology",
+    "title": "Ovarian Tumours",
+    "slug": "female-genital-tract-pathology-ovarian-tumours",
+    "order_index": 1,
+    "subtopics": [
+      "Emphasis on classification, clinical features and complications",
+      "Teratoma and salient features of yolk sac tumour"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 9,
+    "day_title": "Female Genital Tract Pathology",
+    "title": "Uterine Disease",
+    "slug": "female-genital-tract-pathology-uterine-disease",
+    "order_index": 2,
+    "subtopics": [
+      "Leiomyoma",
+      "Endometrial cancer"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 9,
+    "day_title": "Female Genital Tract Pathology",
+    "title": "Cervical Cancers",
+    "slug": "female-genital-tract-pathology-cervical-cancers",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 9,
+    "day_title": "Female Genital Tract Pathology",
+    "title": "Gestational Trophoblastic Disease (GTD)",
+    "slug": "female-genital-tract-pathology-gestational-trophoblastic-disease-gtd",
+    "order_index": 4,
+    "subtopics": [
+      "Emphasis on molar pregnancy and choriocarcinoma"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 10,
+    "day_title": "Endocrine Pathology",
+    "title": "Thyroid Diseases",
+    "slug": "endocrine-pathology-thyroid-diseases",
+    "order_index": 1,
+    "subtopics": [
+      "Emphasis on goitre, autoimmune disorders, inflammatory conditions and neoplasms"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 10,
+    "day_title": "Endocrine Pathology",
+    "title": "Adrenal/Medullary Tumours",
+    "slug": "endocrine-pathology-adrenal-medullary-tumours",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 10,
+    "day_title": "Endocrine Pathology",
+    "title": "MEN Syndromes",
+    "slug": "endocrine-pathology-men-syndromes",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 10,
+    "day_title": "Endocrine Pathology",
+    "title": "Diabetes Mellitus",
+    "slug": "endocrine-pathology-diabetes-mellitus",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 11,
+    "day_title": "Breast Pathology",
+    "title": "Classification of Breast Diseases",
+    "slug": "breast-pathology-classification-of-breast-diseases",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 11,
+    "day_title": "Breast Pathology",
+    "title": "Breast Cancers",
+    "slug": "breast-pathology-breast-cancers",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 12,
+    "day_title": "Male Genital Tract and Bladder Pathology",
+    "title": "Prostate Disorders",
+    "slug": "male-genital-tract-and-bladder-pathology-prostate-disorders",
+    "order_index": 1,
+    "subtopics": [
+      "Benign prostatic hyperplasia and cancers"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 12,
+    "day_title": "Male Genital Tract and Bladder Pathology",
+    "title": "Bladder Cancers",
+    "slug": "male-genital-tract-and-bladder-pathology-bladder-cancers",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 13,
+    "day_title": "Bone and Soft Tissue Disorders",
+    "title": "Osteomyelitis",
+    "slug": "bone-and-soft-tissue-disorders-osteomyelitis",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 13,
+    "day_title": "Bone and Soft Tissue Disorders",
+    "title": "Classification of Bone Tumours",
+    "slug": "bone-and-soft-tissue-disorders-classification-of-bone-tumours",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 13,
+    "day_title": "Bone and Soft Tissue Disorders",
+    "title": "Arthritis",
+    "slug": "bone-and-soft-tissue-disorders-arthritis",
+    "order_index": 3,
+    "subtopics": [
+      "Classification and basic features of osteoarthritis and rheumatoid arthritis"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 13,
+    "day_title": "Bone and Soft Tissue Disorders",
+    "title": "Classification of Soft Tissue Tumours",
+    "slug": "bone-and-soft-tissue-disorders-classification-of-soft-tissue-tumours",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 14,
+    "day_title": "Skin Pathology",
+    "title": "Terminologies",
+    "slug": "skin-pathology-terminologies",
+    "order_index": 1,
+    "subtopics": [
+      "Primary and secondary skin lesions (macules, papules, bullae, etc.)"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 14,
+    "day_title": "Skin Pathology",
+    "title": "Inflammatory Dermatoses",
+    "slug": "skin-pathology-inflammatory-dermatoses",
+    "order_index": 2,
+    "subtopics": [
+      "Classification: spongiotic, lichenoid, psoriasiform and blistering disorders (with examples)"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Anatomical Pathology",
+    "course_slug": "anatomical-pathology",
+    "day_number": 14,
+    "day_title": "Skin Pathology",
+    "title": "Neoplasms",
+    "slug": "skin-pathology-neoplasms",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 1,
+    "day_title": "Introduction and Laboratory Basics",
+    "title": "Introduction to chemical pathology and the role of the chemical pathologist",
+    "slug": "introduction-and-laboratory-basics-introduction-to-chemical-pathology-and-the-role-of-the",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 1,
+    "day_title": "Introduction and Laboratory Basics",
+    "title": "Types of biological specimen and biological variation",
+    "slug": "introduction-and-laboratory-basics-types-of-biological-specimen-and-biological-variation",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 1,
+    "day_title": "Introduction and Laboratory Basics",
+    "title": "Point of care testing: principles and application",
+    "slug": "introduction-and-laboratory-basics-point-of-care-testing-principles-and-application",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 1,
+    "day_title": "Introduction and Laboratory Basics",
+    "title": "Factors affecting laboratory results (pre-analytical and post-analytical sources of error)",
+    "slug": "introduction-and-laboratory-basics-factors-affecting-laboratory-results-pre-analytical-and",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 1,
+    "day_title": "Introduction and Laboratory Basics",
+    "title": "Role of the physician in reducing laboratory errors",
+    "slug": "introduction-and-laboratory-basics-role-of-the-physician-in-reducing-laboratory-errors",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 1,
+    "day_title": "Introduction and Laboratory Basics",
+    "title": "Laboratory safety",
+    "slug": "introduction-and-laboratory-basics-laboratory-safety",
+    "order_index": 6,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 1,
+    "day_title": "Introduction and Laboratory Basics",
+    "title": "Automation in the laboratory",
+    "slug": "introduction-and-laboratory-basics-automation-in-the-laboratory",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 1,
+    "day_title": "Introduction and Laboratory Basics",
+    "title": "Chemical pathology and the application of artificial intelligence (AI)",
+    "slug": "introduction-and-laboratory-basics-chemical-pathology-and-the-application-of-artificial-in",
+    "order_index": 8,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 2,
+    "day_title": "Immunology (Basic Concepts)",
+    "title": "Basic concepts of immunology: immunoglobulin structures, properties and functions",
+    "slug": "immunology-basic-concepts-basic-concepts-of-immunology-immunoglobulin-structures-propertie",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 2,
+    "day_title": "Immunology (Basic Concepts)",
+    "title": "Cytokine storm",
+    "slug": "immunology-basic-concepts-cytokine-storm",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 3,
+    "day_title": "Renal Chemistry",
+    "title": "Renal function tests",
+    "slug": "renal-chemistry-renal-function-tests",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 3,
+    "day_title": "Renal Chemistry",
+    "title": "Renal tubular acidosis",
+    "slug": "renal-chemistry-renal-tubular-acidosis",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 3,
+    "day_title": "Renal Chemistry",
+    "title": "Types of urine samples",
+    "slug": "renal-chemistry-types-of-urine-samples",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 3,
+    "day_title": "Renal Chemistry",
+    "title": "Urinalysis",
+    "slug": "renal-chemistry-urinalysis",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 3,
+    "day_title": "Renal Chemistry",
+    "title": "Water and sodium balance and disorders",
+    "slug": "renal-chemistry-water-and-sodium-balance-and-disorders",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 4,
+    "day_title": "Carbohydrate Metabolism",
+    "title": "Glucose homeostasis",
+    "slug": "carbohydrate-metabolism-glucose-homeostasis",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 4,
+    "day_title": "Carbohydrate Metabolism",
+    "title": "Diabetes mellitus and its complications",
+    "slug": "carbohydrate-metabolism-diabetes-mellitus-and-its-complications",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 4,
+    "day_title": "Carbohydrate Metabolism",
+    "title": "Hypoglycaemia",
+    "slug": "carbohydrate-metabolism-hypoglycaemia",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 4,
+    "day_title": "Carbohydrate Metabolism",
+    "title": "Oral glucose tolerance test (OGTT)",
+    "slug": "carbohydrate-metabolism-oral-glucose-tolerance-test-ogtt",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 4,
+    "day_title": "Carbohydrate Metabolism",
+    "title": "Gestational diabetes mellitus",
+    "slug": "carbohydrate-metabolism-gestational-diabetes-mellitus",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 4,
+    "day_title": "Carbohydrate Metabolism",
+    "title": "Inborn errors of carbohydrate metabolism",
+    "slug": "carbohydrate-metabolism-inborn-errors-of-carbohydrate-metabolism",
+    "order_index": 6,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 5,
+    "day_title": "Nutrition and Substance-Related Biochemistry",
+    "title": "Biochemistry of alcohol abuse",
+    "slug": "nutrition-and-substance-related-biochemistry-biochemistry-of-alcohol-abuse",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 5,
+    "day_title": "Nutrition and Substance-Related Biochemistry",
+    "title": "Water-soluble vitamins",
+    "slug": "nutrition-and-substance-related-biochemistry-water-soluble-vitamins",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 5,
+    "day_title": "Nutrition and Substance-Related Biochemistry",
+    "title": "Obesity",
+    "slug": "nutrition-and-substance-related-biochemistry-obesity",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 5,
+    "day_title": "Nutrition and Substance-Related Biochemistry",
+    "title": "Metabolic syndrome",
+    "slug": "nutrition-and-substance-related-biochemistry-metabolic-syndrome",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 5,
+    "day_title": "Nutrition and Substance-Related Biochemistry",
+    "title": "Trace elements and metals",
+    "slug": "nutrition-and-substance-related-biochemistry-trace-elements-and-metals",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 5,
+    "day_title": "Nutrition and Substance-Related Biochemistry",
+    "title": "Nutrition/nutritional support",
+    "slug": "nutrition-and-substance-related-biochemistry-nutrition-nutritional-support",
+    "order_index": 6,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 5,
+    "day_title": "Nutrition and Substance-Related Biochemistry",
+    "title": "Malabsorption syndrome",
+    "slug": "nutrition-and-substance-related-biochemistry-malabsorption-syndrome",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 5,
+    "day_title": "Nutrition and Substance-Related Biochemistry",
+    "title": "Investigations of malabsorption syndrome",
+    "slug": "nutrition-and-substance-related-biochemistry-investigations-of-malabsorption-syndrome",
+    "order_index": 8,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 6,
+    "day_title": "Electrolyte, Acid-Base and Mineral Homeostasis",
+    "title": "Potassium homeostasis and disorders",
+    "slug": "electrolyte-acid-base-and-mineral-homeostasis-potassium-homeostasis-and-disorders",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 6,
+    "day_title": "Electrolyte, Acid-Base and Mineral Homeostasis",
+    "title": "Acid-base balance",
+    "slug": "electrolyte-acid-base-and-mineral-homeostasis-acid-base-balance",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 6,
+    "day_title": "Electrolyte, Acid-Base and Mineral Homeostasis",
+    "title": "Disorders of acid-base balance / interpretation",
+    "slug": "electrolyte-acid-base-and-mineral-homeostasis-disorders-of-acid-base-balance-interpretatio",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 6,
+    "day_title": "Electrolyte, Acid-Base and Mineral Homeostasis",
+    "title": "Calcium, phosphate and magnesium homeostasis and disorders",
+    "slug": "electrolyte-acid-base-and-mineral-homeostasis-calcium-phosphate-and-magnesium-homeostasis",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 6,
+    "day_title": "Electrolyte, Acid-Base and Mineral Homeostasis",
+    "title": "Metabolic bone disease",
+    "slug": "electrolyte-acid-base-and-mineral-homeostasis-metabolic-bone-disease",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 7,
+    "day_title": "Endocrinology",
+    "title": "Introduction to endocrinology and mechanism of action of hormones",
+    "slug": "endocrinology-introduction-to-endocrinology-and-mechanism-of-action-of-hormones",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 7,
+    "day_title": "Endocrinology",
+    "title": "Hypothalamus-pituitary gland",
+    "slug": "endocrinology-hypothalamus-pituitary-gland",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 7,
+    "day_title": "Endocrinology",
+    "title": "Thyroid axis and disorders",
+    "slug": "endocrinology-thyroid-axis-and-disorders",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 7,
+    "day_title": "Endocrinology",
+    "title": "Adrenal axis and disorders",
+    "slug": "endocrinology-adrenal-axis-and-disorders",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 7,
+    "day_title": "Endocrinology",
+    "title": "Gonadal axis and disorders / infertility",
+    "slug": "endocrinology-gonadal-axis-and-disorders-infertility",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 8,
+    "day_title": "Proteins, Enzymes and Tumour Markers",
+    "title": "Plasma enzymes in diagnosis",
+    "slug": "proteins-enzymes-and-tumour-markers-plasma-enzymes-in-diagnosis",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 8,
+    "day_title": "Proteins, Enzymes and Tumour Markers",
+    "title": "Tumor markers / paraneoplastic syndrome",
+    "slug": "proteins-enzymes-and-tumour-markers-tumor-markers-paraneoplastic-syndrome",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 8,
+    "day_title": "Proteins, Enzymes and Tumour Markers",
+    "title": "Metabolic effects of tumors (carcinoid syndrome, MEN, etc.)",
+    "slug": "proteins-enzymes-and-tumour-markers-metabolic-effects-of-tumors-carcinoid-syndrome-men-etc",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 8,
+    "day_title": "Proteins, Enzymes and Tumour Markers",
+    "title": "Plasma protein and its disorders",
+    "slug": "proteins-enzymes-and-tumour-markers-plasma-protein-and-its-disorders",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 8,
+    "day_title": "Proteins, Enzymes and Tumour Markers",
+    "title": "Plasma lipids and disorders",
+    "slug": "proteins-enzymes-and-tumour-markers-plasma-lipids-and-disorders",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 9,
+    "day_title": "Organ-Specific Chemical Pathology",
+    "title": "Liver function test",
+    "slug": "organ-specific-chemical-pathology-liver-function-test",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 9,
+    "day_title": "Organ-Specific Chemical Pathology",
+    "title": "Cardiac markers",
+    "slug": "organ-specific-chemical-pathology-cardiac-markers",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 9,
+    "day_title": "Organ-Specific Chemical Pathology",
+    "title": "Chemical pathology of hypertension",
+    "slug": "organ-specific-chemical-pathology-chemical-pathology-of-hypertension",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 9,
+    "day_title": "Organ-Specific Chemical Pathology",
+    "title": "CSF in health and disease",
+    "slug": "organ-specific-chemical-pathology-csf-in-health-and-disease",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 10,
+    "day_title": "Inborn Errors and Special Topics",
+    "title": "Inborn errors of amino acid metabolism",
+    "slug": "inborn-errors-and-special-topics-inborn-errors-of-amino-acid-metabolism",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 10,
+    "day_title": "Inborn Errors and Special Topics",
+    "title": "Haem metabolism and disorders (porphyria)",
+    "slug": "inborn-errors-and-special-topics-haem-metabolism-and-disorders-porphyria",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 10,
+    "day_title": "Inborn Errors and Special Topics",
+    "title": "Purine and urate metabolism and disorders",
+    "slug": "inborn-errors-and-special-topics-purine-and-urate-metabolism-and-disorders",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 11,
+    "day_title": "Special Populations and Clinical Contexts",
+    "title": "Clinical pathology of the newborn",
+    "slug": "special-populations-and-clinical-contexts-clinical-pathology-of-the-newborn",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 11,
+    "day_title": "Special Populations and Clinical Contexts",
+    "title": "Chemical pathology of pregnancy",
+    "slug": "special-populations-and-clinical-contexts-chemical-pathology-of-pregnancy",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 11,
+    "day_title": "Special Populations and Clinical Contexts",
+    "title": "Geriatric chemical pathology",
+    "slug": "special-populations-and-clinical-contexts-geriatric-chemical-pathology",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 11,
+    "day_title": "Special Populations and Clinical Contexts",
+    "title": "Endocrinopathology of HIV/AIDS",
+    "slug": "special-populations-and-clinical-contexts-endocrinopathology-of-hiv-aids",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 12,
+    "day_title": "Therapeutic Monitoring and Toxicology",
+    "title": "Therapeutic drug monitoring",
+    "slug": "therapeutic-monitoring-and-toxicology-therapeutic-drug-monitoring",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 12,
+    "day_title": "Therapeutic Monitoring and Toxicology",
+    "title": "Occupational health testing (monitoring of exposed workers)",
+    "slug": "therapeutic-monitoring-and-toxicology-occupational-health-testing-monitoring-of-exposed-wo",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Chemical Pathology",
+    "course_slug": "chemical-pathology",
+    "day_number": 12,
+    "day_title": "Therapeutic Monitoring and Toxicology",
+    "title": "Drug of abuse testing",
+    "slug": "therapeutic-monitoring-and-toxicology-drug-of-abuse-testing",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 1,
+    "day_title": "1. Introduction to Medical Microbiology",
+    "title": "Introduction to Medical Microbiology",
+    "slug": "1-introduction-to-medical-microbiology-introduction-to-medical-microbiology",
+    "order_index": 1,
+    "subtopics": [
+      "Definition",
+      "Infectious agents",
+      "Classification of microorganisms",
+      "Infection triad: Environment, Organisms, Host"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 1,
+    "day_title": "1. Introduction to Medical Microbiology",
+    "title": "History and Development of Medical Microbiology",
+    "slug": "1-introduction-to-medical-microbiology-history-and-development-of-medical-microbiology",
+    "order_index": 2,
+    "subtopics": [
+      "Notable events",
+      "Scientists and contributions"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 1,
+    "day_title": "1. Introduction to Medical Microbiology",
+    "title": "Definition of Terms",
+    "slug": "1-introduction-to-medical-microbiology-definition-of-terms",
+    "order_index": 3,
+    "subtopics": [
+      "Pathogens",
+      "Normal microbiota",
+      "Infection",
+      "Infestation",
+      "Pathogenicity",
+      "Virulence"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 1,
+    "day_title": "1. Introduction to Medical Microbiology",
+    "title": "Basic Microscopy",
+    "slug": "1-introduction-to-medical-microbiology-basic-microscopy",
+    "order_index": 4,
+    "subtopics": [
+      "Types of microscopes",
+      "Parts of microscopes and functions",
+      "Resolution",
+      "Lens power"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 1,
+    "day_title": "1. Introduction to Medical Microbiology",
+    "title": "Relationship of Medical Microbiology",
+    "slug": "1-introduction-to-medical-microbiology-relationship-of-medical-microbiology",
+    "order_index": 5,
+    "subtopics": [
+      "To clinical medicine",
+      "To public health"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 2,
+    "day_title": "2. Basic Mycology, Parasitology and Virology",
+    "title": "Basic Mycology",
+    "slug": "2-basic-mycology-parasitology-and-virology-basic-mycology",
+    "order_index": 1,
+    "subtopics": [
+      "Definition of terms",
+      "Characteristics of fungi",
+      "Types of fungal disorders",
+      "Classification of mycoses"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 2,
+    "day_title": "2. Basic Mycology, Parasitology and Virology",
+    "title": "Basic Parasitology",
+    "slug": "2-basic-mycology-parasitology-and-virology-basic-parasitology",
+    "order_index": 2,
+    "subtopics": [
+      "Definition of terms",
+      "Characteristics of parasites",
+      "Host-parasite relationships",
+      "Classification of parasites"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 2,
+    "day_title": "2. Basic Mycology, Parasitology and Virology",
+    "title": "Basic Virology",
+    "slug": "2-basic-mycology-parasitology-and-virology-basic-virology",
+    "order_index": 3,
+    "subtopics": [
+      "Definition of terms",
+      "Characteristics of viruses",
+      "Viral replication",
+      "Viral morphology",
+      "Viral metabolism"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 3,
+    "day_title": "3. Basic Bacteriology",
+    "title": "Morphology and Classification of Bacteria",
+    "slug": "3-basic-bacteriology-morphology-and-classification-of-bacteria",
+    "order_index": 1,
+    "subtopics": [
+      "Morphology of bacteria",
+      "Bacterial cell wall structure and significance",
+      "Classification by nutritional requirements, oxygen requirement, temperature requirement",
+      "Effect of pH"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 3,
+    "day_title": "3. Basic Bacteriology",
+    "title": "Bacterial Metabolism",
+    "slug": "3-basic-bacteriology-bacterial-metabolism",
+    "order_index": 2,
+    "subtopics": [
+      "Oxidation pathway",
+      "Fermentation pathway",
+      "Bacterial multiplication",
+      "Bacterial growth (growth curve)",
+      "Applications in artificial culture"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 3,
+    "day_title": "3. Basic Bacteriology",
+    "title": "Bacterial Genetics",
+    "slug": "3-basic-bacteriology-bacterial-genetics",
+    "order_index": 3,
+    "subtopics": [
+      "Concept of protein synthesis",
+      "Microbial mutations",
+      "Gene transfers",
+      "Plasmids, bacteriophage",
+      "Human genomic project and application",
+      "Biotechnology and applications"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 4,
+    "day_title": "4. Laboratory Procedures and Infection Control",
+    "title": "Laboratory Procedures in Medical Microbiology",
+    "slug": "4-laboratory-procedures-and-infection-control-laboratory-procedures-in-medical-microbiolog",
+    "order_index": 1,
+    "subtopics": [
+      "Staining techniques: Gram, Ziehl-Neelsen, KOH, Giemsa, Field stain, Saline wet mount, Albert stain, Capsular stains",
+      "Culture media: classification, uses",
+      "Laboratory safety, analytic phases, specimen handling, request form data"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 4,
+    "day_title": "4. Laboratory Procedures and Infection Control",
+    "title": "Basic Principles of Sterilization and Disinfection",
+    "slug": "4-laboratory-procedures-and-infection-control-basic-principles-of-sterilization-and-disinf",
+    "order_index": 2,
+    "subtopics": [
+      "Classification of sterilization methods",
+      "Definitions: Asepsis, Antisepsis, Sterilization",
+      "Classification of medical devices and sterilization method utilised"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 4,
+    "day_title": "4. Laboratory Procedures and Infection Control",
+    "title": "Infection Prevention and Control",
+    "slug": "4-laboratory-procedures-and-infection-control-infection-prevention-and-control",
+    "order_index": 3,
+    "subtopics": [
+      "Basic principles",
+      "Standard precautions",
+      "Transmission-based precautions",
+      "Hand hygiene"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 4,
+    "day_title": "4. Laboratory Procedures and Infection Control",
+    "title": "Diagnostic Techniques",
+    "slug": "4-laboratory-procedures-and-infection-control-diagnostic-techniques",
+    "order_index": 4,
+    "subtopics": [
+      "Molecular diagnostic techniques",
+      "Serologic diagnostic techniques"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 5,
+    "day_title": "5. Microbial Pathogenicity and Chemotherapy",
+    "title": "Microbial Pathogenicity",
+    "slug": "5-microbial-pathogenicity-and-chemotherapy-microbial-pathogenicity",
+    "order_index": 1,
+    "subtopics": [
+      "Concept of normal flora",
+      "Infection and immunity",
+      "Concept of communicability",
+      "Pathogenesis of infectious diseases"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 5,
+    "day_title": "5. Microbial Pathogenicity and Chemotherapy",
+    "title": "Chemotherapy of Infections",
+    "slug": "5-microbial-pathogenicity-and-chemotherapy-chemotherapy-of-infections",
+    "order_index": 2,
+    "subtopics": [
+      "Principles and practice",
+      "Classification of antimicrobials and mechanisms of action"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 5,
+    "day_title": "5. Microbial Pathogenicity and Chemotherapy",
+    "title": "Antimicrobial Resistance",
+    "slug": "5-microbial-pathogenicity-and-chemotherapy-antimicrobial-resistance",
+    "order_index": 3,
+    "subtopics": [
+      "Origins",
+      "Ambler and Bush classifications",
+      "AmpC",
+      "ESBLs",
+      "Carbapenemases",
+      "MRSA, VRE",
+      "Basic concepts of antimicrobial stewardship"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 5,
+    "day_title": "5. Microbial Pathogenicity and Chemotherapy",
+    "title": "Anaerobes",
+    "slug": "5-microbial-pathogenicity-and-chemotherapy-anaerobes",
+    "order_index": 4,
+    "subtopics": [
+      "Concept of anaerobiosis",
+      "Characteristics of anaerobes",
+      "Classification of anaerobes",
+      "Anaerobic infections: Clostridium spp, Bacteroides spp, Actinomyces spp"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Staphylococcus spp",
+    "slug": "6-systematic-bacteriology-specific-organisms-staphylococcus-spp",
+    "order_index": 1,
+    "subtopics": [
+      "S. aureus, S. saprophyticus, S. epidermidis",
+      "Virulence factors",
+      "Clinical manifestations",
+      "Diagnosis",
+      "Treatment"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Streptococcus spp",
+    "slug": "6-systematic-bacteriology-specific-organisms-streptococcus-spp",
+    "order_index": 2,
+    "subtopics": [
+      "Classification",
+      "S. pyogenes, S. agalactiae",
+      "S. pneumoniae, Enterococcus, Viridans streptococci"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Mycobacteria",
+    "slug": "6-systematic-bacteriology-specific-organisms-mycobacteria",
+    "order_index": 3,
+    "subtopics": [
+      "Classification",
+      "M. tuberculosis, DR-TB",
+      "M. leprae — pathogenesis, clinical features, diagnosis, treatment"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Enterobacterales",
+    "slug": "6-systematic-bacteriology-specific-organisms-enterobacterales",
+    "order_index": 4,
+    "subtopics": [
+      "General characteristics and classification",
+      "Escherichia coli: EIEC, EHEC, EAEC, EPEC — laboratory diagnosis",
+      "Klebsiella spp, Enterobacter",
+      "Salmonella spp, Shigella spp",
+      "Proteus spp, Citrobacter spp"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Pseudomonas spp and Acinetobacter spp",
+    "slug": "6-systematic-bacteriology-specific-organisms-pseudomonas-spp-and-acinetobacter-spp",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Vibrio spp, Campylobacter spp, Helicobacter spp",
+    "slug": "6-systematic-bacteriology-specific-organisms-vibrio-spp-campylobacter-spp-helicobacter-spp",
+    "order_index": 6,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Haemophilus influenzae and Haemophilus ducreyi",
+    "slug": "6-systematic-bacteriology-specific-organisms-haemophilus-influenzae-and-haemophilus-ducrey",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Yersinia spp and Bordetella pertussis",
+    "slug": "6-systematic-bacteriology-specific-organisms-yersinia-spp-and-bordetella-pertussis",
+    "order_index": 8,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Neisseria gonorrhoeae and Neisseria meningitidis",
+    "slug": "6-systematic-bacteriology-specific-organisms-neisseria-gonorrhoeae-and-neisseria-meningiti",
+    "order_index": 9,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Legionella, Bartonella, Bacterial Vaginosis, Whipple Disease",
+    "slug": "6-systematic-bacteriology-specific-organisms-legionella-bartonella-bacterial-vaginosis-whi",
+    "order_index": 10,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Treponema pallidum and Borrelia spp",
+    "slug": "6-systematic-bacteriology-specific-organisms-treponema-pallidum-and-borrelia-spp",
+    "order_index": 11,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Mycoplasma spp, Ureaplasma urealyticum, Rickettsia",
+    "slug": "6-systematic-bacteriology-specific-organisms-mycoplasma-spp-ureaplasma-urealyticum-rickett",
+    "order_index": 12,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Chlamydia, Lymphogranuloma Venereum (LGV), Chlamydophila pneumoniae",
+    "slug": "6-systematic-bacteriology-specific-organisms-chlamydia-lymphogranuloma-venereum-lgv-chlamy",
+    "order_index": 13,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Brucella spp, Francisella spp, Pasteurella spp",
+    "slug": "6-systematic-bacteriology-specific-organisms-brucella-spp-francisella-spp-pasteurella-spp",
+    "order_index": 14,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 6,
+    "day_title": "6. Systematic Bacteriology (Specific Organisms)",
+    "title": "Burkholderia spp, Stenotrophomonas spp, Moraxella spp",
+    "slug": "6-systematic-bacteriology-specific-organisms-burkholderia-spp-stenotrophomonas-spp-moraxel",
+    "order_index": 15,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 7,
+    "day_title": "7. Systematic Mycology (Specific Fungal Infections)",
+    "title": "Superficial and Cutaneous Mycoses",
+    "slug": "7-systematic-mycology-specific-fungal-infections-superficial-and-cutaneous-mycoses",
+    "order_index": 1,
+    "subtopics": [
+      "Dermatophytosis"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 7,
+    "day_title": "7. Systematic Mycology (Specific Fungal Infections)",
+    "title": "Subcutaneous and Systemic Mycoses",
+    "slug": "7-systematic-mycology-specific-fungal-infections-subcutaneous-and-systemic-mycoses",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 7,
+    "day_title": "7. Systematic Mycology (Specific Fungal Infections)",
+    "title": "Opportunistic Mycoses",
+    "slug": "7-systematic-mycology-specific-fungal-infections-opportunistic-mycoses",
+    "order_index": 3,
+    "subtopics": [
+      "Candidiasis",
+      "Cryptococcosis",
+      "Aspergillosis",
+      "Pneumocystis jiroveci"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 8,
+    "day_title": "8. Systematic Parasitology — Protozoa",
+    "title": "Amoebae",
+    "slug": "8-systematic-parasitology-protozoa-amoebae",
+    "order_index": 1,
+    "subtopics": [
+      "Pathogenic: E. histolytica",
+      "Non-pathogenic",
+      "Opportunistic: Naegleria fowleri, Acanthamoeba spp"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 8,
+    "day_title": "8. Systematic Parasitology — Protozoa",
+    "title": "Flagellates",
+    "slug": "8-systematic-parasitology-protozoa-flagellates",
+    "order_index": 2,
+    "subtopics": [
+      "Intestinal: Giardia lamblia",
+      "Genital: Trichomonas vaginalis",
+      "Blood and tissue: Leishmania — classification, epidemiology, lifecycle, pathogenesis, clinical syndrome, diagnosis, treatment/prevention",
+      "Blood and tissue: Trypanosomes — classification, epidemiology, lifecycle, pathogenesis, clinical syndrome, diagnosis, treatment/prevention"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 8,
+    "day_title": "8. Systematic Parasitology — Protozoa",
+    "title": "Sporozoa",
+    "slug": "8-systematic-parasitology-protozoa-sporozoa",
+    "order_index": 3,
+    "subtopics": [
+      "Toxoplasma gondii, Babesia, Isospora belli, Balantidium coli, Microsporidia",
+      "Malaria parasites: types, epidemiology, lifecycle, pathogenesis, clinical features, complications, diagnosis, treatment/prevention"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 9,
+    "day_title": "9. Systematic Parasitology — Helminths",
+    "title": "Cestodes",
+    "slug": "9-systematic-parasitology-helminths-cestodes",
+    "order_index": 1,
+    "subtopics": [
+      "General characteristics and classification",
+      "Diphyllobothrium latum, Taenia spp",
+      "Hymenolepis nana, Echinococcus spp"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 9,
+    "day_title": "9. Systematic Parasitology — Helminths",
+    "title": "Trematodes",
+    "slug": "9-systematic-parasitology-helminths-trematodes",
+    "order_index": 2,
+    "subtopics": [
+      "General characteristics and classification",
+      "Schistosomiasis",
+      "Fasciola spp, Paragonimus spp"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 9,
+    "day_title": "9. Systematic Parasitology — Helminths",
+    "title": "Nematodes",
+    "slug": "9-systematic-parasitology-helminths-nematodes",
+    "order_index": 3,
+    "subtopics": [
+      "Intestinal: Enterobius vermicularis, Trichuris trichiura, Ascaris lumbricoides, Necator americanus, Ancylostoma duodenale",
+      "Intestinal and tissue: Strongyloides stercoralis, Trichinella spiralis",
+      "Tissue: Brugia malayi, Onchocerca volvulus, Loa loa, Wuchereria bancrofti"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 9,
+    "day_title": "9. Systematic Parasitology — Helminths",
+    "title": "Dracunculus medinensis and Larva Migrans",
+    "slug": "9-systematic-parasitology-helminths-dracunculus-medinensis-and-larva-migrans",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 10,
+    "day_title": "10. Systematic Virology",
+    "title": "Pathogenesis of Viral Diseases and Adenovirus",
+    "slug": "10-systematic-virology-pathogenesis-of-viral-diseases-and-adenovirus",
+    "order_index": 1,
+    "subtopics": [
+      "Human adenovirus infections"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 10,
+    "day_title": "10. Systematic Virology",
+    "title": "Herpesviruses",
+    "slug": "10-systematic-virology-herpesviruses",
+    "order_index": 2,
+    "subtopics": [
+      "Herpes simplex 1 & 2, Varicella-zoster",
+      "Cytomegalovirus, Epstein-Barr virus, HHV6, HHV7, HHV8"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 10,
+    "day_title": "10. Systematic Virology",
+    "title": "Hepatitis Viruses",
+    "slug": "10-systematic-virology-hepatitis-viruses",
+    "order_index": 3,
+    "subtopics": [
+      "HAV, HBV, HCV",
+      "HDV, HEV"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 10,
+    "day_title": "10. Systematic Virology",
+    "title": "Poxviruses",
+    "slug": "10-systematic-virology-poxviruses",
+    "order_index": 4,
+    "subtopics": [
+      "Smallpox, MPox, Molluscum contagiosum"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 10,
+    "day_title": "10. Systematic Virology",
+    "title": "Picornaviruses and Parvovirus",
+    "slug": "10-systematic-virology-picornaviruses-and-parvovirus",
+    "order_index": 5,
+    "subtopics": [
+      "Poliovirus, Coxsackie virus",
+      "Parvovirus B-19"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 10,
+    "day_title": "10. Systematic Virology",
+    "title": "Respiratory Viruses",
+    "slug": "10-systematic-virology-respiratory-viruses",
+    "order_index": 6,
+    "subtopics": [
+      "Influenza virus, Parainfluenza virus, Rhinovirus, Respiratory syncytial virus"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 10,
+    "day_title": "10. Systematic Virology",
+    "title": "Paramyxoviruses and Rabies",
+    "slug": "10-systematic-virology-paramyxoviruses-and-rabies",
+    "order_index": 7,
+    "subtopics": [
+      "Measles virus, Rubella virus",
+      "Rabies virus, Mumps virus"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 10,
+    "day_title": "10. Systematic Virology",
+    "title": "Coronaviruses",
+    "slug": "10-systematic-virology-coronaviruses",
+    "order_index": 8,
+    "subtopics": [
+      "SARS-CoV, SARS-CoV-2, MERS-CoV"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 10,
+    "day_title": "10. Systematic Virology",
+    "title": "Viral Haemorrhagic Fevers",
+    "slug": "10-systematic-virology-viral-haemorrhagic-fevers",
+    "order_index": 9,
+    "subtopics": [
+      "Definition and classification",
+      "Yellow fever",
+      "Ebola virus, Lassa virus",
+      "Dengue virus, Marburg virus, Hantavirus"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 10,
+    "day_title": "10. Systematic Virology",
+    "title": "Human Immunodeficiency Virus (HIV)",
+    "slug": "10-systematic-virology-human-immunodeficiency-virus-hiv",
+    "order_index": 10,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 10,
+    "day_title": "10. Systematic Virology",
+    "title": "Rotavirus, Reovirus, Calicivirus",
+    "slug": "10-systematic-virology-rotavirus-reovirus-calicivirus",
+    "order_index": 11,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 11,
+    "day_title": "11. Clinical Syndromes",
+    "title": "Clinical Syndrome I",
+    "slug": "11-clinical-syndromes-clinical-syndrome-i",
+    "order_index": 1,
+    "subtopics": [
+      "Pneumonia",
+      "Meningitis"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Microbiology",
+    "course_slug": "microbiology",
+    "day_number": 11,
+    "day_title": "11. Clinical Syndromes",
+    "title": "Clinical Syndrome II",
+    "slug": "11-clinical-syndromes-clinical-syndrome-ii",
+    "order_index": 2,
+    "subtopics": [
+      "Overview of sexually transmitted infections"
+    ],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 1,
+    "day_title": "Haematopoiesis and Red Cell Physiology",
+    "title": "Introduction to haematology",
+    "slug": "haematopoiesis-and-red-cell-physiology-introduction-to-haematology",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 1,
+    "day_title": "Haematopoiesis and Red Cell Physiology",
+    "title": "Haematopoiesis overview",
+    "slug": "haematopoiesis-and-red-cell-physiology-haematopoiesis-overview",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 1,
+    "day_title": "Haematopoiesis and Red Cell Physiology",
+    "title": "Erythropoiesis and erythropoietin",
+    "slug": "haematopoiesis-and-red-cell-physiology-erythropoiesis-and-erythropoietin",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 1,
+    "day_title": "Haematopoiesis and Red Cell Physiology",
+    "title": "Red blood cell biochemistry",
+    "slug": "haematopoiesis-and-red-cell-physiology-red-blood-cell-biochemistry",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 1,
+    "day_title": "Haematopoiesis and Red Cell Physiology",
+    "title": "Red blood cell membrane",
+    "slug": "haematopoiesis-and-red-cell-physiology-red-blood-cell-membrane",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 1,
+    "day_title": "Haematopoiesis and Red Cell Physiology",
+    "title": "Hereditary spherocytosis",
+    "slug": "haematopoiesis-and-red-cell-physiology-hereditary-spherocytosis",
+    "order_index": 6,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 1,
+    "day_title": "Haematopoiesis and Red Cell Physiology",
+    "title": "Hereditary elliptocytosis",
+    "slug": "haematopoiesis-and-red-cell-physiology-hereditary-elliptocytosis",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "Iron, Folate and B12 Metabolism / Anaemias",
+    "title": "Iron metabolism",
+    "slug": "iron-folate-and-b12-metabolism-anaemias-iron-metabolism",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "Iron, Folate and B12 Metabolism / Anaemias",
+    "title": "Iron deficiency anaemia",
+    "slug": "iron-folate-and-b12-metabolism-anaemias-iron-deficiency-anaemia",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "Iron, Folate and B12 Metabolism / Anaemias",
+    "title": "Anaemia of chronic disease",
+    "slug": "iron-folate-and-b12-metabolism-anaemias-anaemia-of-chronic-disease",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "Iron, Folate and B12 Metabolism / Anaemias",
+    "title": "Iron overload",
+    "slug": "iron-folate-and-b12-metabolism-anaemias-iron-overload",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "Iron, Folate and B12 Metabolism / Anaemias",
+    "title": "Folate metabolism",
+    "slug": "iron-folate-and-b12-metabolism-anaemias-folate-metabolism",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "Iron, Folate and B12 Metabolism / Anaemias",
+    "title": "Vitamin B12 metabolism",
+    "slug": "iron-folate-and-b12-metabolism-anaemias-vitamin-b12-metabolism",
+    "order_index": 6,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "Iron, Folate and B12 Metabolism / Anaemias",
+    "title": "Megaloblastic anaemia",
+    "slug": "iron-folate-and-b12-metabolism-anaemias-megaloblastic-anaemia",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "Iron, Folate and B12 Metabolism / Anaemias",
+    "title": "Pernicious anaemia",
+    "slug": "iron-folate-and-b12-metabolism-anaemias-pernicious-anaemia",
+    "order_index": 8,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "Iron, Folate and B12 Metabolism / Anaemias",
+    "title": "Investigating the anaemias",
+    "slug": "iron-folate-and-b12-metabolism-anaemias-investigating-the-anaemias",
+    "order_index": 9,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "Iron, Folate and B12 Metabolism / Anaemias",
+    "title": "Inherited haemolytic anaemias",
+    "slug": "iron-folate-and-b12-metabolism-anaemias-inherited-haemolytic-anaemias",
+    "order_index": 10,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 2,
+    "day_title": "Iron, Folate and B12 Metabolism / Anaemias",
+    "title": "Acquired haemolytic anaemias",
+    "slug": "iron-folate-and-b12-metabolism-anaemias-acquired-haemolytic-anaemias",
+    "order_index": 11,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 3,
+    "day_title": "Haemoglobinopathies",
+    "title": "Haemoglobin structure, function and synthesis",
+    "slug": "haemoglobinopathies-haemoglobin-structure-function-and-synthesis",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 3,
+    "day_title": "Haemoglobinopathies",
+    "title": "Haemoglobin variants",
+    "slug": "haemoglobinopathies-haemoglobin-variants",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 3,
+    "day_title": "Haemoglobinopathies",
+    "title": "Sickle cell anaemia I & II",
+    "slug": "haemoglobinopathies-sickle-cell-anaemia-i-and-ii",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 3,
+    "day_title": "Haemoglobinopathies",
+    "title": "Alpha thalassaemia",
+    "slug": "haemoglobinopathies-alpha-thalassaemia",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 3,
+    "day_title": "Haemoglobinopathies",
+    "title": "Beta thalassaemia",
+    "slug": "haemoglobinopathies-beta-thalassaemia",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Thrombopoiesis and thrombopoietin",
+    "slug": "platelets-and-coagulation-thrombopoiesis-and-thrombopoietin",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Platelet physiology and thrombomimetics",
+    "slug": "platelets-and-coagulation-platelet-physiology-and-thrombomimetics",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Thrombocytosis and thrombocytopenia",
+    "slug": "platelets-and-coagulation-thrombocytosis-and-thrombocytopenia",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Physiology of coagulation factors",
+    "slug": "platelets-and-coagulation-physiology-of-coagulation-factors",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Introduction to the coagulation cascades",
+    "slug": "platelets-and-coagulation-introduction-to-the-coagulation-cascades",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Haemophilia A",
+    "slug": "platelets-and-coagulation-haemophilia-a",
+    "order_index": 6,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Haemophilia B",
+    "slug": "platelets-and-coagulation-haemophilia-b",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Von Willebrand disease I & II",
+    "slug": "platelets-and-coagulation-von-willebrand-disease-i-and-ii",
+    "order_index": 8,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Venous thromboembolism",
+    "slug": "platelets-and-coagulation-venous-thromboembolism",
+    "order_index": 9,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Anticoagulation therapy",
+    "slug": "platelets-and-coagulation-anticoagulation-therapy",
+    "order_index": 10,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Thrombotic thrombocytopenic purpura / Haemolytic uraemic syndrome",
+    "slug": "platelets-and-coagulation-thrombotic-thrombocytopenic-purpura-haemolytic-uraemic-syndrome",
+    "order_index": 11,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Disseminated intravascular coagulation",
+    "slug": "platelets-and-coagulation-disseminated-intravascular-coagulation",
+    "order_index": 12,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Inherited thrombophilias",
+    "slug": "platelets-and-coagulation-inherited-thrombophilias",
+    "order_index": 13,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Acquired thrombophilias",
+    "slug": "platelets-and-coagulation-acquired-thrombophilias",
+    "order_index": 14,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Liver disease and bleeding disorder",
+    "slug": "platelets-and-coagulation-liver-disease-and-bleeding-disorder",
+    "order_index": 15,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Immune thrombocytopenic purpura",
+    "slug": "platelets-and-coagulation-immune-thrombocytopenic-purpura",
+    "order_index": 16,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 4,
+    "day_title": "Platelets and Coagulation",
+    "title": "Haemorrhagic disease of the newborn",
+    "slug": "platelets-and-coagulation-haemorrhagic-disease-of-the-newborn",
+    "order_index": 17,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "Bone Marrow Failure and Myeloid Disorders",
+    "title": "The spleen in haematology",
+    "slug": "bone-marrow-failure-and-myeloid-disorders-the-spleen-in-haematology",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "Bone Marrow Failure and Myeloid Disorders",
+    "title": "Pancytopenia",
+    "slug": "bone-marrow-failure-and-myeloid-disorders-pancytopenia",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "Bone Marrow Failure and Myeloid Disorders",
+    "title": "Inherited bone marrow failure syndromes",
+    "slug": "bone-marrow-failure-and-myeloid-disorders-inherited-bone-marrow-failure-syndromes",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "Bone Marrow Failure and Myeloid Disorders",
+    "title": "Acquired bone marrow failure syndromes: Aplastic anaemia",
+    "slug": "bone-marrow-failure-and-myeloid-disorders-acquired-bone-marrow-failure-syndromes-aplastic",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "Bone Marrow Failure and Myeloid Disorders",
+    "title": "Paroxysmal nocturnal haemoglobinuria",
+    "slug": "bone-marrow-failure-and-myeloid-disorders-paroxysmal-nocturnal-haemoglobinuria",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "Bone Marrow Failure and Myeloid Disorders",
+    "title": "Leukaemogenesis I & II",
+    "slug": "bone-marrow-failure-and-myeloid-disorders-leukaemogenesis-i-and-ii",
+    "order_index": 6,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "Bone Marrow Failure and Myeloid Disorders",
+    "title": "Acute myeloid leukaemia",
+    "slug": "bone-marrow-failure-and-myeloid-disorders-acute-myeloid-leukaemia",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "Bone Marrow Failure and Myeloid Disorders",
+    "title": "Chronic myeloid leukaemia",
+    "slug": "bone-marrow-failure-and-myeloid-disorders-chronic-myeloid-leukaemia",
+    "order_index": 8,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "Bone Marrow Failure and Myeloid Disorders",
+    "title": "Myelodysplastic syndrome (MDS) I & II",
+    "slug": "bone-marrow-failure-and-myeloid-disorders-myelodysplastic-syndrome-mds-i-and-ii",
+    "order_index": 9,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "Bone Marrow Failure and Myeloid Disorders",
+    "title": "Polycythaemia vera",
+    "slug": "bone-marrow-failure-and-myeloid-disorders-polycythaemia-vera",
+    "order_index": 10,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "Bone Marrow Failure and Myeloid Disorders",
+    "title": "Essential thrombocythaemia",
+    "slug": "bone-marrow-failure-and-myeloid-disorders-essential-thrombocythaemia",
+    "order_index": 11,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 5,
+    "day_title": "Bone Marrow Failure and Myeloid Disorders",
+    "title": "Primary myelofibrosis",
+    "slug": "bone-marrow-failure-and-myeloid-disorders-primary-myelofibrosis",
+    "order_index": 12,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 6,
+    "day_title": "Lymphoid Malignancies",
+    "title": "Acute lymphoblastic leukaemia",
+    "slug": "lymphoid-malignancies-acute-lymphoblastic-leukaemia",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 6,
+    "day_title": "Lymphoid Malignancies",
+    "title": "Chronic lymphocytic leukaemia (diagnosis and treatment)",
+    "slug": "lymphoid-malignancies-chronic-lymphocytic-leukaemia-diagnosis-and-treatment",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 6,
+    "day_title": "Lymphoid Malignancies",
+    "title": "Introduction to the lymphomas",
+    "slug": "lymphoid-malignancies-introduction-to-the-lymphomas",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 6,
+    "day_title": "Lymphoid Malignancies",
+    "title": "Hodgkin's lymphoma",
+    "slug": "lymphoid-malignancies-hodgkins-lymphoma",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 6,
+    "day_title": "Lymphoid Malignancies",
+    "title": "Non-Hodgkin's lymphoma",
+    "slug": "lymphoid-malignancies-non-hodgkins-lymphoma",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 6,
+    "day_title": "Lymphoid Malignancies",
+    "title": "Burkitt lymphoma",
+    "slug": "lymphoid-malignancies-burkitt-lymphoma",
+    "order_index": 6,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 6,
+    "day_title": "Lymphoid Malignancies",
+    "title": "Multiple myeloma",
+    "slug": "lymphoid-malignancies-multiple-myeloma",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "Transfusion Medicine",
+    "title": "ABO and Rh blood group systems",
+    "slug": "transfusion-medicine-abo-and-rh-blood-group-systems",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "Transfusion Medicine",
+    "title": "Other blood group systems",
+    "slug": "transfusion-medicine-other-blood-group-systems",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "Transfusion Medicine",
+    "title": "Indications for blood transfusion",
+    "slug": "transfusion-medicine-indications-for-blood-transfusion",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "Transfusion Medicine",
+    "title": "Blood donor selection",
+    "slug": "transfusion-medicine-blood-donor-selection",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "Transfusion Medicine",
+    "title": "Autologous blood donation/transfusion",
+    "slug": "transfusion-medicine-autologous-blood-donation-transfusion",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "Transfusion Medicine",
+    "title": "Massive blood loss / massive blood transfusion",
+    "slug": "transfusion-medicine-massive-blood-loss-massive-blood-transfusion",
+    "order_index": 6,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "Transfusion Medicine",
+    "title": "Complications of blood transfusion",
+    "slug": "transfusion-medicine-complications-of-blood-transfusion",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "Transfusion Medicine",
+    "title": "Blood component therapy and indications",
+    "slug": "transfusion-medicine-blood-component-therapy-and-indications",
+    "order_index": 8,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "Transfusion Medicine",
+    "title": "Management of blood transfusion-related reactions",
+    "slug": "transfusion-medicine-management-of-blood-transfusion-related-reactions",
+    "order_index": 9,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "Transfusion Medicine",
+    "title": "Introduction to haemovigilance",
+    "slug": "transfusion-medicine-introduction-to-haemovigilance",
+    "order_index": 10,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 7,
+    "day_title": "Transfusion Medicine",
+    "title": "Haemolytic disease of the newborn I & II",
+    "slug": "transfusion-medicine-haemolytic-disease-of-the-newborn-i-and-ii",
+    "order_index": 11,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 8,
+    "day_title": "Haematology in Special Populations and Clinical Practice",
+    "title": "Haematology in pregnancy I & II",
+    "slug": "haematology-in-special-populations-and-clinical-practice-haematology-in-pregnancy-i-and-ii",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 8,
+    "day_title": "Haematology in Special Populations and Clinical Practice",
+    "title": "Haematology in neonates I & II",
+    "slug": "haematology-in-special-populations-and-clinical-practice-haematology-in-neonates-i-and-ii",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 8,
+    "day_title": "Haematology in Special Populations and Clinical Practice",
+    "title": "Haematological changes in systemic diseases",
+    "slug": "haematology-in-special-populations-and-clinical-practice-haematological-changes-in-systemi",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 8,
+    "day_title": "Haematology in Special Populations and Clinical Practice",
+    "title": "Haematology in the elderly",
+    "slug": "haematology-in-special-populations-and-clinical-practice-haematology-in-the-elderly",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 8,
+    "day_title": "Haematology in Special Populations and Clinical Practice",
+    "title": "Haematological emergencies",
+    "slug": "haematology-in-special-populations-and-clinical-practice-haematological-emergencies",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 8,
+    "day_title": "Haematology in Special Populations and Clinical Practice",
+    "title": "Supportive care in haematological malignancies",
+    "slug": "haematology-in-special-populations-and-clinical-practice-supportive-care-in-haematological",
+    "order_index": 6,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 8,
+    "day_title": "Haematology in Special Populations and Clinical Practice",
+    "title": "Chemotherapy I & II (haemato-oncology)",
+    "slug": "haematology-in-special-populations-and-clinical-practice-chemotherapy-i-and-ii-haemato-onc",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 8,
+    "day_title": "Haematology in Special Populations and Clinical Practice",
+    "title": "Introduction to haematopoietic stem cell transplantation (HSCT)",
+    "slug": "haematology-in-special-populations-and-clinical-practice-introduction-to-haematopoietic-st",
+    "order_index": 8,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 8,
+    "day_title": "Haematology in Special Populations and Clinical Practice",
+    "title": "Application of HSCT in haematology",
+    "slug": "haematology-in-special-populations-and-clinical-practice-application-of-hsct-in-haematolog",
+    "order_index": 9,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 8,
+    "day_title": "Haematology in Special Populations and Clinical Practice",
+    "title": "Introduction to gene therapy",
+    "slug": "haematology-in-special-populations-and-clinical-practice-introduction-to-gene-therapy",
+    "order_index": 10,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 8,
+    "day_title": "Haematology in Special Populations and Clinical Practice",
+    "title": "Application of gene therapy in haematology",
+    "slug": "haematology-in-special-populations-and-clinical-practice-application-of-gene-therapy-in-ha",
+    "order_index": 11,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 9,
+    "day_title": "Basic Immunology",
+    "title": "Introduction to immunology",
+    "slug": "basic-immunology-introduction-to-immunology",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 9,
+    "day_title": "Basic Immunology",
+    "title": "Innate immunity I & II",
+    "slug": "basic-immunology-innate-immunity-i-and-ii",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 9,
+    "day_title": "Basic Immunology",
+    "title": "Tolerance, immune paralysis and autoimmunity",
+    "slug": "basic-immunology-tolerance-immune-paralysis-and-autoimmunity",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 9,
+    "day_title": "Basic Immunology",
+    "title": "The lymphoid system / lymphoid organs",
+    "slug": "basic-immunology-the-lymphoid-system-lymphoid-organs",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 9,
+    "day_title": "Basic Immunology",
+    "title": "Lymphopoiesis and plasma cell development",
+    "slug": "basic-immunology-lymphopoiesis-and-plasma-cell-development",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 9,
+    "day_title": "Basic Immunology",
+    "title": "Antibody production",
+    "slug": "basic-immunology-antibody-production",
+    "order_index": 6,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 9,
+    "day_title": "Basic Immunology",
+    "title": "Antigens and immune response: antigenic determinants, factors affecting immune response, fate of antigens",
+    "slug": "basic-immunology-antigens-and-immune-response-antigenic-determinants-factors-affecting-imm",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 9,
+    "day_title": "Basic Immunology",
+    "title": "Tumour antigens",
+    "slug": "basic-immunology-tumour-antigens",
+    "order_index": 8,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 9,
+    "day_title": "Basic Immunology",
+    "title": "Complement system I & II",
+    "slug": "basic-immunology-complement-system-i-and-ii",
+    "order_index": 9,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 9,
+    "day_title": "Basic Immunology",
+    "title": "Immunoglobulin synthesis",
+    "slug": "basic-immunology-immunoglobulin-synthesis",
+    "order_index": 10,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 9,
+    "day_title": "Basic Immunology",
+    "title": "Immune tolerance",
+    "slug": "basic-immunology-immune-tolerance",
+    "order_index": 11,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 9,
+    "day_title": "Basic Immunology",
+    "title": "HLA I & II",
+    "slug": "basic-immunology-hla-i-and-ii",
+    "order_index": 12,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 10,
+    "day_title": "Immune Dysregulation and Clinical Immunology",
+    "title": "Immunosuppression I & II",
+    "slug": "immune-dysregulation-and-clinical-immunology-immunosuppression-i-and-ii",
+    "order_index": 1,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 10,
+    "day_title": "Immune Dysregulation and Clinical Immunology",
+    "title": "Immunology of immunodeficiency I & II",
+    "slug": "immune-dysregulation-and-clinical-immunology-immunology-of-immunodeficiency-i-and-ii",
+    "order_index": 2,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 10,
+    "day_title": "Immune Dysregulation and Clinical Immunology",
+    "title": "Autoimmune disease I & II",
+    "slug": "immune-dysregulation-and-clinical-immunology-autoimmune-disease-i-and-ii",
+    "order_index": 3,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 10,
+    "day_title": "Immune Dysregulation and Clinical Immunology",
+    "title": "Autoimmune disorders with haematological involvement",
+    "slug": "immune-dysregulation-and-clinical-immunology-autoimmune-disorders-with-haematological-invo",
+    "order_index": 4,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 10,
+    "day_title": "Immune Dysregulation and Clinical Immunology",
+    "title": "Immune haemolytic anaemias",
+    "slug": "immune-dysregulation-and-clinical-immunology-immune-haemolytic-anaemias",
+    "order_index": 5,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 10,
+    "day_title": "Immune Dysregulation and Clinical Immunology",
+    "title": "Immunoproliferative disorders",
+    "slug": "immune-dysregulation-and-clinical-immunology-immunoproliferative-disorders",
+    "order_index": 6,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 10,
+    "day_title": "Immune Dysregulation and Clinical Immunology",
+    "title": "Immunology of organ transplant I & II",
+    "slug": "immune-dysregulation-and-clinical-immunology-immunology-of-organ-transplant-i-and-ii",
+    "order_index": 7,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 10,
+    "day_title": "Immune Dysregulation and Clinical Immunology",
+    "title": "Immunology of malnutrition I & II",
+    "slug": "immune-dysregulation-and-clinical-immunology-immunology-of-malnutrition-i-and-ii",
+    "order_index": 8,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 10,
+    "day_title": "Immune Dysregulation and Clinical Immunology",
+    "title": "Immunology of tropical parasitic, fungal, viral and bacterial diseases",
+    "slug": "immune-dysregulation-and-clinical-immunology-immunology-of-tropical-parasitic-fungal-viral",
+    "order_index": 9,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  },
+  {
+    "course_name": "Haematology / Immunology",
+    "course_slug": "haematology-immunology",
+    "day_number": 10,
+    "day_title": "Immune Dysregulation and Clinical Immunology",
+    "title": "Human Immunodeficiency Virus (HIV) I & II",
+    "slug": "immune-dysregulation-and-clinical-immunology-human-immunodeficiency-virus-hiv-i-and-ii",
+    "order_index": 10,
+    "subtopics": [],
+    "source": "Pharmacology_and_Pathology_Reference.docx"
+  }
+]
