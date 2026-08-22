@@ -105,8 +105,9 @@ export async function POST(req: Request) {
         Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'deepseek-v4-pro',
+        model: process.env.DEEPSEEK_TEACHING_MODEL || 'deepseek-v4-flash',
         stream: true,
+        max_tokens: 2400,
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages,
