@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '../../../lib/supabase/server';
 
 function safeNextPath(value: string | null) {
-  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/';
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/dashboard';
   return value;
 }
 

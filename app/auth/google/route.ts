@@ -13,7 +13,9 @@ export async function GET(request: Request) {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${requestUrl.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      // Keep the provider redirect exactly equal to the Supabase allow-listed callback URL.
+      // The destination is selected after the code exchange by the callback route.
+      redirectTo: `${requestUrl.origin}/auth/callback`,
       queryParams: { access_type: 'offline', prompt: 'select_account' },
     },
   });
