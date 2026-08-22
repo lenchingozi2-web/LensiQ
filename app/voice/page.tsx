@@ -103,7 +103,7 @@ function VoiceTutorContent() {
   const [ambienceOpen, setAmbienceOpen] = useState(false);
   const [ambienceId, setAmbienceId] = useState('deep-focus');
   const [ambienceNotice, setAmbienceNotice] = useState('');
-  const [ambienceVolume, setAmbienceVolume] = useState(0.22);
+  const [ambienceVolume, setAmbienceVolume] = useState(0.32);
   const [recordingDownloadUrl, setRecordingDownloadUrl] = useState<string | null>(null);
   const [recordingReady, setRecordingReady] = useState(false);
   const roomRef = useRef<Room | null>(null);
@@ -312,7 +312,7 @@ function VoiceTutorContent() {
 
   useEffect(() => {
     const gain = ambienceGraphRef.current?.gain;
-    if (gain) gain.gain.setTargetAtTime(ambienceEnabled ? ambienceVolume * (voiceActive ? 0.18 : 1) : 0, gain.context.currentTime, 0.08);
+    if (gain) gain.gain.setTargetAtTime(ambienceEnabled ? ambienceVolume * (voiceActive ? 0.42 : 1) : 0, gain.context.currentTime, 0.08);
   }, [ambienceEnabled, ambienceVolume, voiceActive]);
 
   const startMicMonitor = async (track: MediaStreamTrack) => {
