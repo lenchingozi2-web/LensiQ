@@ -370,7 +370,12 @@ function VoiceTutorContent() {
     element.setAttribute('playsinline', 'true');
     element.setAttribute('aria-hidden', 'true');
     audioContainerRef.current?.appendChild(element);
-    void element.play().then(() => { clientStage('AGENT_AUDIO_PLAYBACK_STARTED'); setAudioState(tutorMutedRef.current ? 'ready' : 'playing'); }).catch((playbackError) => { clientStage('AGENT_AUDIO_PLAYBACK_BLOCKED', { error: String(playbackError) }); setAudioState('blocked'); setRuntimeState('ERROR');       setStatus('Your tutor audio is not connected yet. Tap Enable tutor audio to reconnect it.'); });
+    void element.play().then(() => {
+      element.muted = tutorMutedRef.current;
+      element.volume = tutorMutedRef.current ? 0 : 1;
+      clientStage('AGENT_AUDIO_PLAYBACK_STARTED');
+      setAudioState(tutorMutedRef.current ? 'ready' : 'playing');
+    }).catch((playbackError) => { clientStage('AGENT_AUDIO_PLAYBACK_BLOCKED', { error: String(playbackError) }); setAudioState('blocked'); setRuntimeState('ERROR'); setStatus('Your tutor audio is not connected yet. Tap Enable tutor audio to reconnect it.'); });
   };
 
   const requestMicrophone = async (): Promise<MediaStreamTrack | null> => {
@@ -563,6 +568,12 @@ function VoiceTutorContent() {
           }
         }
       }
+      await room.startAudio().catch((playbackError) => { clientStage('AGENT_AUDIO_PLAYBACK_BLOCKED', { error: String(playbackError) }); setAudioState('blocked'); });
+      audioContainerRef.current?.querySelectorAll('audio').forEach((element) => {
+        element.muted = tutorMutedRef.current;
+        element.volume = tutorMutedRef.current ? 0 : 1;
+        void element.play().catch(() => undefined);
+      });
       const microphonePublication = await room.localParticipant.publishTrack(microphoneTrack, { source: Track.Source.Microphone });
       if (!microphonePublication?.track) throw new Error('Live Class could not publish the microphone track.');
       clientStage('MIC_TRACK_PUBLISHED', { trackId: microphonePublication.trackSid, enabled: microphoneTrack.enabled, readyState: microphoneTrack.readyState });
