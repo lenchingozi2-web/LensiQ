@@ -1,6 +1,6 @@
 import { createClient } from './supabase/server';
 import { isPaidPlan } from './plans';
-import { FREE_ANATOMICAL_PATHOLOGY_SYSTEM, isFreeAnatomicalPathologySystem } from './practical-catalogue';
+import { isFreeAnatomicalPathologySystem } from './practical-catalogue';
 
 type FeatureType = 'teaching' | 'explanation' | 'quiz' | 'browse' | 'practical';
 
@@ -11,6 +11,7 @@ type AccessResult = {
   isAdmin?: boolean;
   unlimited?: boolean;
   freePracticalBranch?: string;
+  needsFreePracticalSelection?: boolean;
 };
 
 export async function checkAccess(feature: FeatureType, requestedCourse?: string, requestedPracticalBranch?: string): Promise<AccessResult> {
@@ -53,10 +54,24 @@ export async function checkAccess(feature: FeatureType, requestedCourse?: string
     if (isPaidPlan(profile.plan)) return { allowed: true, unlimited: true };
 
     if (feature === 'practical') {
-      if (isFreeAnatomicalPathologySystem(requestedPracticalBranch)) {
-        return { allowed: true, freePracticalBranch: FREE_ANATOMICAL_PATHOLOGY_SYSTEM };
+      const selectedFreeBranch = typeof profile.selected_free_practical_branch === 'string' ? profile.selected_free_practical_branch.trim() : '';
+      if (!selectedFreeBranch) {
+        return {
+          allowed: false,
+          status: 403,
+          needsFreePracticalSelection: true,
+          message: 'Choose one Anatomical Pathology organ/system to use as your free practical access. Other systems require a subscription.',
+        };
       }
-      return { allowed: false, status: 403, message: `Free access includes one Anatomical Pathology organ/system: ${FREE_ANATOMICAL_PATHOLOGY_SYSTEM}. Upgrade to unlock every practical system.` };
+      if (requestedPracticalBranch && isFreeAnatomicalPathologySystem(requestedPracticalBranch, selectedFreeBranch)) {
+        return { allowed: true, freePracticalBranch: selectedFreeBranch };
+      }
+      return {
+        allowed: false,
+        status: 403,
+        freePracticalBranch: selectedFreeBranch,
+        message: `Your free practical access is set to ${selectedFreeBranch}. Other organ systems require a subscription.`,
+      };
     }
 
     if (feature === 'browse') {

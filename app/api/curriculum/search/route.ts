@@ -9,8 +9,8 @@ import { isFreeAnatomicalPathologySystem } from '@/lib/practical-catalogue';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function visibleResults<T extends { subject: string; type: string; division?: string | null }>(results: T[], hasPremiumAccess: boolean) {
-  return hasPremiumAccess ? results : results.filter((result) => result.type !== 'practical' || (result.subject.toLowerCase() === 'pathology' && isFreeAnatomicalPathologySystem(result.division ?? '')));
+function visibleResults<T extends { subject: string; type: string; division?: string | null }>(results: T[], hasPremiumAccess: boolean, selectedFreePracticalBranch?: string | null) {
+  return hasPremiumAccess ? results : results.filter((result) => result.type !== 'practical' || (result.subject.toLowerCase() === 'pathology' && isFreeAnatomicalPathologySystem(result.division ?? '', selectedFreePracticalBranch)));
 }
 
 export async function POST(request: Request) {
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('plan,plan_expires_at,role,selected_free_course')
+      .select('plan,plan_expires_at,role,selected_free_course,selected_free_practical_branch')
       .eq('id', user.id)
       .maybeSingle();
     const hasPremiumAccess = Boolean(
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
       subjectFilter: freeSubject,
       limit: 30,
     });
-    const safeResults = visibleResults(results, hasPremiumAccess);
+    const safeResults = visibleResults(results, hasPremiumAccess, profile?.selected_free_practical_branch);
 
     return NextResponse.json({
       query: rawQuery || topic?.title || sourceName,

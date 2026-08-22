@@ -66,7 +66,7 @@ export default function PricingClient() {
               <li className="flex gap-x-3"><span className="text-green-500">✓</span> 30 AI explanations/month</li>
               <li className="flex gap-x-3"><span className="text-green-500">✓</span> 6 AI teaching sessions/month</li>
               <li className="flex gap-x-3"><span className="text-green-500">✓</span> 3 quiz attempts/month</li>
-              <li className="flex gap-x-3 text-slate-600"><span className="text-emerald-500">✓</span> One Anatomical Pathology organ/system is free; other systems are premium</li>
+              <li className="flex gap-x-3 text-slate-600"><span className="text-emerald-500">✓</span> Choose one Anatomical Pathology organ/system for free; other systems are premium</li>
             </ul>
           </div>
           <Link href="/dashboard" className="mt-8 block w-full bg-slate-100 text-slate-900 rounded-xl px-3 py-3 text-center text-sm font-semibold hover:bg-slate-200 transition-colors">

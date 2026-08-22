@@ -1,6 +1,6 @@
 import { createClient } from '../../../../../lib/supabase/server';
 import { checkAccess } from '../../../../../lib/gatekeeper';
-import { ANATOMICAL_PATHOLOGY_SYSTEMS, FREE_ANATOMICAL_PATHOLOGY_SYSTEM, isAnatomicalPathologyAggregate } from '../../../../../lib/practical-catalogue';
+import { ANATOMICAL_PATHOLOGY_SYSTEMS, isAnatomicalPathologyAggregate } from '../../../../../lib/practical-catalogue';
 import StudyCard from '../../../../../components/StudyCard';
 import Link from 'next/link';
 
@@ -16,12 +16,17 @@ export default async function BrowseModePage({ params }: { params: Promise<{ sub
   const questionType = resolvedParams.type.toLowerCase();
   const subjectTitle = titleFromSlug(subjectId);
   const isAnatomicalAggregate = isAnatomicalPathologyAggregate(subjectId, rawDivision);
+  const isAnatomicalSystem = subjectId === 'pathology' && ANATOMICAL_PATHOLOGY_SYSTEMS.includes(rawDivision as typeof ANATOMICAL_PATHOLOGY_SYSTEMS[number]);
   const displayDivision = isAnatomicalAggregate ? 'Anatomical Pathology practicals' : (rawDivision.includes('-') ? titleFromSlug(rawDivision) : rawDivision);
   const canonicalDivision = isAnatomicalAggregate ? 'Anatomical Pathology' : rawDivision;
 
   if (questionType === 'practical') {
     const practicalAccess = await checkAccess('practical', undefined, isAnatomicalAggregate ? undefined : rawDivision);
-    if (!practicalAccess.allowed) return <main className="min-h-[calc(100vh-4.5rem)] bg-[#F6F8FB] px-4 py-12 text-center sm:px-6"><div className="mx-auto max-w-xl rounded-3xl border border-amber-200 bg-white p-8 shadow-xl"><p className="text-xs font-black uppercase tracking-[0.18em] text-[#9A5D00]">Practical access</p><h1 className="mt-3 text-3xl font-black text-[#0B1220]">Continue with verified practicals</h1><p className="mt-4 leading-7 text-slate-600">{practicalAccess.message}</p>{isAnatomicalAggregate && <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-left"><p className="text-xs font-black uppercase tracking-[0.15em] text-emerald-700">Free branch</p><p className="mt-1 text-sm font-bold leading-6 text-emerald-900">One Anatomical Pathology organ/system is available on the free plan: {FREE_ANATOMICAL_PATHOLOGY_SYSTEM}. Other organ systems require premium access.</p></div>}<div className="mt-7 flex flex-wrap justify-center gap-3">{isAnatomicalAggregate && <Link href={`/browse/${subjectId}/${encodeURIComponent(FREE_ANATOMICAL_PATHOLOGY_SYSTEM)}/practical`} className="rounded-xl bg-emerald-600 px-6 py-3 font-black text-white hover:bg-emerald-700">Open free practicals</Link>}<Link href="/pricing" className="rounded-xl bg-[#E8A23D] px-6 py-3 font-black text-[#0B1220] hover:bg-amber-500">View subscription plans</Link><Link href="/browse" className="rounded-xl border border-slate-200 px-6 py-3 font-bold text-slate-700">Back to practice</Link></div></div></main>;
+    if (!practicalAccess.allowed) {
+      const selectedSystemHref = practicalAccess.freePracticalBranch ? `/browse/${subjectId}/${encodeURIComponent(practicalAccess.freePracticalBranch)}/practical` : `/browse/${subjectId}`;
+      const canChooseSystem = isAnatomicalAggregate || isAnatomicalSystem;
+      return <main className="min-h-[calc(100vh-4.5rem)] bg-[#F6F8FB] px-4 py-12 text-center sm:px-6"><div className="mx-auto max-w-xl rounded-3xl border border-amber-200 bg-white p-8 shadow-xl"><p className="text-xs font-black uppercase tracking-[0.18em] text-[#9A5D00]">Practical access</p><h1 className="mt-3 text-3xl font-black text-[#0B1220]">Choose your free practical system</h1><p className="mt-4 leading-7 text-slate-600">{practicalAccess.message}</p>{canChooseSystem && <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-left"><p className="text-xs font-black uppercase tracking-[0.15em] text-emerald-700">One free choice per account</p><p className="mt-1 text-sm font-bold leading-6 text-emerald-900">Choose one Anatomical Pathology organ/system from the catalogue. That system becomes your free practical access; the other systems require a subscription.</p></div>}<div className="mt-7 flex flex-wrap justify-center gap-3">{canChooseSystem && <Link href={selectedSystemHref} className="rounded-xl bg-emerald-600 px-6 py-3 font-black text-white hover:bg-emerald-700">{practicalAccess.needsFreePracticalSelection ? 'Choose a free system' : 'Open your free practical'}</Link>}<Link href="/pricing" className="rounded-xl bg-[#E8A23D] px-6 py-3 font-black text-[#0B1220] hover:bg-amber-500">View subscription plans</Link><Link href="/browse" className="rounded-xl border border-slate-200 px-6 py-3 font-bold text-slate-700">Back to practice</Link></div></div></main>;
+    }
   }
 
   let query = supabase.from('questions').select('*').ilike('subject', subjectTitle).eq('type', questionType);
