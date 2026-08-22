@@ -107,6 +107,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         model: process.env.DEEPSEEK_TEACHING_MODEL || 'deepseek-v4-flash',
         stream: true,
+        thinking: { type: 'disabled' },
         max_tokens: 2400,
         messages: [
           { role: 'system', content: systemPrompt },
