@@ -126,6 +126,11 @@ export default async function AuthPage({
               Sign Up
             </button>
           </div>
+          <div className="my-3 flex items-center gap-3 text-xs font-semibold text-slate-400"><span className="h-px flex-1 bg-slate-200" /><span>OR</span><span className="h-px flex-1 bg-slate-200" /></div>
+          <a href="/auth/google?next=/dashboard" className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 bg-white px-4 py-3 font-bold text-slate-800 shadow-sm hover:bg-slate-50">
+            <span aria-hidden="true" className="text-base font-black">G</span>
+            Continue with Google
+          </a>
         </form>
       </div>
     </div>
