@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { createClient as createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 type SearchResult = {
   id: string;
@@ -79,14 +80,23 @@ export default function TopicDiscoveryPanel({ courseSlug, topicSlug, topicTitle 
     if (!query.trim() && !file && !topicSlug) return;
     setLoading(true);
     setError('');
-    const formData = new FormData();
-    formData.set('query', query.trim());
-    if (courseSlug) formData.set('courseSlug', courseSlug);
-    if (topicSlug) formData.set('topicSlug', topicSlug);
-    if (file) formData.set('file', file);
-
     try {
-      const response = await fetch('/api/curriculum/search', { method: 'POST', body: formData });
+      let response: Response;
+      if (file) {
+        const prepareResponse = await fetch('/api/uploads/lecture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope: 'search', fileName: file.name, mimeType: file.type || 'application/octet-stream', sizeBytes: file.size }) });
+        const uploadData = await prepareResponse.json().catch(() => ({}));
+        if (!prepareResponse.ok) throw new Error(uploadData.error || 'The lecture upload could not be prepared.');
+        const supabase = createBrowserSupabaseClient();
+        const { error: uploadError } = await supabase.storage.from(uploadData.bucket).uploadToSignedUrl(uploadData.path, uploadData.token, file, { contentType: file.type || uploadData.mimeType });
+        if (uploadError) throw new Error('The lecture upload could not be completed. Please try again.');
+        response = await fetch('/api/curriculum/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim(), courseSlug, topicSlug, storagePath: uploadData.path, fileName: file.name, mimeType: file.type || uploadData.mimeType, sizeBytes: file.size }) });
+      } else {
+        const formData = new FormData();
+        formData.set('query', query.trim());
+        if (courseSlug) formData.set('courseSlug', courseSlug);
+        if (topicSlug) formData.set('topicSlug', topicSlug);
+        response = await fetch('/api/curriculum/search', { method: 'POST', body: formData });
+      }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Search could not be completed.');
       setResults(data.results ?? []);
@@ -115,7 +125,7 @@ export default function TopicDiscoveryPanel({ courseSlug, topicSlug, topicTitle 
         <form onSubmit={runSearch} className="rounded-2xl border border-slate-200 bg-slate-50 p-3 focus-within:border-[#E8A23D] focus-within:ring-4 focus-within:ring-[#E8A23D]/10">
           <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto]">
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={topicTitle ? `Search within ${topicTitle}…` : 'Try “inflammation”, “malaria”, or “beta blockers”'} className="min-w-0 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#E8A23D]" />
-            <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-600 hover:border-[#E8A23D] hover:text-[#0B1220]"><input type="file" className="sr-only" accept=".pdf,.ppt,.pptx,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />{file ? `Attached: ${file.name}` : 'Attach lecture slide'}</label>
+            <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-600 hover:border-[#E8A23D] hover:text-[#0B1220]"><input type="file" className="sr-only" accept=".pdf,.pptx,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />{file ? `Attached: ${file.name}` : 'Attach lecture slide'}</label>
             <button type="submit" disabled={loading || (!query.trim() && !file && !topicSlug)} className="min-h-12 rounded-xl bg-[#E8A23D] px-6 py-3 text-sm font-black text-[#0B1220] shadow-sm hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50">{loading ? 'Searching…' : 'Find questions'}</button>
           </div>
         </form>
