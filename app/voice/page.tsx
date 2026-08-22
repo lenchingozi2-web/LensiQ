@@ -494,6 +494,7 @@ function VoiceTutorContent() {
       dynacast: true,
       webAudioMix: false,
     });
+    Object.defineProperty(window, '__lensiqLiveRoom', { configurable: true, value: room });
     await room.startAudio().catch(() => setAudioState('blocked'));
     const microphoneTrack = await requestMicrophone();
     if (!microphoneTrack) { room.disconnect(); setRuntimeState('ERROR'); setConnecting(false); return; }
@@ -589,7 +590,6 @@ function VoiceTutorContent() {
       setElapsedSeconds(0);
       try { await startRecording(microphonePublication.track); } catch { setAmbienceNotice('Live Class is active, but this browser cannot record the session locally.'); }
       roomRef.current = room;
-      Object.defineProperty(window, '__lensiqLiveRoom', { configurable: true, value: room });
       setConnected(true);
       setMicMuted(false);
       setRuntimeState('INITIALIZING');
