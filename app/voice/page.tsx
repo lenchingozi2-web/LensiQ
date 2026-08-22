@@ -364,8 +364,8 @@ function VoiceTutorContent() {
     const element = track.attach();
     clientStage('AGENT_AUDIO_TRACK_SUBSCRIBED', { trackId: track.sid ?? track.mediaStreamTrack.id, elementKind: element.tagName });
     element.autoplay = true;
-    element.muted = true;
-    element.volume = 0;
+    element.muted = tutorMutedRef.current;
+    element.volume = tutorMutedRef.current ? 0 : 1;
     if ('setVolume' in track && typeof track.setVolume === 'function') track.setVolume(tutorMutedRef.current ? 0 : 1);
     element.setAttribute('playsinline', 'true');
     element.setAttribute('aria-hidden', 'true');
@@ -483,11 +483,11 @@ function VoiceTutorContent() {
     setRecordingReady(false);
     setRecordingDownloadUrl(null);
     setStatus('Opening your private live classroom…');
-    const playbackContext = await unlockPlaybackAudio().catch(() => null);
+    await unlockPlaybackAudio().catch(() => undefined);
     const room = new Room({
       adaptiveStream: true,
       dynacast: true,
-      webAudioMix: playbackContext ? { audioContext: playbackContext } : true,
+      webAudioMix: false,
     });
     await room.startAudio().catch(() => setAudioState('blocked'));
     const microphoneTrack = await requestMicrophone();
@@ -606,7 +606,7 @@ function VoiceTutorContent() {
     tutorMutedRef.current = nextMuted;
     setTutorMuted(nextMuted);
     const elements = Array.from(audioContainerRef.current?.querySelectorAll('audio') ?? []);
-    elements.forEach((element) => { element.muted = true; element.volume = 0; });
+    elements.forEach((element) => { element.muted = nextMuted; element.volume = nextMuted ? 0 : 1; });
     roomRef.current?.remoteParticipants.forEach((participant) => participant.audioTrackPublications.forEach((publication) => {
       if (publication.track && 'setVolume' in publication.track && typeof publication.track.setVolume === 'function') publication.track.setVolume(nextMuted ? 0 : 1);
     }));
