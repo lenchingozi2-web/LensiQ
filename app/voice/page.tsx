@@ -354,7 +354,9 @@ function VoiceTutorContent() {
     const element = track.attach();
     clientStage('AGENT_AUDIO_TRACK_SUBSCRIBED', { trackId: track.sid ?? track.mediaStreamTrack.id, elementKind: element.tagName });
     element.autoplay = true;
-    element.muted = tutorMutedRef.current;
+    element.muted = true;
+    element.volume = 0;
+    if ('setVolume' in track && typeof track.setVolume === 'function') track.setVolume(tutorMutedRef.current ? 0 : 1);
     element.setAttribute('playsinline', 'true');
     element.setAttribute('aria-hidden', 'true');
     audioContainerRef.current?.appendChild(element);
@@ -565,7 +567,10 @@ function VoiceTutorContent() {
     tutorMutedRef.current = nextMuted;
     setTutorMuted(nextMuted);
     const elements = Array.from(audioContainerRef.current?.querySelectorAll('audio') ?? []);
-    elements.forEach((element) => { element.muted = nextMuted; });
+    elements.forEach((element) => { element.muted = true; element.volume = 0; });
+    roomRef.current?.remoteParticipants.forEach((participant) => participant.audioTrackPublications.forEach((publication) => {
+      if (publication.track && 'setVolume' in publication.track && typeof publication.track.setVolume === 'function') publication.track.setVolume(nextMuted ? 0 : 1);
+    }));
     if (nextMuted) {
       setAudioState(agentAudioSubscribedRef.current ? 'ready' : 'waiting');
       setStatus('Tutor audio muted. Your microphone remains live.');

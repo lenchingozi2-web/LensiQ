@@ -77,7 +77,7 @@ export async function POST(req: Request) {
   const token = new AccessToken(apiKey, apiSecret, {
     identity: user.id,
     name: user.email ?? 'LenxiQ AI learner',
-    metadata: JSON.stringify({ courseName, topicFocus, sessionType: 'live_class', evidenceSeed }),
+    metadata: JSON.stringify({ userId: user.id, courseName, topicFocus, sessionType: 'live_class', contextEndpoint: `${new URL(req.url).origin}/api/voice/context`, evidenceSeed }),
     ttl: isUnlimited ? '24h' : '10m',
   });
 
