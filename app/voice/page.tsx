@@ -263,6 +263,9 @@ function VoiceTutorContent() {
     recorder.ondataavailable = (event) => { if (event.data.size) bundle.chunks.push(event.data); };
     recordingRef.current = bundle;
     if (localTrack) addRecordingTrack(localTrack);
+    roomRef.current?.remoteParticipants.forEach((participant) => participant.audioTrackPublications.forEach((publication) => {
+      if (publication.track) addRecordingTrack(publication.track);
+    }));
     recorder.start(1000);
   };
 
@@ -629,8 +632,8 @@ function VoiceTutorContent() {
       sessionStartedAtRef.current = 1;
       elapsedSecondsRef.current = 0;
       setElapsedSeconds(0);
-      try { await startRecording(microphonePublication.track); } catch { setAmbienceNotice('Live Class is active, but this browser cannot record the session locally.'); }
       roomRef.current = room;
+      try { await startRecording(microphonePublication.track); } catch { setAmbienceNotice('Live Class is active, but this browser cannot record the session locally.'); }
       setConnected(true);
       setMicMuted(false);
       setRuntimeState('INITIALIZING');
