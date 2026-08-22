@@ -522,12 +522,12 @@ function VoiceTutorContent() {
       room.on(RoomEvent.Reconnected, () => { const nextState = runtimeStateBeforeReconnectRef.current === 'PAUSED' ? 'LISTENING' : runtimeStateBeforeReconnectRef.current; setRuntimeState(nextState); setStatus(nextState === 'TEACHING' ? 'Study room reconnected. LenxiQ AI can continue your lesson.' : 'Study room reconnected. Your lesson context is preserved.'); });
       room.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
         try {
-          const data = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME'; role?: Role; content?: string; id?: string | null; rms?: number; maxAbs?: number; nonSilent?: boolean };
+          const data = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; role?: Role; content?: string; id?: string | null; source?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
           if (topic === 'lensiq.live_class.state') {
             if (data.type !== 'live_class_state' || !data.state) return;
-            if (data.state === 'TTS_AUDIO_FRAME') {
-              (window as typeof window & { __lensiqAgentTtsPcm?: { rms?: number; maxAbs?: number; nonSilent?: boolean } }).__lensiqAgentTtsPcm = { rms: data.rms, maxAbs: data.maxAbs, nonSilent: data.nonSilent };
-              clientStage('AGENT_TTS_PCM_MEASURED', { rms: data.rms, maxAbs: data.maxAbs, nonSilent: data.nonSilent });
+            if (data.state === 'TTS_AUDIO_FRAME' || data.state === 'TTS_AUDIO_SUMMARY') {
+              (window as typeof window & { __lensiqAgentTtsPcm?: Record<string, unknown> }).__lensiqAgentTtsPcm = { ...data };
+              clientStage(data.state === 'TTS_AUDIO_FRAME' ? 'AGENT_TTS_PCM_MEASURED' : 'AGENT_TTS_PCM_SUMMARY', { ...data });
               return;
             }
             if (!(data.state in RUNTIME_COPY)) return;
