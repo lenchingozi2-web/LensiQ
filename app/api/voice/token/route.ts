@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { AccessToken } from 'livekit-server-sdk';
+import { AccessToken, AgentDispatchClient } from 'livekit-server-sdk';
 import { createClient } from '../../../../lib/supabase/server';
 import { buildLiveClassSeed } from '../../../../lib/ai/live-class-context';
 
@@ -74,10 +74,26 @@ export async function POST(req: Request) {
 
   const isUnlimited = Boolean(quota.is_unlimited);
   const evidenceSeed = await buildLiveClassSeed(supabase, courseName, topicFocus);
+  const dispatchHost = livekitUrl.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:');
+  const dispatchMetadata = JSON.stringify({
+    userId: user.id,
+    courseName,
+    topicFocus,
+    sessionType: 'live_class',
+    contextEndpoint: `${new URL(req.url).origin}/api/voice/context`,
+    evidenceSeed,
+  });
+  try {
+    const dispatchClient = new AgentDispatchClient(dispatchHost, apiKey, apiSecret);
+    await dispatchClient.createDispatch(roomName, 'lensiq-voice-tutor', { metadata: dispatchMetadata });
+  } catch (dispatchError) {
+    console.error('Live Class agent dispatch failed:', dispatchError);
+    return NextResponse.json({ error: 'The Live Class tutor could not be dispatched. Please try again.' }, { status: 503 });
+  }
   const token = new AccessToken(apiKey, apiSecret, {
     identity: user.id,
     name: user.email ?? 'LenxiQ AI learner',
-    metadata: JSON.stringify({ userId: user.id, courseName, topicFocus, sessionType: 'live_class', contextEndpoint: `${new URL(req.url).origin}/api/voice/context`, evidenceSeed }),
+    metadata: dispatchMetadata,
     ttl: isUnlimited ? '24h' : '10m',
   });
 
