@@ -187,6 +187,17 @@ function TeachingRoom() {
       const decoder = new TextDecoder();
       let assistantResponse = '';
       let sseBuffer = '';
+      const consumeEvent = (eventChunk: string) => {
+        const data = eventChunk.split(/\r?\n/).filter((line) => line.startsWith('data:')).map((line) => line.replace(/^data:\s?/, '')).join('\n');
+        if (!data || data === '[DONE]') return;
+        try {
+          const parsed = JSON.parse(data);
+          const contentChunk = parsed.choices?.[0]?.delta?.content || '';
+          if (!contentChunk) return;
+          assistantResponse += contentChunk;
+          setMessages((previous) => { const updated = [...previous]; updated[updated.length - 1] = { role: 'assistant', content: assistantResponse }; return updated; });
+        } catch { /* Keep incomplete SSE frames buffered until the next read. */ }
+      };
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
@@ -194,20 +205,18 @@ function TeachingRoom() {
           sseBuffer += decoder.decode(value, { stream: true });
           const events = sseBuffer.split(/\r?\n\r?\n/);
           sseBuffer = events.pop() || '';
-          for (const eventChunk of events) {
-            const data = eventChunk.split(/\r?\n/).filter((line) => line.startsWith('data:')).map((line) => line.replace(/^data:\s?/, '')).join('\n');
-            if (!data || data === '[DONE]') continue;
-            try {
-              const parsed = JSON.parse(data);
-              const contentChunk = parsed.choices?.[0]?.delta?.content || '';
-              if (!contentChunk) continue;
-              assistantResponse += contentChunk;
-              setMessages((previous) => { const updated = [...previous]; updated[updated.length - 1] = { role: 'assistant', content: assistantResponse }; return updated; });
-            } catch { /* Keep incomplete SSE frames buffered. */ }
-          }
+          for (const eventChunk of events) consumeEvent(eventChunk);
         }
+        sseBuffer += decoder.decode();
+        if (sseBuffer.trim()) consumeEvent(sseBuffer);
       }
-      if (assistantResponse) await persistMessage(activeConversationId, { role: 'assistant', content: assistantResponse });
+      if (!assistantResponse) {
+        setMessages(nextMessages);
+        setCurrentInput(trimmedInput);
+        setError('The tutor did not return a response. Please try again.');
+        return;
+      }
+      await persistMessage(activeConversationId, { role: 'assistant', content: assistantResponse });
       await loadConversations();
     } catch { setError('The teaching session could not be completed. Please try again.'); setMessages(messages); setCurrentInput(trimmedInput); }
     finally { setLoading(false); }
