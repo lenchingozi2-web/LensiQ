@@ -589,6 +589,7 @@ function VoiceTutorContent() {
       setElapsedSeconds(0);
       try { await startRecording(microphonePublication.track); } catch { setAmbienceNotice('Live Class is active, but this browser cannot record the session locally.'); }
       roomRef.current = room;
+      Object.defineProperty(window, '__lensiqLiveRoom', { configurable: true, value: room });
       setConnected(true);
       setMicMuted(false);
       setRuntimeState('INITIALIZING');
@@ -609,6 +610,7 @@ function VoiceTutorContent() {
       setStatus('The live classroom could not be opened.');
       roomRef.current?.disconnect();
       roomRef.current = null;
+      Reflect.deleteProperty(window, '__lensiqLiveRoom');
       const activeSessionId = sessionIdRef.current;
       if (activeSessionId) await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: activeSessionId, action: 'end' }) }).catch(() => undefined);
       setSessionId(null);
