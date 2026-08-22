@@ -556,7 +556,11 @@ function VoiceTutorContent() {
       await room.startAudio().catch((playbackError) => { clientStage('AGENT_AUDIO_PLAYBACK_BLOCKED', { error: String(playbackError) }); setAudioState('blocked'); });
       for (const participant of room.remoteParticipants.values()) {
         for (const publication of participant.trackPublications.values()) {
-          if (publication.track?.kind === Track.Kind.Audio) attachAudioTrack(publication.track);
+          if (publication.track?.kind === Track.Kind.Audio) {
+            agentAudioSubscribedRef.current = true;
+            setAgentAudioSubscribed(true);
+            attachAudioTrack(publication.track);
+          }
         }
       }
       const microphonePublication = await room.localParticipant.publishTrack(microphoneTrack, { source: Track.Source.Microphone });
