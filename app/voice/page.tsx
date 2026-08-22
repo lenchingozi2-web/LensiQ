@@ -6,7 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { Room, RoomEvent, Track, type Participant, type TranscriptionSegment } from 'livekit-client';
 
 type PermissionState = 'unknown' | 'granted' | 'denied';
-type LiveRuntimeState = 'READY' | 'INITIALIZING' | 'GREETING' | 'WAITING_FOR_TOPIC' | 'LISTENING' | 'THINKING' | 'TEACHING' | 'INTERRUPTED' | 'ANSWERING' | 'RESUMING' | 'PAUSED' | 'ENDING' | 'ENDED' | 'ERROR';
+type LiveRuntimeState = 'READY' | 'INITIALIZING' | 'SESSION_READY' | 'GREETING' | 'WAITING_FOR_TOPIC' | 'LISTENING' | 'THINKING' | 'TEACHING' | 'INTERRUPTED' | 'ANSWERING' | 'RESUMING' | 'PAUSED' | 'ENDING' | 'ENDED' | 'ERROR';
 type Role = 'user' | 'assistant';
 type Message = { id?: string; role: Role; content: string; created_at?: string };
 type SessionSummary = { topic: string; durationSeconds: number; turns: number; recordingAvailable: boolean };
@@ -47,6 +47,7 @@ function formatClock(seconds: number) {
 const RUNTIME_COPY: Record<LiveRuntimeState, { label: string; detail: string }> = {
   READY: { label: 'Ready', detail: 'Your private study room is ready.' },
   INITIALIZING: { label: 'Opening study room', detail: 'Connecting the secure voice room…' },
+  SESSION_READY: { label: 'Voice room ready', detail: 'Waiting for the microphone signal before greeting you.' },
   GREETING: { label: 'Your tutor is joining', detail: 'LenxiQ AI is preparing your spoken lesson.' },
   WAITING_FOR_TOPIC: { label: 'Your turn', detail: 'Tell LenxiQ AI what you want to understand.' },
   LISTENING: { label: 'Listening to you', detail: 'Your tutor is listening.' },
@@ -493,22 +494,34 @@ function VoiceTutorContent() {
       room.on(RoomEvent.Reconnecting, () => { runtimeStateBeforeReconnectRef.current = runtimeStateRef.current; setRuntimeState('PAUSED'); setStatus('Connection interrupted. Reconnecting your study room…'); });
       room.on(RoomEvent.Reconnected, () => { const nextState = runtimeStateBeforeReconnectRef.current === 'PAUSED' ? 'LISTENING' : runtimeStateBeforeReconnectRef.current; setRuntimeState(nextState); setStatus(nextState === 'TEACHING' ? 'Study room reconnected. LenxiQ AI can continue your lesson.' : 'Study room reconnected. Your lesson context is preserved.'); });
       room.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
-        if (topic !== 'lensiq.live_class.state') return;
         try {
-          const data = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; state?: LiveRuntimeState };
-          if (data.type !== 'live_class_state' || !data.state || !(data.state in RUNTIME_COPY)) return;
-          setRuntimeState(data.state);
-          setStatus(RUNTIME_COPY[data.state].detail);
+          const data = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; state?: LiveRuntimeState; role?: Role; content?: string; id?: string | null };
+          if (topic === 'lensiq.live_class.state') {
+            if (data.type !== 'live_class_state' || !data.state || !(data.state in RUNTIME_COPY)) return;
+            setRuntimeState(data.state);
+            setStatus(RUNTIME_COPY[data.state].detail);
+            return;
+          }
+          if (topic !== 'lensiq.live_class.transcript' || data.type !== 'live_class_transcript' || !data.role || !data.content?.trim()) return;
+          const content = data.content.trim();
+          const key = `content:${data.role}:${content.toLowerCase()}`;
+          if (transcriptIdsRef.current.has(key)) return;
+          transcriptIdsRef.current.add(key);
+          const message: Message = { id: data.id ?? undefined, role: data.role, content };
+          setMessages((previous) => [...previous, message]);
+          messagesRef.current = [...messagesRef.current, message];
+          void persistMessage(activeConversation.id, message);
+          setStatus(data.role === 'user' ? 'LenxiQ AI is following your question…' : 'LenxiQ AI is teaching…');
         } catch { /* Ignore malformed diagnostic packets. */ }
       });
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => setVoiceActive(speakers.some((speaker) => !speaker.isLocal)));
       room.on(RoomEvent.TranscriptionReceived, (segments: TranscriptionSegment[], participant?: Participant) => {
         for (const segment of segments) {
           if (!segment.final || !segment.text.trim()) continue;
-          const key = `${participant?.identity ?? 'unknown'}:${segment.id}`;
+          const message: Message = { role: participant?.isLocal ? 'user' : 'assistant', content: segment.text.trim() };
+          const key = `content:${message.role}:${message.content.toLowerCase()}`;
           if (transcriptIdsRef.current.has(key)) continue;
           transcriptIdsRef.current.add(key);
-          const message: Message = { role: participant?.isLocal ? 'user' : 'assistant', content: segment.text.trim() };
           setMessages((previous) => [...previous, message]);
           void persistMessage(activeConversation.id, message);
           setStatus(participant?.isLocal ? 'LenxiQ AI is following your question…' : 'LenxiQ AI is teaching…');
