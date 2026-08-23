@@ -22,6 +22,18 @@ function isSupported(fileName: string, mimeType: string) {
   return ALLOWED_TYPES.has(mimeType) || PARSEABLE_EXTENSIONS.has(extension);
 }
 
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  const [{ data: attachments, error }, { data: storageUsed, error: storageError }] = await Promise.all([
+    supabase.from('teaching_attachments').select('id, conversation_id, file_name, mime_type, size_bytes, extraction_status, extraction_error, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(200),
+    supabase.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id }),
+  ]);
+  if (error || storageError) return NextResponse.json({ error: 'Unable to load your retained lecture files.' }, { status: 503 });
+  return NextResponse.json({ attachments: attachments ?? [], storageUsedBytes: Number(storageUsed ?? 0), storageLimitBytes: MAX_STORAGE_BYTES });
+}
+
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

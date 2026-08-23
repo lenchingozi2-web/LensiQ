@@ -17,11 +17,13 @@ const primaryLinks = [
 export default async function Navbar() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  let userRole: 'admin' | 'user' = 'user';
 
   if (user) {
     const cookieStore = await cookies();
     const localToken = cookieStore.get('session_token')?.value;
-    const { data: profile } = await supabase.from('profiles').select('session_token').eq('id', user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('session_token, role').eq('id', user.id).single();
+    userRole = profile?.role === 'admin' ? 'admin' : 'user';
 
     if (profile?.session_token && profile.session_token !== localToken) {
       return (
@@ -65,7 +67,7 @@ export default async function Navbar() {
 
         <div className="flex shrink-0 items-center gap-2">
           <Link href="/pricing" className="rounded-lg border border-[#E8A23D]/50 bg-[#FFF8E9] px-3 py-2 text-xs font-black text-[#8B5709] hover:bg-[#FFF0CF] sm:text-sm">Plans</Link>
-          {user ? <UserDropdown email={user.email || 'User'} /> : <Link href="/signup" className="rounded-xl bg-[#0B1220] px-3.5 py-2.5 text-sm font-black text-white shadow-sm hover:bg-slate-800 sm:px-4">Get started</Link>}
+          {user ? <UserDropdown email={user.email || 'User'} role={userRole} /> : <Link href="/signup" className="rounded-xl bg-[#0B1220] px-3.5 py-2.5 text-sm font-black text-white shadow-sm hover:bg-slate-800 sm:px-4">Get started</Link>}
           <MobileNav links={primaryLinks} />
         </div>
       </nav>
