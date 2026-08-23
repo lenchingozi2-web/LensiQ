@@ -1,6 +1,7 @@
 import { createClient } from './supabase/server';
 import { isPaidPlan } from './plans';
 import { isFreeAnatomicalPathologySystem } from './practical-catalogue';
+import { getOrCreateProfile } from './profile';
 
 type FeatureType = 'teaching' | 'explanation' | 'quiz' | 'browse' | 'practical';
 
@@ -22,13 +23,12 @@ export async function checkAccess(feature: FeatureType, requestedCourse?: string
 
     if (!user) return { allowed: false, status: 401, message: 'Not logged in.' };
 
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+    const { data: profile, error: profileError } = await getOrCreateProfile(supabase, user);
 
-    if (profileError || !profile) return { allowed: false, status: 500, message: 'Database error.' };
+    if (profileError || !profile) {
+      console.error('Access check profile lookup failed:', profileError?.message || 'profile unavailable');
+      return { allowed: false, status: 500, message: 'Your account profile could not be loaded. Please refresh and try again.' };
+    }
 
     // Administrators are never subject to plan expiry, feature limits, or premium gates.
     if (profile.role === 'admin') return { allowed: true, isAdmin: true, unlimited: true };

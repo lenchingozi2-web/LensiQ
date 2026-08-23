@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
+import { getOrCreateProfile } from '../../lib/profile';
 import { cookies } from 'next/headers';
 
 // We add searchParams so we can read error messages from the URL
@@ -27,6 +28,8 @@ export default async function AuthPage({
     });
 
     if (!error && data.user) {
+      const { error: profileError } = await getOrCreateProfile(supabaseServer, data.user);
+      if (profileError) redirect('/signup?error=Your account could not be initialized. Please try again.');
       const token = crypto.randomUUID();
       await supabaseServer.from('profiles').update({ session_token: token }).eq('id', data.user.id);
       
@@ -52,6 +55,8 @@ export default async function AuthPage({
     });
 
     if (!error && data.user) {
+      const { error: profileError } = await getOrCreateProfile(supabaseServer, data.user);
+      if (profileError) redirect('/signup?error=Your account could not be initialized. Please try again.');
       const token = crypto.randomUUID();
       await supabaseServer.from('profiles').update({ session_token: token }).eq('id', data.user.id);
       

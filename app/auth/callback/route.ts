@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '../../../lib/supabase/server';
+import { getOrCreateProfile } from '../../../lib/profile';
 
 function safeNextPath(value: string | null) {
   if (!value || !value.startsWith('/') || value.startsWith('//')) return '/dashboard';
@@ -30,6 +31,11 @@ export async function GET(request: Request) {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) {
     return NextResponse.redirect(new URL('/signup?error=Google sign-in did not return a valid account.', requestUrl.origin));
+  }
+
+  const { error: bootstrapError } = await getOrCreateProfile(supabase, user);
+  if (bootstrapError) {
+    return NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent('Your account could not be initialized. Please try again.')}`, requestUrl.origin));
   }
 
   const sessionToken = crypto.randomUUID();
