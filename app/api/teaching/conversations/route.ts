@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const sessionType = requestedType === 'live_class' || requestedType === 'teaching_room' ? requestedType : null;
   let query = supabase
     .from('teaching_conversations')
-    .select('id, course_name, title, session_type, is_pinned, created_at, updated_at')
+    .select('id, course_name, title, session_type, is_pinned, created_at, updated_at, recording_expires_at, recording_path')
     .eq('user_id', user.id)
     .is('deleted_at', null)
     .order('is_pinned', { ascending: false })
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   const { data, error } = await supabase
     .from('teaching_conversations')
     .insert({ user_id: user.id, course_name: courseName, title, session_type: sessionType })
-    .select('id, course_name, title, session_type, is_pinned, created_at, updated_at')
+    .select('id, course_name, title, session_type, is_pinned, created_at, updated_at, recording_expires_at, recording_path')
     .single();
 
   if (error) return NextResponse.json({ error: 'Unable to create teaching session.' }, { status: 500 });

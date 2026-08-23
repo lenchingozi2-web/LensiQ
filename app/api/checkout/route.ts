@@ -1,69 +1,61 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
-import { getPaidPlan } from '../../../lib/plans';
+import { getPaidPlan, getWalletTopup } from '../../../lib/plans';
 
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'You must be logged in to purchase Premium or voice minutes.' }, { status: 401 });
+    if (!process.env.FLUTTERWAVE_SECRET_KEY) return NextResponse.json({ error: 'Payments are not configured yet.' }, { status: 503 });
 
-    if (!user) {
-      return NextResponse.json({ error: 'You must be logged in to upgrade.' }, { status: 401 });
+    const body = await req.json().catch(() => ({}));
+    const productType = body?.productType === 'topup' ? 'topup' : 'subscription';
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.lenxiq.online';
+    let amountNaira: number;
+    let itemId: string;
+    let meta: Record<string, string | number>;
+    let description: string;
+    let title: string;
+
+    if (productType === 'topup') {
+      const topup = getWalletTopup(body?.productId);
+      if (!topup) return NextResponse.json({ error: 'Invalid voice-minute top-up.' }, { status: 400 });
+      amountNaira = topup.amountNaira;
+      itemId = topup.id;
+      meta = { user_id: user.id, product_type: 'topup', product_id: topup.id, voice_minutes: topup.voiceMinutes, amount_ngn: topup.amountNaira };
+      description = `${topup.label} for Live Class`;
+      title = 'LenxiQ AI Voice Minutes';
+    } else {
+      const plan = getPaidPlan(body?.planId || 'premium_monthly');
+      if (!plan) return NextResponse.json({ error: 'Invalid subscription plan.' }, { status: 400 });
+      amountNaira = plan.amountNaira;
+      itemId = plan.id;
+      meta = { user_id: user.id, product_type: 'subscription', plan_id: plan.id, plan_duration: plan.durationMonths, plan_amount: plan.amountNaira };
+      description = 'Monthly Premium with 50 text-teaching credits and 60 voice minutes';
+      title = 'LenxiQ AI Hybrid Premium';
     }
 
-    const body = await req.json();
-    const plan = getPaidPlan(body?.planId);
-
-    if (!plan) {
-      return NextResponse.json({ error: 'Invalid subscription plan.' }, { status: 400 });
-    }
-
-    const tx_ref = `lensiq_${user.id}_${plan.id}_${Date.now()}`;
-    const siteUrl = process.env.NODE_ENV === 'production'
-      ? 'https://lenxiq.online'
-      : 'http://localhost:3000';
-
+    const tx_ref = `lenxiq_${productType}_${user.id}_${itemId}_${crypto.randomUUID()}`;
     const response = await fetch('https://api.flutterwave.com/v3/payments', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         tx_ref,
-        amount: plan.amountNaira,
+        amount: amountNaira,
         currency: 'NGN',
         redirect_url: `${siteUrl}/api/checkout/verify`,
-        meta: {
-          user_id: user.id,
-          plan_id: plan.id,
-          plan_duration: plan.durationMonths,
-          plan_amount: plan.amountNaira,
-        },
-        customer: {
-          email: user.email,
-          name: 'lensiqAI Scholar',
-        },
-        customizations: {
-          title: 'lensiqAI Premium Access',
-          description: `${plan.label} subscription with full course and practical access`,
-          logo: `${siteUrl}/icon.png`,
-        },
+        meta,
+        customer: { email: user.email, name: 'LenxiQ AI Scholar' },
+        customizations: { title, description, logo: `${siteUrl}/icon.png` },
       }),
     });
 
-    const data = await response.json();
-
-    if (data.status !== 'success' || !data.data?.link) {
-      throw new Error(data.message || 'Payment gateway rejected the checkout request.');
-    }
-
-    return NextResponse.json({ checkoutUrl: data.data.link });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.status !== 'success' || !data.data?.link) throw new Error(data.message || 'Payment gateway rejected the checkout request.');
+    return NextResponse.json({ checkoutUrl: data.data.link, productType, itemId });
   } catch (error) {
     console.error('Flutterwave API Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to initialize payment gateway.' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Failed to initialize payment gateway.' }, { status: 500 });
   }
 }

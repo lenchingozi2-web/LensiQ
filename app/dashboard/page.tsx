@@ -1,18 +1,24 @@
 import { createClient } from '../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { isPaidPlan } from '../../lib/plans';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) redirect('/login');
 
-  const { data: results } = await supabase
-    .from('exam_results')
-    .select('id, test_title, score, total_questions, percentage, created_at')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(50);
+  const [{ data: results }, { data: profile }, { data: storageBytes }] = await Promise.all([
+    supabase.from('exam_results').select('id, test_title, score, total_questions, percentage, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
+    supabase.from('profiles').select('role, plan, plan_expires_at, wallet_reset_at, voice_minutes_balance, text_teaching_balance, storage_limit_bytes').eq('id', user.id).single(),
+    supabase.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id }),
+  ]);
+  const isAdmin = profile?.role === 'admin';
+  const isPremium = isAdmin || (isPaidPlan(profile?.plan) && (!profile?.plan_expires_at || new Date(profile.plan_expires_at) > new Date()));
+  const voiceMinutes = Number(profile?.voice_minutes_balance ?? 0);
+  const textCredits = Number(profile?.text_teaching_balance ?? 0);
+  const retainedBytes = Number(storageBytes ?? 0);
+  const storageLimit = Number(profile?.storage_limit_bytes ?? 100 * 1024 * 1024);
 
   const totalExams = results?.length ?? 0;
   const averagePercentage = totalExams > 0 ? Math.round(results!.reduce((sum, result) => sum + result.percentage, 0) / totalExams) : 0;
@@ -35,6 +41,11 @@ export default async function DashboardPage() {
             </div>
           </div>
         </header>
+
+        <section className="mt-8 grid gap-5 lg:grid-cols-3">
+          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#9a5d00]">Your learning wallet</p><h2 className="mt-2 text-xl font-black text-[#0b1220]">{isAdmin ? 'Administrator access' : isPremium ? 'Hybrid Premium balances' : 'Foundation Scholar access'}</h2></div>{isPremium && !isAdmin && voiceMinutes <= 5 && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Voice balance is low</span>}</div>{isAdmin ? <p className="mt-5 text-sm font-bold text-emerald-700">Unlimited access to all courses, explanations, teaching, practical systems, quizzes, and Live Class. No wallet deduction applies.</p> : isPremium ? <div className="mt-5 grid gap-4 sm:grid-cols-2"><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Voice minutes</p><p className="mt-2 text-3xl font-black text-[#0b1220]">{voiceMinutes}</p><p className="mt-1 text-xs font-semibold text-slate-500">Top up at any time · warning at 5 minutes</p></div><div className="rounded-xl bg-slate-50 p-4"><p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Text-teaching credits</p><p className="mt-2 text-3xl font-black text-[#0b1220]">{textCredits}</p><p className="mt-1 text-xs font-semibold text-slate-500">Resets to 50 on your billing date · no rollover</p></div></div> : <p className="mt-5 text-sm font-semibold leading-6 text-slate-500">Upgrade to Hybrid Premium for full catalogue access, 50 text-teaching credits, and 60 Live Class voice minutes each billing month.</p>}{isPremium && !isAdmin && <p className="mt-4 text-xs font-semibold text-slate-400">Next wallet reset: {profile?.wallet_reset_at ? new Date(profile.wallet_reset_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'not scheduled'}</p>}</article>
+          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Teaching storage</p><p className="mt-3 text-3xl font-black text-[#0b1220]">{(retainedBytes / (1024 * 1024)).toFixed(1)} <span className="text-base">/ {(storageLimit / (1024 * 1024)).toFixed(0)} MB</span></p><div className="mt-4 h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-[#e8a23d]" style={{ width: `${Math.min(100, (retainedBytes / Math.max(storageLimit, 1)) * 100)}%` }} /></div><p className="mt-3 text-xs font-semibold leading-5 text-slate-500">Persistent lecture files only. Temporary search uploads are not counted.</p><Link href="/teach" className="mt-4 inline-flex text-sm font-black text-[#9a5d00]">Manage files in Teaching Room →</Link></article>
+        </section>
 
         <section className="mt-8 grid gap-5 sm:grid-cols-3">
           {[

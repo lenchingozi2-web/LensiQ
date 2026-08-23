@@ -163,7 +163,15 @@ function VoiceTutorContent() {
   useEffect(() => {
     if (!connected || !sessionId) return;
     const heartbeat = window.setInterval(() => {
-      void fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, action: 'heartbeat' }) });
+      void fetch('/api/voice/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, action: 'heartbeat', durationSeconds: elapsedSecondsRef.current }),
+      }).then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (typeof data.remainingVoiceMinutes === 'number') setRemainingSeconds(Math.max(0, data.remainingVoiceMinutes * 60 - (elapsedSecondsRef.current % 60)));
+        if (data.shouldEnd && !endingRef.current) void endSessionRef.current(data.message || 'Your voice-minute balance has reached zero. The Live Class has ended gracefully. You can top up and start again.');
+      }).catch(() => undefined);
     }, 30000);
     return () => window.clearInterval(heartbeat);
   }, [connected, sessionId]);

@@ -83,8 +83,18 @@ export async function POST(req: Request) {
         .select('role, plan, plan_expires_at')
         .eq('id', user.id)
         .maybeSingle();
-      const unlimited = profile?.role === 'admin' || (isPaidPlan(profile?.plan) && (!profile?.plan_expires_at || new Date(profile.plan_expires_at) > new Date()));
-      if (!unlimited && new Date(liveSession.started_at).getTime() + 600_000 <= Date.now()) {
+      const isAdmin = profile?.role === 'admin';
+      const isPremiumVoice = isPaidPlan(profile?.plan) && (!profile?.plan_expires_at || new Date(profile.plan_expires_at) > new Date());
+      if (isPremiumVoice && !isAdmin) {
+        const { data: chargeRows, error: chargeError } = await supabase.rpc('charge_live_class_session', {
+          p_session_id: liveClassSessionId,
+          p_duration_seconds: Math.max(0, Math.floor((Date.now() - new Date(liveSession.started_at).getTime()) / 1000)),
+          p_end: false,
+        });
+        const charge = Array.isArray(chargeRows) ? chargeRows[0] : chargeRows;
+        if (chargeError || !charge?.ok) return NextResponse.json({ error: 'Unable to confirm the remaining Live Class wallet balance.' }, { status: 503 });
+        if (charge.should_end) return NextResponse.json({ error: 'Your voice-minute balance has reached zero. The Live Class has ended gracefully; you can top up and start again.' }, { status: 403 });
+      } else if (!isAdmin && !isPremiumVoice && new Date(liveSession.started_at).getTime() + 600_000 <= Date.now()) {
         await supabase.from('live_class_sessions').update({ status: 'expired', ended_at: new Date().toISOString() }).eq('id', liveClassSessionId).eq('user_id', user.id);
         return NextResponse.json({ error: 'Your free Live Class session has reached its 10-minute limit. You can start another session if you have allowance remaining.' }, { status: 403 });
       }

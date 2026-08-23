@@ -57,8 +57,12 @@ export async function POST(req: Request) {
 
   if (!quota.allowed) {
     const limitMessage = quota.reason === 'limit_reached'
-      ? 'Your free plan includes 3 Live Class sessions per calendar month, with each session lasting up to 10 minutes. Upgrade for unlimited Live Class access.'
-      : 'Sign in to start Live Class.';
+      ? 'Your Foundation Scholar plan includes 3 Live Class sessions per calendar month, with each session lasting up to 10 minutes. Premium adds 60 voice minutes each billing month.'
+      : quota.reason === 'voice_balance_empty'
+        ? 'Your Premium voice-minute balance is empty. Top up voice minutes to continue with Live Class.'
+        : quota.reason === 'active_session'
+          ? 'You already have an active Live Class. End it before starting another one.'
+          : 'Sign in to start Live Class.';
     return NextResponse.json({
       error: 'live_class_limit',
       message: limitMessage,
@@ -73,6 +77,7 @@ export async function POST(req: Request) {
   }
 
   const isUnlimited = Boolean(quota.is_unlimited);
+  const maxDurationSeconds = isUnlimited ? 86400 : Math.max(60, Number(quota.max_duration_seconds ?? 600));
   const evidenceSeed = await buildLiveClassSeed(supabase, courseName, topicFocus);
   const dispatchHost = livekitUrl.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:');
   const dispatchMetadata = JSON.stringify({
@@ -94,7 +99,7 @@ export async function POST(req: Request) {
     identity: user.id,
     name: user.email ?? 'LenxiQ AI learner',
     metadata: dispatchMetadata,
-    ttl: isUnlimited ? '24h' : '10m',
+    ttl: isUnlimited ? '24h' : `${maxDurationSeconds}s`,
   });
 
   token.addGrant({
@@ -110,12 +115,12 @@ export async function POST(req: Request) {
     url: livekitUrl,
     roomName,
     sessionId: quota.session_id,
-    expiresInSeconds: isUnlimited ? 86400 : 600,
+    expiresInSeconds: maxDurationSeconds,
     quota: {
       isUnlimited,
       usedSessions: quota.used_sessions ?? null,
       maxSessions: quota.max_sessions ?? null,
-      maxDurationSeconds: quota.max_duration_seconds ?? null,
+      maxDurationSeconds: quota.max_duration_seconds ?? maxDurationSeconds,
       expiresAt: quota.expires_at ?? null,
       resetsAt: isUnlimited ? null : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString(),
     },

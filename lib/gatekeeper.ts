@@ -10,6 +10,7 @@ type AccessResult = {
   message?: string;
   isAdmin?: boolean;
   unlimited?: boolean;
+  remainingTextTeaching?: number | null;
   freePracticalBranch?: string;
   needsFreePracticalSelection?: boolean;
 };
@@ -37,9 +38,12 @@ export async function checkAccess(feature: FeatureType, requestedCourse?: string
     const paidPlanExpired = isPaidPlan(profile.plan) && Boolean(expiresAt && now > expiresAt);
 
     if (paidPlanExpired) {
-      await supabase.from('profiles').update({ plan: 'free', plan_duration: 0 }).eq('id', user.id);
+      await supabase.from('profiles').update({ plan: 'free', plan_duration: 0, voice_minutes_balance: 0, text_teaching_balance: 0, wallet_reset_at: null }).eq('id', user.id);
       profile.plan = 'free';
       profile.plan_duration = 0;
+      profile.voice_minutes_balance = 0;
+      profile.text_teaching_balance = 0;
+      profile.wallet_reset_at = null;
     }
 
     if (profile.plan === 'free' && (!expiresAt || now > expiresAt)) {
@@ -51,7 +55,23 @@ export async function checkAccess(feature: FeatureType, requestedCourse?: string
       profile.quiz_attempts_used = 0;
     }
 
-    if (isPaidPlan(profile.plan)) return { allowed: true, unlimited: true };
+    if (isPaidPlan(profile.plan)) {
+      if (feature === 'teaching') {
+        const { data: debitRows, error: debitError } = await supabase.rpc('consume_text_teaching_credit', {
+          p_idempotency_key: crypto.randomUUID(),
+        });
+        const debit = Array.isArray(debitRows) ? debitRows[0] : debitRows;
+        if (debitError || !debit) return { allowed: false, status: 500, message: 'Unable to confirm your Teaching credit right now. Please try again.' };
+        if (!debit.allowed) {
+          const message = debit.reason === 'text_teaching_balance_empty'
+            ? 'Your monthly text-teaching allowance is empty. It resets at your next billing date.'
+            : 'Your Premium teaching allowance is not available. Please check your plan status.';
+          return { allowed: false, status: 403, message, remainingTextTeaching: debit.remaining_credits ?? 0 };
+        }
+        return { allowed: true, unlimited: false, remainingTextTeaching: debit.remaining_credits ?? null };
+      }
+      return { allowed: true, unlimited: true };
+    }
 
     if (feature === 'practical') {
       const selectedFreeBranch = typeof profile.selected_free_practical_branch === 'string' ? profile.selected_free_practical_branch.trim() : '';

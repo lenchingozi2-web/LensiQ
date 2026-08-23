@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
 
 const BUCKET = 'teaching-attachments';
-const MAX_FILE_SIZE = 100 * 1024 * 1024;
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const MAX_STORAGE_BYTES = 100 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
@@ -19,20 +20,23 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
-
   const body = await request.json().catch(() => ({}));
   const scope = body?.scope === 'teaching' || body?.scope === 'search' ? body.scope : null;
   const fileName = typeof body?.fileName === 'string' ? body.fileName : '';
   const mimeType = typeof body?.mimeType === 'string' ? body.mimeType : '';
   const sizeBytes = Number(body?.sizeBytes);
   if (!scope || !fileName || !Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_FILE_SIZE) {
-    return NextResponse.json({ error: 'Files must be between 1 byte and 100 MB.' }, { status: 413 });
+    return NextResponse.json({ error: 'Lecture files must be between 1 byte and 20 MB.' }, { status: 413 });
   }
   const extension = fileName.toLowerCase().split('.').pop() ?? '';
-  if (!ALLOWED_TYPES.has(mimeType) && !PARSEABLE_EXTENSIONS.has(extension)) {
-    return NextResponse.json({ error: 'Use a PDF, PPTX, DOCX, or plain-text lecture file.' }, { status: 415 });
-  }
+  if (!ALLOWED_TYPES.has(mimeType) && !PARSEABLE_EXTENSIONS.has(extension)) return NextResponse.json({ error: 'Use a PDF, PPTX, DOCX, or plain-text lecture file.' }, { status: 415 });
   const normalizedMimeType = ALLOWED_TYPES.has(mimeType) ? mimeType : extension === 'pdf' ? 'application/pdf' : extension === 'txt' ? 'text/plain' : extension === 'pptx' ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+  if (scope === 'teaching') {
+    const { data: usage, error: usageError } = await supabase.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id });
+    if (usageError) return NextResponse.json({ error: 'Unable to confirm your Teaching storage usage.' }, { status: 503 });
+    if (Number(usage ?? 0) + sizeBytes > MAX_STORAGE_BYTES) return NextResponse.json({ error: 'Your persistent Teaching storage is full. Delete an older lecture file before uploading another.' }, { status: 413 });
+  }
 
   const storagePath = `${user.id}/${scope}/${crypto.randomUUID()}-${safeFileName(fileName)}`;
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(storagePath);
@@ -40,6 +44,5 @@ export async function POST(request: Request) {
     console.error('Lecture signed-upload token failed:', error);
     return NextResponse.json({ error: 'Unable to prepare the lecture upload.' }, { status: 500 });
   }
-
   return NextResponse.json({ bucket: BUCKET, path: storagePath, token: data.token, mimeType: normalizedMimeType, sizeBytes });
 }

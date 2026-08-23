@@ -10,7 +10,7 @@ import { createClient as createBrowserSupabaseClient } from '@/lib/supabase/clie
 type Role = 'user' | 'assistant';
 type Message = { id?: string; role: Role; content: string };
 type Conversation = { id: string; course_name: string; title: string; created_at: string; updated_at: string; is_pinned?: boolean };
-type Attachment = { id: string; file_name: string; mime_type: string; size_bytes: number; extraction_status?: string | null; extraction_error?: string | null };
+  type Attachment = { id: string; file_name: string; mime_type: string; size_bytes: number; extraction_status?: string | null; extraction_error?: string | null };
 type SpeechRecognitionResultEvent = { resultIndex: number; results: { length: number; [index: number]: { 0: { transcript: string }; isFinal: boolean } } };
 type SpeechRecognitionInstance = { continuous: boolean; interimResults: boolean; lang: string; onresult: ((event: SpeechRecognitionResultEvent) => void) | null; onerror: ((event: { error?: string }) => void) | null; onend: (() => void) | null; start: () => void; stop: () => void };
 type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
@@ -39,6 +39,10 @@ function TeachingRoom() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [storageUsedBytes, setStorageUsedBytes] = useState(0);
+  const [storageLimitBytes, setStorageLimitBytes] = useState(100 * 1024 * 1024);
+  const [textTeachingCredits, setTextTeachingCredits] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +62,7 @@ function TeachingRoom() {
       } finally { setHistoryLoading(false); }
     };
     void load();
+    void loadWallet();
   }, []);
 
   useEffect(() => {
@@ -86,6 +91,16 @@ function TeachingRoom() {
       document.removeEventListener('keydown', closeOnEscape);
     };
   }, [showHistory]);
+
+  async function loadWallet() {
+    const response = await fetch('/api/wallet');
+    if (!response.ok) return;
+    const data = await response.json();
+    setStorageUsedBytes(Number(data.storageUsedBytes ?? 0));
+    setStorageLimitBytes(Number(data.storageLimitBytes ?? 100 * 1024 * 1024));
+    setTextTeachingCredits(typeof data.textTeachingCredits === 'number' ? data.textTeachingCredits : null);
+    setIsAdmin(Boolean(data.isAdmin));
+  }
 
   const loadConversations = async () => {
     try {
@@ -133,6 +148,7 @@ function TeachingRoom() {
     setMessages(data.messages ?? []);
     setAttachments(data.attachments ?? []);
     setShowHistory(false);
+    void loadWallet();
     shouldAutoScrollRef.current = true;
   };
 
@@ -147,6 +163,22 @@ function TeachingRoom() {
     if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || 'Unable to process this lecture file.'); }
     const data = await response.json();
     setAttachments((previous) => [...previous, data.attachment]);
+    await loadWallet();
+  };
+
+  const deleteAttachment = async (attachment: Attachment) => {
+    if (!window.confirm(`Permanently delete ${attachment.file_name}?`)) return;
+    const response = await fetch(`/api/teaching/attachments/${attachment.id}`, { method: 'DELETE' });
+    if (!response.ok) { setError('Unable to delete this lecture file.'); return; }
+    setAttachments((previous) => previous.filter((item) => item.id !== attachment.id));
+    await loadWallet();
+  };
+
+  const handleFileSelection = (files: File[]) => {
+    const oversized = files.find((file) => file.size > 20 * 1024 * 1024);
+    if (oversized) { setError(`${oversized.name} is larger than the 20 MB lecture-file limit.`); setSelectedFiles([]); return; }
+    setError('');
+    setSelectedFiles(files);
   };
 
   const persistMessage = async (id: string, message: Message) => {
@@ -198,7 +230,7 @@ function TeachingRoom() {
       for (const file of selectedFiles) await uploadAttachment(activeConversationId, file);
       setSelectedFiles([]); await persistMessage(activeConversationId, userMessage);
       const response = await fetch('/api/teach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversationId: activeConversationId, courseName, messages: nextMessages.map(({ role, content }) => ({ role, content })) }) });
-      if (!response.ok) {
+        if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         if (response.status === 403 || data.error === 'limit_reached') setShowPaywall(true); else setError(data.error || 'Something went wrong.');
         setMessages(messages); setCurrentInput(trimmedInput); return;
@@ -266,13 +298,13 @@ function TeachingRoom() {
       <main ref={scrollAreaRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-4xl pt-8 sm:pt-12">
           {messages.length === 0 && !showPaywall && <div className="mx-auto max-w-3xl pb-8 text-center sm:pb-14"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0B1220] text-xl font-black text-[#E8A23D] shadow-lg">LQ</div><p className="mt-6 text-xs font-black uppercase tracking-[0.22em] text-[#9A5D00]">Guided medical teaching</p><h1 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[#0B1220] sm:text-5xl">Build understanding, not just notes.</h1><p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-slate-600">Start from your course material and preserved past questions. LenxiQ AI then adds broader medical explanation when it helps connect the gaps.</p>{topicFocus && <p className="mx-auto mt-6 max-w-xl rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">Topic focus loaded: {topicFocus}. Your first message is ready in the composer below.</p>}<div className="mx-auto mt-8 max-w-sm rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm"><label htmlFor="course" className="mb-2 block text-sm font-black text-slate-900">Select your branch</label><select id="course" value={courseName} onChange={(event) => setCourseName(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-semibold text-slate-800 outline-none focus:border-[#E8A23D] focus:ring-2 focus:ring-[#E8A23D]/20">{COURSES.map((course) => <option key={course} value={course}>{course}</option>)}</select></div><div className="mt-5 flex flex-wrap justify-center gap-2 text-xs font-bold text-slate-400"><Link href="/search" className="rounded-full bg-white px-3 py-2 shadow-sm hover:text-[#0B1220]">Search past questions</Link><Link href="/voice" className="rounded-full bg-white px-3 py-2 shadow-sm hover:text-[#0B1220]">Use Voice Tutor</Link><Link href="/voice?mode=class" className="rounded-full bg-white px-3 py-2 shadow-sm hover:text-[#0B1220]">Enter Live Class</Link></div></div>}
-          {showPaywall && <div className="mx-auto mt-10 max-w-2xl rounded-3xl border border-slate-700 bg-gradient-to-br from-slate-900 to-slate-800 p-8 text-center shadow-xl sm:p-10"><span className="mb-5 block text-3xl font-black text-[#E8A23D]">Premium access</span><h3 className="mb-3 text-3xl font-black text-white">Continue teaching without limits.</h3><p className="mb-8 text-base leading-7 text-slate-300">Upgrade to premium for unlimited lectures, follow-up teaching, practical material, and complete learning access.</p><Link href="/pricing" className="inline-block rounded-xl bg-[#E8A23D] px-8 py-3.5 font-black text-slate-900 shadow-lg hover:bg-amber-500">View subscription plans</Link></div>}
+          {showPaywall && <div className="mx-auto mt-10 max-w-2xl rounded-3xl border border-slate-700 bg-gradient-to-br from-slate-900 to-slate-800 p-8 text-center shadow-xl sm:p-10"><span className="mb-5 block text-3xl font-black text-[#E8A23D]">Premium access</span><h3 className="mb-3 text-3xl font-black text-white">Continue with the right access.</h3><p className="mb-8 text-base leading-7 text-slate-300">Hybrid Premium includes full catalogue and practical access, plus 50 text-teaching credits each billing month. If your credits are used, they reset on your billing date.</p><Link href="/pricing" className="inline-block rounded-xl bg-[#E8A23D] px-8 py-3.5 font-black text-slate-900 shadow-lg hover:bg-amber-500">View subscription plans</Link></div>}
           {error && <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-center text-sm font-bold text-red-800">{error}</div>}
           <div className="space-y-8 pb-4">{messages.map((message, index) => <div key={message.id ?? `${message.role}-${index}`} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[96%] rounded-3xl p-5 sm:max-w-[85%] sm:p-6 ${message.role === 'user' ? 'rounded-br-none bg-[#0B1220] text-white shadow-md' : 'rounded-bl-none border border-slate-200 bg-white shadow-sm'}`}>{message.role === 'user' ? <p className="text-base font-medium leading-7">{message.content}</p> : <div className="prose prose-slate max-w-none leading-relaxed prose-headings:text-[#0B1220] prose-strong:text-[#E8A23D]">{message.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown> : <span className="italic text-slate-400">Thinking…</span>}</div>}</div></div>)}{loading && <div className="flex justify-start"><div className="flex items-center gap-2 rounded-3xl rounded-bl-none border border-slate-200 bg-white p-5 shadow-sm"><span className="h-2.5 w-2.5 animate-bounce rounded-full bg-[#E8A23D]" /><span className="h-2.5 w-2.5 animate-bounce rounded-full bg-[#E8A23D] [animation-delay:100ms]" /><span className="h-2.5 w-2.5 animate-bounce rounded-full bg-[#E8A23D] [animation-delay:200ms]" /></div></div>}<div ref={messagesEndRef} /></div>
         </div>
       </main>
 
-      {!showPaywall && <footer className="sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 px-3 py-3 backdrop-blur sm:px-6"><div className="mx-auto max-w-4xl">{(selectedFiles.length > 0 || attachments.length > 0) && <div className="mb-2 flex flex-wrap gap-2">{attachments.map((attachment) => <span key={attachment.id} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${attachment.extraction_status === 'complete' ? 'bg-emerald-50 text-emerald-800' : attachment.extraction_status === 'failed' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'}`}>{attachment.extraction_status === 'complete' ? 'Ready for teaching' : attachment.extraction_status === 'failed' ? 'Uploaded; text extraction failed' : `Uploaded; ${attachment.extraction_status || 'processing'}`} · {attachment.file_name}</span>)}{selectedFiles.map((file) => <span key={`${file.name}-${file.lastModified}`} className="rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800">Ready: {file.name}</span>)}</div>}<form onSubmit={handleTeach} className="flex items-end gap-1 rounded-2xl border border-slate-300 bg-slate-50 p-2 shadow-sm focus-within:border-[#E8A23D] focus-within:ring-2 focus-within:ring-[#E8A23D]/20"><input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.pptx,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" multiple onChange={(event) => setSelectedFiles(Array.from(event.target.files ?? []))} /><button type="button" onClick={() => fileInputRef.current?.click()} className="mb-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-200 hover:text-slate-900" aria-label="Attach lecture material" title="Attach lecture material"><span className="text-xl">＋</span></button><button type="button" onClick={toggleListening} disabled={loading || !speechSupported} className={`mb-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${isListening ? 'bg-red-100 text-red-700' : 'text-slate-500 hover:bg-slate-200 hover:text-slate-900'} disabled:cursor-not-allowed disabled:opacity-40`} aria-label={isListening ? 'Stop voice typing' : 'Use microphone to type'} title={speechSupported ? 'Speak and transcribe into the composer' : 'Voice typing is not supported in this browser'}><MicIcon active={isListening} /></button><textarea value={currentInput} onChange={(event) => setCurrentInput(event.target.value)} onKeyDown={handleKeyDown} placeholder={isListening ? 'Listening… speak your question' : messages.length === 0 ? `Ask a topic in ${courseName}…` : 'Type or dictate a follow-up question…'} className="max-h-40 min-h-[44px] w-full resize-none bg-transparent px-3 py-3 text-base font-medium leading-6 text-slate-900 outline-none placeholder:text-slate-400" rows={1} /><button type="submit" disabled={loading || !currentInput.trim()} className="mb-1 mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E8A23D] font-bold text-[#0B1220] shadow-sm hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Send teaching question" title="Send teaching question"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5"><path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" /></svg></button></form><div className="mt-2 flex items-center justify-between gap-3 text-[11px] font-bold text-slate-400"><span>{isListening ? 'Voice input is being transcribed into the text box.' : speechSupported ? 'Tap the microphone to dictate, then review before sending.' : 'Microphone typing is unavailable in this browser.'}</span><span className="hidden sm:inline">Enter to send · Shift + Enter for a new line</span></div></div></footer>}
+      {!showPaywall && <footer className="sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 px-3 py-3 backdrop-blur sm:px-6"><div className="mx-auto max-w-4xl"><div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"><div className="flex flex-wrap items-center justify-between gap-2 text-xs font-black text-slate-600"><span>Teaching storage: {(storageUsedBytes / (1024 * 1024)).toFixed(1)} / {(storageLimitBytes / (1024 * 1024)).toFixed(0)} MB</span><span>{isAdmin ? 'Admin · unlimited' : textTeachingCredits === null ? 'Wallet loading…' : `${textTeachingCredits} text credits remaining`}</span></div><div className="mt-2 h-1.5 rounded-full bg-slate-200"><div className="h-1.5 rounded-full bg-[#e8a23d]" style={{ width: `${Math.min(100, (storageUsedBytes / Math.max(storageLimitBytes, 1)) * 100)}%` }} /></div></div>{(selectedFiles.length > 0 || attachments.length > 0) && <div className="mb-2 flex flex-wrap gap-2">{attachments.map((attachment) => <span key={attachment.id} className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-bold ${attachment.extraction_status === 'complete' ? 'bg-emerald-50 text-emerald-800' : attachment.extraction_status === 'failed' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'}`}><span>{attachment.extraction_status === 'complete' ? 'Ready for teaching' : attachment.extraction_status === 'failed' ? 'Uploaded; text extraction failed' : `Uploaded; ${attachment.extraction_status || 'processing'}`} · {attachment.file_name}</span><button type="button" onClick={() => void deleteAttachment(attachment)} className="rounded px-1.5 py-0.5 text-[10px] font-black text-red-700 hover:bg-red-100" aria-label={`Delete ${attachment.file_name}`}>Delete</button></span>)}{selectedFiles.map((file) => <span key={`${file.name}-${file.lastModified}`} className="rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800">Ready: {file.name}</span>)}</div>}<form onSubmit={handleTeach} className="flex items-end gap-1 rounded-2xl border border-slate-300 bg-slate-50 p-2 shadow-sm focus-within:border-[#E8A23D] focus-within:ring-2 focus-within:ring-[#E8A23D]/20"><input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.pptx,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" multiple onChange={(event) => handleFileSelection(Array.from(event.target.files ?? []))} /><button type="button" onClick={() => fileInputRef.current?.click()} className="mb-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-200 hover:text-slate-900" aria-label="Attach lecture material" title="Attach lecture material"><span className="text-xl">＋</span></button><button type="button" onClick={toggleListening} disabled={loading || !speechSupported} className={`mb-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${isListening ? 'bg-red-100 text-red-700' : 'text-slate-500 hover:bg-slate-200 hover:text-slate-900'} disabled:cursor-not-allowed disabled:opacity-40`} aria-label={isListening ? 'Stop voice typing' : 'Use microphone to type'} title={speechSupported ? 'Speak and transcribe into the composer' : 'Voice typing is not supported in this browser'}><MicIcon active={isListening} /></button><textarea value={currentInput} onChange={(event) => setCurrentInput(event.target.value)} onKeyDown={handleKeyDown} placeholder={isListening ? 'Listening… speak your question' : messages.length === 0 ? `Ask a topic in ${courseName}…` : 'Type or dictate a follow-up question…'} className="max-h-40 min-h-[44px] w-full resize-none bg-transparent px-3 py-3 text-base font-medium leading-6 text-slate-900 outline-none placeholder:text-slate-400" rows={1} /><button type="submit" disabled={loading || !currentInput.trim()} className="mb-1 mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E8A23D] font-bold text-[#0B1220] shadow-sm hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Send teaching question" title="Send teaching question"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5"><path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" /></svg></button></form><div className="mt-2 flex items-center justify-between gap-3 text-[11px] font-bold text-slate-400"><span>{isListening ? 'Voice input is being transcribed into the text box.' : speechSupported ? 'Tap the microphone to dictate, then review before sending.' : 'Microphone typing is unavailable in this browser.'}</span><span className="hidden sm:inline">Enter to send · Shift + Enter for a new line</span></div></div></footer>}
     </div>
   );
 }

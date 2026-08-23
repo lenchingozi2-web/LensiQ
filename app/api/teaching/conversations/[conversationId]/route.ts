@@ -7,7 +7,7 @@ async function getOwnedConversation(conversationId: string, userId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('teaching_conversations')
-    .select('id, course_name, title, session_type, is_pinned, created_at, updated_at')
+    .select('id, course_name, title, session_type, is_pinned, created_at, updated_at, recording_expires_at, recording_path')
     .eq('id', conversationId)
     .eq('user_id', userId)
     .is('deleted_at', null)
@@ -63,7 +63,7 @@ export async function PATCH(req: Request, { params }: RouteContext) {
     .eq('id', conversationId)
     .eq('user_id', user.id)
     .is('deleted_at', null)
-    .select('id, course_name, title, session_type, is_pinned, created_at, updated_at')
+    .select('id, course_name, title, session_type, is_pinned, created_at, updated_at, recording_expires_at, recording_path')
     .single();
 
   if (error || !data) return NextResponse.json({ error: 'Teaching session not found.' }, { status: 404 });

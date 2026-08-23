@@ -3,7 +3,8 @@ import { createClient } from '../../../../lib/supabase/server';
 import { extractLectureText } from '../../../../lib/curriculum/extract-text';
 
 const STORAGE_BUCKET = 'teaching-attachments';
-const MAX_FILE_SIZE = 100 * 1024 * 1024;
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const MAX_STORAGE_BYTES = 100 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
@@ -25,7 +26,6 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
-
   const contentType = req.headers.get('content-type') ?? '';
   let conversationId = '';
   let fileName = '';
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
   }
 
   if (!conversationId || (!file && !storagePath)) return NextResponse.json({ error: 'A conversation and lecture file are required.' }, { status: 400 });
-  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_FILE_SIZE) return NextResponse.json({ error: 'Lecture files must be between 1 byte and 100 MB.' }, { status: 413 });
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_FILE_SIZE) return NextResponse.json({ error: 'Lecture files must be between 1 byte and 20 MB.' }, { status: 413 });
   if (!fileName || !isSupported(fileName, mimeType)) return NextResponse.json({ error: 'Use a PDF, PPTX, DOCX, or plain-text lecture file.' }, { status: 415 });
 
   const { data: conversation } = await supabase
@@ -65,11 +65,24 @@ export async function POST(req: Request) {
     if (!storagePath.startsWith(`${user.id}/teaching/`)) return NextResponse.json({ error: 'This lecture upload does not belong to your account.' }, { status: 403 });
     const { data: blob, error: downloadError } = await supabase.storage.from(STORAGE_BUCKET).download(storagePath);
     if (downloadError || !blob) return NextResponse.json({ error: 'The uploaded lecture could not be retrieved. Please upload it again.' }, { status: 400 });
-    if (blob.size <= 0 || blob.size > MAX_FILE_SIZE) return NextResponse.json({ error: 'The uploaded lecture is outside the supported size range.' }, { status: 413 });
+    if (blob.size <= 0 || blob.size > MAX_FILE_SIZE) {
+      await supabase.storage.from(STORAGE_BUCKET).remove([storagePath]);
+      return NextResponse.json({ error: 'The uploaded lecture is outside the supported 20 MB size limit.' }, { status: 413 });
+    }
     file = new File([await blob.arrayBuffer()], fileName, { type: mimeType });
   }
 
   if (!file) return NextResponse.json({ error: 'The lecture file could not be read.' }, { status: 400 });
+
+  const { data: currentUsage, error: usageError } = await supabase.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id });
+  if (usageError) {
+    if (storagePath) await supabase.storage.from(STORAGE_BUCKET).remove([storagePath]);
+    return NextResponse.json({ error: 'Unable to confirm your Teaching storage usage.' }, { status: 503 });
+  }
+  if (Number(currentUsage ?? 0) + file.size > MAX_STORAGE_BYTES) {
+    if (storagePath) await supabase.storage.from(STORAGE_BUCKET).remove([storagePath]);
+    return NextResponse.json({ error: 'Your persistent Teaching storage is full. Delete an older lecture file before uploading another.' }, { status: 413 });
+  }
 
   let extractionStatus = 'failed';
   let extractedText: string | null = null;
