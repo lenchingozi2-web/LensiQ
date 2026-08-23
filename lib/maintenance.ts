@@ -1,7 +1,8 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceClient } from './supabase/service';
 
-export async function runBillingMaintenance() {
-  const supabase = createServiceClient();
+export async function runBillingMaintenance(client?: SupabaseClient) {
+  const supabase = client ?? createServiceClient();
   const { data: resetCount, error: resetError } = await supabase.rpc('reset_due_wallets');
   if (resetError) throw resetError;
 
@@ -17,6 +18,7 @@ export async function runBillingMaintenance() {
 
   let deletedRecordings = 0;
   for (const recording of expired ?? []) {
+    if (!recording.recording_path) continue;
     const { error: storageError } = await supabase.storage.from('live-class-recordings').remove([recording.recording_path]);
     if (storageError) continue;
     const { error: clearError } = await supabase

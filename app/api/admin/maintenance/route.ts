@@ -9,7 +9,7 @@ export async function POST() {
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
   if (profile?.role !== 'admin') return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
   try {
-    return NextResponse.json({ ok: true, ...(await runBillingMaintenance()) });
+    return NextResponse.json({ ok: true, ...(await runBillingMaintenance(supabase)) });
   } catch (error) {
     console.error('Billing maintenance failed:', error);
     return NextResponse.json({ error: 'Maintenance could not be completed.' }, { status: 500 });
