@@ -2,6 +2,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 import { BILLING_COSTS, estimateFinancials } from '../../lib/billing-costs';
+import ProviderOperationsPanel from '../../components/admin/ProviderOperationsPanel';
 
 function naira(value: number) {
   return `₦${Math.round(value).toLocaleString('en-NG')}`;
@@ -77,7 +78,9 @@ export default async function AdminDashboard() {
           </div>
         </header>
 
-        <section className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <ProviderOperationsPanel />
+
+        <section className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {[
             { label: 'Gross revenue', value: naira(financials.grossRevenueNaira), detail: `${naira(subscriptionRevenue)} subscriptions · ${naira(topupRevenue)} top-ups`, tone: 'text-[#0b1220]' },
             { label: 'Estimated total cost', value: naira(financials.estimatedTotalCostNaira), detail: `${financials.estimatedApiCostUsd.toFixed(2)} USD API estimate + payment fees`, tone: 'text-amber-700' },
