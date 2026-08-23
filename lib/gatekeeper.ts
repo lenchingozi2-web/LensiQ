@@ -80,7 +80,7 @@ export async function checkAccess(feature: FeatureType, requestedCourse?: string
           allowed: false,
           status: 403,
           needsFreePracticalSelection: true,
-          message: 'Choose one Anatomical Pathology organ/system to use as your free practical access. Other systems require a subscription.',
+          message: 'Choose one practical organ/system across the platform for your free access. Other practical systems require a subscription.',
         };
       }
       if (requestedPracticalBranch && isFreeAnatomicalPathologySystem(requestedPracticalBranch, selectedFreeBranch)) {
@@ -90,7 +90,7 @@ export async function checkAccess(feature: FeatureType, requestedCourse?: string
         allowed: false,
         status: 403,
         freePracticalBranch: selectedFreeBranch,
-        message: `Your free practical access is set to ${selectedFreeBranch}. Other organ systems require a subscription.`,
+        message: `Your single free practical access is set to ${selectedFreeBranch}. Other practical systems across the platform require a subscription.`,
       };
     }
 
