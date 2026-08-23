@@ -2,6 +2,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 import { getOrCreateProfile } from '../../lib/profile';
+import { issueActiveSession } from '../../lib/auth/active-session';
 
 export default function LoginPage() {
   const login = async (formData: FormData) => {
@@ -22,6 +23,8 @@ export default function LoginPage() {
     // Ensure an Auth user without a public profile is repaired before protected access.
     const { error: profileError } = await getOrCreateProfile(supabase, data.user);
     if (profileError) redirect('/login?message=Your account could not be initialized');
+    const { error: activeSessionError } = await issueActiveSession(supabase, data.user.id);
+    if (activeSessionError) redirect('/login?message=Your account session could not be secured');
     revalidatePath('/');
     redirect('/');
   }
@@ -44,6 +47,8 @@ export default function LoginPage() {
     // Ensure an Auth user without a public profile is repaired before protected access.
     const { error: profileError } = await getOrCreateProfile(supabase, data.user);
     if (profileError) redirect('/login?message=Your account could not be initialized');
+    const { error: activeSessionError } = await issueActiveSession(supabase, data.user.id);
+    if (activeSessionError) redirect('/login?message=Your account session could not be secured');
     revalidatePath('/');
     redirect('/');
   }

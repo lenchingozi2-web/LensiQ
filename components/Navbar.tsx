@@ -2,6 +2,9 @@ import { createClient } from '../lib/supabase/server';
 import Link from 'next/link';
 import UserDropdown from './UserDropdown';
 import MobileNav from './MobileNav';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { clearActiveSession } from '../lib/auth/active-session';
 
 const primaryLinks = [
   { href: '/curriculum', label: 'Study', shortLabel: 'Curriculum' },
@@ -18,9 +21,43 @@ export default async function Navbar() {
   let userRole: 'admin' | 'user' = 'user';
 
   if (user) {
-    const { data: profile, error: profileError } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-    if (profileError) console.error('[Navbar] Profile role lookup failed:', profileError.message);
-    userRole = profile?.role === 'admin' ? 'admin' : 'user';
+    const cookieStore = await cookies();
+    const activeSessionToken = cookieStore.get('session_token')?.value;
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role, session_token')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      // A temporary profile lookup failure must not turn into a false logout.
+      console.error('[Navbar] Profile role/session lookup failed:', profileError.message);
+    } else {
+      userRole = profile?.role === 'admin' ? 'admin' : 'user';
+      const sessionWasReplaced = Boolean(profile?.session_token && activeSessionToken !== profile.session_token);
+
+      if (sessionWasReplaced) {
+        return (
+          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-50 p-6">
+            <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-2xl">
+              <span className="mb-6 block text-5xl">!</span>
+              <h2 className="mb-3 text-2xl font-black text-slate-900">This session has ended</h2>
+              <p className="mb-8 leading-relaxed text-slate-600">This account was opened in another browser or device, so this older session has been signed out for your security.</p>
+              <form action={async () => {
+                'use server';
+                const supabaseServer = await createClient();
+                const { data: currentUser } = await supabaseServer.auth.getUser();
+                if (currentUser.user) await clearActiveSession(supabaseServer, currentUser.user.id);
+                await supabaseServer.auth.signOut({ scope: 'local' });
+                redirect('/login?reason=session_replaced');
+              }}>
+                <button className="w-full rounded-xl bg-slate-900 py-4 font-bold text-white shadow-md hover:bg-slate-800">Continue to sign in</button>
+              </form>
+            </div>
+          </div>
+        );
+      }
+    }
   }
 
   return (

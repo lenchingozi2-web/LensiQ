@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 import { getOrCreateProfile } from '../../lib/profile';
+import { issueActiveSession } from '../../lib/auth/active-session';
 
 // We add searchParams so we can read error messages from the URL
 export default async function AuthPage({
@@ -29,6 +30,8 @@ export default async function AuthPage({
     if (!error && data.user) {
       const { error: profileError } = await getOrCreateProfile(supabaseServer, data.user);
       if (profileError) redirect('/signup?error=Your account could not be initialized. Please try again.');
+      const { error: activeSessionError } = await issueActiveSession(supabaseServer, data.user.id);
+      if (activeSessionError) redirect('/signup?error=Your account session could not be secured. Please try again.');
       redirect('/dashboard');
     } else {
       // If login fails, redirect back to the page and attach the error to the URL
@@ -50,6 +53,8 @@ export default async function AuthPage({
     if (!error && data.user) {
       const { error: profileError } = await getOrCreateProfile(supabaseServer, data.user);
       if (profileError) redirect('/signup?error=Your account could not be initialized. Please try again.');
+      const { error: activeSessionError } = await issueActiveSession(supabaseServer, data.user.id);
+      if (activeSessionError) redirect('/signup?error=Your account session could not be secured. Please try again.');
       redirect('/dashboard');
     } else {
       // Send the Supabase error message straight to the user
