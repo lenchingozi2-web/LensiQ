@@ -2,8 +2,6 @@ import { createClient } from '../lib/supabase/server';
 import Link from 'next/link';
 import UserDropdown from './UserDropdown';
 import MobileNav from './MobileNav';
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 
 const primaryLinks = [
   { href: '/curriculum', label: 'Study', shortLabel: 'Curriculum' },
@@ -20,30 +18,9 @@ export default async function Navbar() {
   let userRole: 'admin' | 'user' = 'user';
 
   if (user) {
-    const cookieStore = await cookies();
-    const localToken = cookieStore.get('session_token')?.value;
-    const { data: profile } = await supabase.from('profiles').select('session_token, role').eq('id', user.id).single();
+    const { data: profile, error: profileError } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+    if (profileError) console.error('[Navbar] Profile role lookup failed:', profileError.message);
     userRole = profile?.role === 'admin' ? 'admin' : 'user';
-
-    if (profile?.session_token && profile.session_token !== localToken) {
-      return (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-50 p-6">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-2xl">
-            <span className="mb-6 block text-5xl">!</span>
-            <h2 className="mb-3 text-2xl font-black text-slate-900">Session expired</h2>
-            <p className="mb-8 leading-relaxed text-slate-600">Your account was recently logged in from another device. For your security, this active session has been paused.</p>
-            <form action={async () => {
-              'use server';
-              const supabaseServer = await createClient();
-              await supabaseServer.auth.signOut();
-              redirect('/signup');
-            }}>
-              <button className="w-full rounded-xl bg-slate-900 py-4 font-bold text-white shadow-md hover:bg-slate-800">Log in again</button>
-            </form>
-          </div>
-        </div>
-      );
-    }
   }
 
   return (

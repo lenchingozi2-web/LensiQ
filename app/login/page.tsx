@@ -2,7 +2,6 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 import { getOrCreateProfile } from '../../lib/profile';
-import { cookies } from 'next/headers';
 
 export default function LoginPage() {
   const login = async (formData: FormData) => {
@@ -23,11 +22,6 @@ export default function LoginPage() {
     // Ensure an Auth user without a public profile is repaired before protected access.
     const { error: profileError } = await getOrCreateProfile(supabase, data.user);
     if (profileError) redirect('/login?message=Your account could not be initialized');
-    const token = crypto.randomUUID();
-    await supabase.from('profiles').update({ session_token: token }).eq('id', data.user.id);
-    const cookieStore = await cookies();
-    cookieStore.set('session_token', token, { path: '/' });
-    
     revalidatePath('/');
     redirect('/');
   }
@@ -50,11 +44,6 @@ export default function LoginPage() {
     // Ensure an Auth user without a public profile is repaired before protected access.
     const { error: profileError } = await getOrCreateProfile(supabase, data.user);
     if (profileError) redirect('/login?message=Your account could not be initialized');
-    const token = crypto.randomUUID();
-    await supabase.from('profiles').update({ session_token: token }).eq('id', data.user.id);
-    const cookieStore = await cookies();
-    cookieStore.set('session_token', token, { path: '/' });
-    
     revalidatePath('/');
     redirect('/');
   }

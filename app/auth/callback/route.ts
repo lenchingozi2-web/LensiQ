@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { createClient } from '../../../lib/supabase/server';
 import { getOrCreateProfile } from '../../../lib/profile';
 
@@ -37,13 +36,6 @@ export async function GET(request: Request) {
   if (bootstrapError) {
     return NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent('Your account could not be initialized. Please try again.')}`, requestUrl.origin));
   }
-
-  const sessionToken = crypto.randomUUID();
-  const { error: profileError } = await supabase.from('profiles').update({ session_token: sessionToken }).eq('id', user.id);
-  if (profileError) console.error('[Google Auth] Could not synchronize session token:', profileError);
-
-  const cookieStore = await cookies();
-  cookieStore.set('session_token', sessionToken, { path: '/' });
 
   return NextResponse.redirect(new URL(next, requestUrl.origin));
 }
