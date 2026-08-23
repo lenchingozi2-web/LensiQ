@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createClient } from '../../../lib/supabase/server';
 import PracticalFreeChoice from '../../../components/PracticalFreeChoice';
 import { isPaidPlan } from '../../../lib/plans';
+import { checkAccess } from '../../../lib/gatekeeper';
 import { ANATOMICAL_PATHOLOGY_SYSTEMS } from '../../../lib/practical-catalogue';
 
 export default async function SubjectPage({ params }: { params: Promise<{ subject: string }> }) {
@@ -9,6 +10,10 @@ export default async function SubjectPage({ params }: { params: Promise<{ subjec
   const resolvedParams = await params;
   const subjectId = resolvedParams.subject;
   const title = subjectId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  const browseAccess = await checkAccess('browse', title);
+  if (!browseAccess.allowed) {
+    return <main className="min-h-[calc(100vh-4.5rem)] bg-[#F6F8FB] px-4 py-12 text-center sm:px-6"><div className="mx-auto max-w-xl rounded-3xl border border-amber-200 bg-white p-8 shadow-xl"><p className="text-xs font-black uppercase tracking-[0.18em] text-[#9A5D00]">Question bank access</p><h1 className="mt-3 text-3xl font-black text-[#0B1220]">This course is locked</h1><p className="mt-4 leading-7 text-slate-600">{browseAccess.message || 'Your free plan includes one selected course. Upgrade to Premium to open the complete question bank.'}</p><div className="mt-7 flex flex-wrap justify-center gap-3"><Link href="/pricing" className="rounded-xl bg-[#E8A23D] px-6 py-3 font-black text-[#0B1220]">View subscription plans</Link><Link href="/browse" className="rounded-xl border border-slate-200 px-6 py-3 font-bold text-slate-700">Back to practice</Link></div></div></main>;
+  }
   const [{ data, error }, { data: practicalData, error: practicalError }, { data: { user } }] = await Promise.all([
     supabase.from('questions').select('division,type').ilike('subject', title).limit(1000),
     supabase.from('questions').select('division,type').ilike('subject', title).eq('type', 'practical').limit(1000),
