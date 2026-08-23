@@ -46,3 +46,15 @@ export async function POST(request: Request) {
   }
   return NextResponse.json({ bucket: BUCKET, path: storagePath, token: data.token, mimeType: normalizedMimeType, sizeBytes });
 }
+
+export async function DELETE(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  const body = await request.json().catch(() => ({}));
+  const storagePath = typeof body?.storagePath === 'string' ? body.storagePath : '';
+  if (!storagePath.startsWith(`${user.id}/search/`)) return NextResponse.json({ error: 'Temporary search upload does not belong to your account.' }, { status: 403 });
+  const { error } = await supabase.storage.from(BUCKET).remove([storagePath]);
+  if (error) return NextResponse.json({ error: 'Unable to remove the temporary search upload.' }, { status: 500 });
+  return NextResponse.json({ ok: true, storagePath });
+}

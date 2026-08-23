@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const STORAGE_BUCKET = 'teaching-attachments';
-const MAX_FILE_SIZE = 100 * 1024 * 1024;
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 type SearchPayload = {
   query?: string;
@@ -62,17 +62,17 @@ export async function POST(request: Request) {
       const expectedPrefix = `${user.id}/search/`;
       if (!payload.storagePath.startsWith(expectedPrefix)) return NextResponse.json({ error: 'This lecture upload does not belong to your account.' }, { status: 403 });
       if (!payload.fileName || !payload.mimeType) return NextResponse.json({ error: 'The lecture upload metadata is incomplete.' }, { status: 400 });
-      if (payload.sizeBytes && payload.sizeBytes > MAX_FILE_SIZE) return NextResponse.json({ error: 'Lecture files must be 100 MB or smaller.' }, { status: 413 });
+      if (payload.sizeBytes && payload.sizeBytes > MAX_FILE_SIZE) return NextResponse.json({ error: 'Lecture files must be 20 MB or smaller.' }, { status: 413 });
       temporaryStoragePath = payload.storagePath;
       const { data: blob, error: downloadError } = await supabase.storage.from(STORAGE_BUCKET).download(payload.storagePath);
       if (downloadError || !blob) return NextResponse.json({ error: 'The uploaded lecture could not be retrieved. Please upload it again.' }, { status: 400 });
-      if (blob.size <= 0 || blob.size > MAX_FILE_SIZE) return NextResponse.json({ error: 'Lecture files must be between 1 byte and 100 MB.' }, { status: 413 });
+      if (blob.size <= 0 || blob.size > MAX_FILE_SIZE) return NextResponse.json({ error: 'Lecture files must be between 1 byte and 20 MB.' }, { status: 413 });
       file = new File([await blob.arrayBuffer()], payload.fileName, { type: payload.mimeType });
       sourceName = payload.fileName;
     }
 
     if (!rawQuery.trim() && !file && !topicSlug) return NextResponse.json({ error: 'Enter a word or topic, or upload a lecture document.' }, { status: 400 });
-    if (file && (file.size <= 0 || file.size > MAX_FILE_SIZE)) return NextResponse.json({ error: 'Lecture files must be between 1 byte and 100 MB.' }, { status: 413 });
+    if (file && (file.size <= 0 || file.size > MAX_FILE_SIZE)) return NextResponse.json({ error: 'Lecture files must be between 1 byte and 20 MB.' }, { status: 413 });
 
     const course = courseSlug ? await getCurriculumCourse(supabase, courseSlug) : null;
     if (courseSlug && !course) return NextResponse.json({ error: 'Course not found.' }, { status: 404 });

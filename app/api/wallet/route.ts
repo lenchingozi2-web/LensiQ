@@ -20,6 +20,13 @@ export async function GET() {
   if (storageError) return NextResponse.json({ error: 'Unable to load Teaching storage usage.' }, { status: 503 });
 
   const activePremium = profile.role === 'admin' || (isPaidPlan(profile.plan) && (!profile.plan_expires_at || new Date(profile.plan_expires_at) > new Date()));
+  const { data: events, error: eventsError } = await supabase
+    .from('billing_events')
+    .select('id,event_type,units,revenue_amount_ngn,created_at,metadata')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (eventsError) return NextResponse.json({ error: 'Unable to load wallet history.' }, { status: 503 });
   const voiceMinutes = Number(profile.voice_minutes_balance ?? 0);
   const textCredits = Number(profile.text_teaching_balance ?? 0);
   const storageUsedBytes = Number(storageBytes ?? 0);
@@ -38,5 +45,6 @@ export async function GET() {
     storageUsedBytes,
     storageLimitBytes,
     storageUsedPercent: Math.min(100, Math.round((storageUsedBytes / Math.max(storageLimitBytes, 1)) * 100)),
+    events: events ?? [],
   });
 }

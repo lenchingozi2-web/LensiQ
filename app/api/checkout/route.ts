@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
-import { getPaidPlan, getWalletTopup } from '../../../lib/plans';
+import { getPaidPlan, getWalletTopup, isPaidPlan } from '../../../lib/plans';
 
 export async function POST(req: Request) {
   try {
@@ -19,6 +19,9 @@ export async function POST(req: Request) {
     let title: string;
 
     if (productType === 'topup') {
+      const { data: profile } = await supabase.from('profiles').select('role, plan, plan_expires_at').eq('id', user.id).maybeSingle();
+      const paidActive = profile?.role !== 'admin' && isPaidPlan(profile?.plan) && (!profile?.plan_expires_at || new Date(profile.plan_expires_at) > new Date());
+      if (!paidActive) return NextResponse.json({ error: 'Voice-minute top-ups are available only to active Premium subscribers. Upgrade to Premium first.' }, { status: 403 });
       const topup = getWalletTopup(body?.productId);
       if (!topup) return NextResponse.json({ error: 'Invalid voice-minute top-up.' }, { status: 400 });
       amountNaira = topup.amountNaira;

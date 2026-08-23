@@ -80,12 +80,14 @@ export default function TopicDiscoveryPanel({ courseSlug, topicSlug, topicTitle 
     if (!query.trim() && !file && !topicSlug) return;
     setLoading(true);
     setError('');
+    let temporaryStoragePath: string | null = null;
     try {
       let response: Response;
       if (file) {
         const prepareResponse = await fetch('/api/uploads/lecture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope: 'search', fileName: file.name, mimeType: file.type || 'application/octet-stream', sizeBytes: file.size }) });
         const uploadData = await prepareResponse.json().catch(() => ({}));
         if (!prepareResponse.ok) throw new Error(uploadData.error || 'The lecture upload could not be prepared.');
+        temporaryStoragePath = typeof uploadData.path === 'string' ? uploadData.path : null;
         const supabase = createBrowserSupabaseClient();
         const { error: uploadError } = await supabase.storage.from(uploadData.bucket).uploadToSignedUrl(uploadData.path, uploadData.token, file, { contentType: file.type || uploadData.mimeType });
         if (uploadError) throw new Error('The lecture upload could not be completed. Please try again.');
@@ -108,6 +110,9 @@ export default function TopicDiscoveryPanel({ courseSlug, topicSlug, topicTitle 
     } catch (searchError) {
       setError(searchError instanceof Error ? searchError.message : 'Search could not be completed.');
     } finally {
+      if (temporaryStoragePath) {
+        await fetch('/api/uploads/lecture', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ storagePath: temporaryStoragePath }) }).catch(() => undefined);
+      }
       setLoading(false);
     }
   };

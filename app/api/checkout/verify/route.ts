@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '../../../../lib/supabase/service';
-import { getPaidPlan, getWalletTopup } from '../../../../lib/plans';
+import { getPaidPlan, getWalletTopup, isPaidPlan } from '../../../../lib/plans';
 
 export async function GET(req: Request) {
   try {
@@ -25,7 +25,9 @@ export async function GET(req: Request) {
 
     if (productType === 'topup') {
       const topup = getWalletTopup(transaction?.meta?.product_id);
-      const valid = verifyResponse.ok && verifyData.status === 'success' && transaction?.status === 'successful' && verifiedCurrency === 'NGN' && Boolean(topup) && verifiedAmount === topup?.amountNaira && Number(transaction?.meta?.voice_minutes) === topup?.voiceMinutes && Boolean(userId);
+      const { data: profile } = await service.from('profiles').select('role,plan,plan_expires_at').eq('id', userId).maybeSingle();
+      const paidActive = profile?.role !== 'admin' && isPaidPlan(profile?.plan) && (!profile?.plan_expires_at || new Date(profile.plan_expires_at) > new Date());
+      const valid = verifyResponse.ok && verifyData.status === 'success' && transaction?.status === 'successful' && verifiedCurrency === 'NGN' && Boolean(topup) && verifiedAmount === topup?.amountNaira && Number(transaction?.meta?.voice_minutes) === topup?.voiceMinutes && Boolean(userId) && paidActive;
       if (!valid || !topup) throw new Error('Payment verification failed voice top-up validation.');
       const { error } = await service.rpc('settle_verified_payment', {
         p_payment_reference: `flutterwave:${paymentReference}`,

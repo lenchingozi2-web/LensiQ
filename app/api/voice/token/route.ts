@@ -56,8 +56,10 @@ export async function POST(req: Request) {
   }
 
   if (!quota.allowed) {
-    const limitMessage = quota.reason === 'limit_reached'
-      ? 'Your Foundation Scholar plan includes 3 Live Class sessions per calendar month, with each session lasting up to 10 minutes. Premium adds 60 voice minutes each billing month.'
+    const limitMessage = quota.reason === 'premium_required'
+      ? 'Live Class is available to active Premium subscribers and administrators. Upgrade to Hybrid Premium to activate voice minutes.'
+      : quota.reason === 'limit_reached'
+      ? 'Your Foundation Scholar plan does not include Live Class. Upgrade to Hybrid Premium to activate 60 voice minutes each billing month.'
       : quota.reason === 'voice_balance_empty'
         ? 'Your Premium voice-minute balance is empty. Top up voice minutes to continue with Live Class.'
         : quota.reason === 'active_session'
