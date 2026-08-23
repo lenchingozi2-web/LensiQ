@@ -10,13 +10,20 @@ export async function getOrCreateProfile(supabase: SupabaseClient, user: User) {
 
   if (existing.error || existing.data) return existing;
 
+  const profileName = typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : typeof user.user_metadata?.name === 'string' ? user.user_metadata.name : null;
+  const provisioned = await supabase.rpc('ensure_user_profile', { p_name: profileName, p_email: user.email ?? null });
+  if (!provisioned.error && provisioned.data) {
+    const profile = Array.isArray(provisioned.data) ? provisioned.data[0] : provisioned.data;
+    if (profile) return { data: profile, error: null };
+  }
+
   try {
     const service = createServiceClient();
     const created = await service
       .from('profiles')
       .insert({
         id: user.id,
-        name: typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : typeof user.user_metadata?.name === 'string' ? user.user_metadata.name : null,
+        name: profileName,
         email: user.email ?? null,
         role: 'user',
         plan: 'free',
