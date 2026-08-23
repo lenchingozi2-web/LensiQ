@@ -20,6 +20,13 @@ export default async function BrowseModePage({ params }: { params: Promise<{ sub
   const displayDivision = isAnatomicalAggregate ? 'Anatomical Pathology practicals' : (rawDivision.includes('-') ? titleFromSlug(rawDivision) : rawDivision);
   const canonicalDivision = isAnatomicalAggregate ? 'Anatomical Pathology' : rawDivision;
 
+  if (questionType !== 'practical') {
+    const browseAccess = await checkAccess('browse', subjectTitle);
+    if (!browseAccess.allowed) {
+      return <main className="min-h-[calc(100vh-4.5rem)] bg-slate-50 px-4 py-12 text-center sm:px-6"><div className="mx-auto max-w-xl rounded-3xl border border-amber-200 bg-white p-8 shadow-xl"><p className="text-xs font-black uppercase tracking-[0.18em] text-[#9A5D00]">Question bank access</p><h1 className="mt-3 text-3xl font-black text-[#0B1220]">This course is locked</h1><p className="mt-4 leading-7 text-slate-600">{browseAccess.message || 'Your free plan includes one selected course. Upgrade to Premium to open the complete question bank.'}</p><div className="mt-7 flex flex-wrap justify-center gap-3"><Link href="/pricing" className="rounded-xl bg-[#E8A23D] px-6 py-3 font-black text-[#0B1220]">View subscription plans</Link><Link href={`/browse/${subjectId}`} className="rounded-xl border border-slate-200 px-6 py-3 font-bold text-slate-700">Back to divisions</Link></div></div></main>;
+    }
+  }
+
   if (questionType === 'practical') {
     const practicalAccess = await checkAccess('practical', undefined, isAnatomicalAggregate ? undefined : rawDivision);
     if (!practicalAccess.allowed) {
