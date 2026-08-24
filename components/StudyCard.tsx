@@ -57,12 +57,13 @@ function getTheoryPresentation(rawQuestion: string, rawAnswer: string) {
     };
   }
 
-  if (normalizedAnswer.startsWith(normalizedQuestion) && normalizedAnswer.length - normalizedQuestion.length <= 300) {
-    return {
-      question: answer,
-      answer: '',
-      mode: 'embedded' as const,
-    };
+  if (normalizedAnswer.startsWith(normalizedQuestion)) {
+    const repeatedPrefix = answer.slice(0, question.length);
+    const remainder = answer.slice(repeatedPrefix.length).replace(/^[\\s:–—-]+/, '').trim();
+    if (!remainder) {
+      return { question, answer: '', mode: 'duplicate' as const };
+    }
+    return { question, answer: remainder, mode: 'normal' as const };
   }
 
   return { question, answer, mode: 'normal' as const };
