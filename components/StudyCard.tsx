@@ -49,22 +49,24 @@ function getTheoryPresentation(rawQuestion: string, rawAnswer: string) {
   const normalizedQuestion = normalizedMedicalText(question);
   const normalizedAnswer = normalizedMedicalText(answer);
 
-  if (!question || !answer) return { question, answer };
+  if (!question || !answer) return { question, answer, mode: 'normal' as const };
   if (normalizedQuestion === normalizedAnswer) {
     return {
       question,
-      answer: 'The source record repeats the question and does not contain a separate model answer.',
+      answer: '',
+      mode: 'duplicate' as const,
     };
   }
 
   if (normalizedAnswer.startsWith(normalizedQuestion) && normalizedAnswer.length - normalizedQuestion.length <= 300) {
     return {
       question: answer,
-      answer: 'The source provided this as one complete teaching point rather than as separate question and answer text.',
+      answer: '',
+      mode: 'embedded' as const,
     };
   }
 
-  return { question, answer };
+  return { question, answer, mode: 'normal' as const };
 }
 
 export default function StudyCard({ question, index }: { question: Question, index: number }) {
@@ -152,17 +154,24 @@ export default function StudyCard({ question, index }: { question: Question, ind
       {/* ========================================== */}
       {/*              THEORY RENDER LOGIC           */}
       {/* ========================================== */}
-      {isTheory && (
+            {isTheory && (
         <div className="p-4 sm:p-6 bg-white animate-in fade-in duration-300">
-          <h3 className="font-bold text-slate-900 text-lg mb-3">Standard Answer:</h3>
-          
-          {/* FIXED: Passing the raw database text through the cleaner function first */}
-          <div className="prose prose-slate max-w-none mb-6">
-            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-              {theoryPresentation?.answer || 'No predefined answer provided for this theory question.'}
-            </ReactMarkdown>
-          </div>
-
+          {theoryPresentation?.mode === 'normal' && (
+            <>
+              <h3 className="font-bold text-slate-900 text-lg mb-3">Standard Answer:</h3>
+              <div className="prose prose-slate max-w-none mb-6">
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                  {theoryPresentation.answer || 'No predefined answer provided for this theory question.'}
+                </ReactMarkdown>
+              </div>
+            </>
+          )}
+          {theoryPresentation?.mode === 'duplicate' && (
+            <p className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
+              No separate model answer was supplied in the source record.
+            </p>
+          )}
+          {/* Embedded records are presented once in the question header as a complete teaching point. */}
           {/* AI Tutor Area for Theory */}
           {!aiResponse ? (
             <button 
