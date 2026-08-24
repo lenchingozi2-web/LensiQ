@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 
 type Question = {
   id: string;
@@ -19,7 +20,52 @@ type Question = {
   model_answer?: string;
   image_url?: string;
   topic?: string;
-};
+}
+
+function cleanMedicalText(rawText: string | undefined | null) {
+  if (!rawText) return '';
+
+  return rawText
+    .replace(/\r\n?/g, '\n')
+    .replace(/^\s*(?:\d+\.\s*)?(?:Question|Model answer|Standard answer|Answer)\s*:?\s*/i, '')
+    .replace(/(^|\n)\s*·\s*/g, '$1- ')
+    .replace(/^[ \t]+$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function normalizedMedicalText(text: string) {
+  return text
+    .replace(/\s+/g, ' ')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .trim()
+    .toLowerCase();
+}
+
+function getTheoryPresentation(rawQuestion: string, rawAnswer: string) {
+  const question = cleanMedicalText(rawQuestion);
+  const answer = cleanMedicalText(rawAnswer);
+  const normalizedQuestion = normalizedMedicalText(question);
+  const normalizedAnswer = normalizedMedicalText(answer);
+
+  if (!question || !answer) return { question, answer };
+  if (normalizedQuestion === normalizedAnswer) {
+    return {
+      question,
+      answer: 'The source record repeats the question and does not contain a separate model answer.',
+    };
+  }
+
+  if (normalizedAnswer.startsWith(normalizedQuestion) && normalizedAnswer.length - normalizedQuestion.length <= 300) {
+    return {
+      question: answer,
+      answer: 'The source provided this as one complete teaching point rather than as separate question and answer text.',
+    };
+  }
+
+  return { question, answer };
+}
 
 export default function StudyCard({ question, index }: { question: Question, index: number }) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -73,25 +119,9 @@ export default function StudyCard({ question, index }: { question: Question, ind
     }
   };
 
-  // ==========================================
-  //     THE DYNAMIC TEXT CLEANER FUNCTION
-  // ==========================================
-  const cleanMedicalText = (rawText: string | undefined | null) => {
-    if (!rawText) return "";
-    
-    return rawText
-      // 1. Force a double line break before any number followed by a dot (e.g., "6. ")
-      .replace(/(\d+\.)/g, '\n\n$1')
-      
-      // 2. Convert floating PDF dots (·) into proper Markdown list dashes (- )
-      .replace(/·/g, '\n- ')
-      
-      // 3. Add clean line breaks and bolding to common medical subheadings
-      .replace(/(Microscopic Features:|Clinical Significance:|Aetiology:|Pathogenesis:|Laboratory diagnosis:|Definition:)/ig, '\n\n**$1**\n\n')
-      
-      // 4. Force a line break around table markdown separators so they render properly
-      .replace(/(\|-\|-\|-.*\|)/g, '\n$1\n');
-  };
+  const rawQuestionText = question.question_text || question.stem || '';
+  const rawTheoryAnswer = question.correct_answer || question.model_answer || 'No predefined answer provided for this theory question.';
+  const theoryPresentation = isTheory ? getTheoryPresentation(rawQuestionText, rawTheoryAnswer) : null;
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-8">
@@ -99,8 +129,8 @@ export default function StudyCard({ question, index }: { question: Question, ind
       <div className="bg-slate-50 border-b border-slate-200 p-4 sm:p-6 flex gap-4">
         <span className="font-bold text-slate-400 text-xl mt-1">Q{index + 1}.</span>
         <div className="prose prose-slate max-w-none text-lg sm:text-xl font-medium leading-relaxed">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {cleanMedicalText(question.question_text || question.stem || "")}
+          <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+            {isTheory ? theoryPresentation?.question : cleanMedicalText(rawQuestionText)}
           </ReactMarkdown>
         </div>
       </div>
@@ -128,8 +158,8 @@ export default function StudyCard({ question, index }: { question: Question, ind
           
           {/* FIXED: Passing the raw database text through the cleaner function first */}
           <div className="prose prose-slate max-w-none mb-6">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {cleanMedicalText(question.correct_answer || question.model_answer || "No predefined answer provided for this theory question.")}
+            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+              {theoryPresentation?.answer || 'No predefined answer provided for this theory question.'}
             </ReactMarkdown>
           </div>
 
@@ -157,7 +187,7 @@ export default function StudyCard({ question, index }: { question: Question, ind
                 </h4>
               </div>
               <div className={`prose max-w-none ${isFlagged ? 'prose-red text-red-800' : 'prose-indigo text-indigo-800'}`}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                   {aiResponse}
                 </ReactMarkdown>
               </div>
@@ -173,7 +203,7 @@ export default function StudyCard({ question, index }: { question: Question, ind
             {question.topic && <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{question.topic}</span>}
           </div>
           <div className="prose prose-slate max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
               {cleanMedicalText(question.model_answer || question.correct_answer || 'No predefined practical answer provided.')}
             </ReactMarkdown>
           </div>
@@ -228,7 +258,7 @@ export default function StudyCard({ question, index }: { question: Question, ind
             <div className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 animate-in fade-in slide-in-from-top-2 duration-300">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">Explanation</h3>
               <div className="prose prose-slate max-w-none mb-6">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                   {cleanMedicalText(question.model_answer || "No predefined explanation provided for this question.")}
                 </ReactMarkdown>
               </div>
@@ -257,7 +287,7 @@ export default function StudyCard({ question, index }: { question: Question, ind
                     </h4>
                   </div>
                   <div className={`prose max-w-none ${isFlagged ? 'prose-red text-red-800' : 'prose-indigo text-indigo-800'}`}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                       {aiResponse}
                     </ReactMarkdown>
                   </div>
