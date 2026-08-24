@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import remarkBreaks from 'remark-breaks';
 
 type Question = {
   id: string;
@@ -131,7 +130,7 @@ export default function StudyCard({ question, index }: { question: Question, ind
       <div className="bg-slate-50 border-b border-slate-200 p-4 sm:p-6 flex gap-4">
         <span className="font-bold text-slate-400 text-xl mt-1">Q{index + 1}.</span>
         <div className="prose prose-slate max-w-none text-lg sm:text-xl font-medium leading-relaxed">
-          <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {isTheory ? theoryPresentation?.question : cleanMedicalText(rawQuestionText)}
           </ReactMarkdown>
         </div>
@@ -160,7 +159,7 @@ export default function StudyCard({ question, index }: { question: Question, ind
             <>
               <h3 className="font-bold text-slate-900 text-lg mb-3">Standard Answer:</h3>
               <div className="prose prose-slate max-w-none mb-6">
-                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {theoryPresentation.answer || 'No predefined answer provided for this theory question.'}
                 </ReactMarkdown>
               </div>
@@ -196,7 +195,7 @@ export default function StudyCard({ question, index }: { question: Question, ind
                 </h4>
               </div>
               <div className={`prose max-w-none ${isFlagged ? 'prose-red text-red-800' : 'prose-indigo text-indigo-800'}`}>
-                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {aiResponse}
                 </ReactMarkdown>
               </div>
@@ -212,7 +211,7 @@ export default function StudyCard({ question, index }: { question: Question, ind
             {question.topic && <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{question.topic}</span>}
           </div>
           <div className="prose prose-slate max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {cleanMedicalText(question.model_answer || question.correct_answer || 'No predefined practical answer provided.')}
             </ReactMarkdown>
           </div>
@@ -267,7 +266,7 @@ export default function StudyCard({ question, index }: { question: Question, ind
             <div className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 animate-in fade-in slide-in-from-top-2 duration-300">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">Explanation</h3>
               <div className="prose prose-slate max-w-none mb-6">
-                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {cleanMedicalText(question.model_answer || "No predefined explanation provided for this question.")}
                 </ReactMarkdown>
               </div>
@@ -296,7 +295,7 @@ export default function StudyCard({ question, index }: { question: Question, ind
                     </h4>
                   </div>
                   <div className={`prose max-w-none ${isFlagged ? 'prose-red text-red-800' : 'prose-indigo text-indigo-800'}`}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {aiResponse}
                     </ReactMarkdown>
                   </div>
