@@ -2,11 +2,20 @@ import { createClient } from '../../../../../lib/supabase/server';
 import CbtEngine from '../../../../../components/CbtEngine';
 import Link from 'next/link';
 
-export default async function QuizSetupPage({ params }: { params: Promise<{ subject: string, division: string }> }) {
+export default async function QuizSetupPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ subject: string; division: string }>;
+  searchParams: Promise<{ count?: string | string[] }>;
+}) {
   const supabase = await createClient();
-  const resolvedParams = await params;
+  const [resolvedParams, resolvedSearchParams] = await Promise.all([params, searchParams]);
   
   const subjectId = resolvedParams.subject;
+  const rawCount = Array.isArray(resolvedSearchParams.count) ? resolvedSearchParams.count[0] : resolvedSearchParams.count;
+  const requestedCount = rawCount ? Number.parseInt(rawCount, 10) : NaN;
+  const initialQuestionCount = [10, 20, 50, 100].includes(requestedCount) ? requestedCount : undefined;
   const divisionName = decodeURIComponent(resolvedParams.division);
 
   // Format subject title for the query
@@ -51,8 +60,9 @@ export default async function QuizSetupPage({ params }: { params: Promise<{ subj
   return (
     <main className="p-2 sm:p-4 bg-slate-50 min-h-screen">
       <CbtEngine 
-        questions={questions} 
-        testTitle={`${divisionName} Mock Exam`} 
+        questions={questions}
+        testTitle={`${divisionName} Mock Exam`}
+        initialQuestionCount={initialQuestionCount}
       />
     </main>
   );

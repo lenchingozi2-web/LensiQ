@@ -16,10 +16,20 @@ type Question = {
   model_answer?: string;
 };
 
-export default function CbtEngine({ questions, testTitle }: { questions: Question[], testTitle: string }) {
+type CbtEngineProps = {
+  questions: Question[];
+  testTitle: string;
+  initialQuestionCount?: number;
+};
+
+export default function CbtEngine({ questions, testTitle, initialQuestionCount }: CbtEngineProps) {
   // Setup State
   const [isStarted, setIsStarted] = useState(false);
-  const [selectedCount, setSelectedCount] = useState(Math.min(20, questions.length)); 
+  const [selectedCount, setSelectedCount] = useState(() => {
+    const requestedCount = Number.isFinite(initialQuestionCount) ? Math.floor(initialQuestionCount as number) : 20;
+    if (requestedCount <= 0) return Math.min(20, questions.length);
+    return Math.min(requestedCount, questions.length);
+  });
   const [activeQuestions, setActiveQuestions] = useState<Question[]>([]);
 
   // Engine State
