@@ -1,5 +1,6 @@
 export const PAID_PLANS = [
   { id: 'premium_monthly', durationMonths: 1, amountNaira: 6000, label: 'Monthly Premium' },
+  { id: 'premium_3mo', durationMonths: 3, amountNaira: 18000, label: '3-Month Premium' },
   // Legacy terms remain valid for existing subscribers and verified renewals.
   { id: '3mo', durationMonths: 3, amountNaira: 9000, label: 'Legacy 3 Months' },
   { id: '6mo', durationMonths: 6, amountNaira: 13000, label: 'Legacy 6 Months' },
@@ -7,7 +8,7 @@ export const PAID_PLANS = [
   { id: '12mo', durationMonths: 12, amountNaira: 20000, label: 'Legacy 12 Months' },
 ] as const;
 
-export const PUBLIC_PAID_PLANS = [PAID_PLANS[0]] as const;
+export const PUBLIC_PAID_PLANS = [PAID_PLANS[0], PAID_PLANS[1]] as const;
 
 export const WALLET_TOPUPS = [
   { id: 'voice_30', voiceMinutes: 30, amountNaira: 1500, label: '30 voice minutes' },

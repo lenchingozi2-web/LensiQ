@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       amountNaira = plan.amountNaira;
       itemId = plan.id;
       meta = { user_id: user.id, product_type: 'subscription', plan_id: plan.id, plan_duration: plan.durationMonths, plan_amount: plan.amountNaira };
-      description = 'Monthly Premium with 50 text-teaching credits and 60 voice minutes';
+      description = `${plan.label}: ${plan.durationMonths === 3 ? 'three monthly billing cycles prepaid' : 'billed monthly'}, with 50 text-teaching credits and 60 voice minutes per monthly cycle`;
       title = 'LenxiQ AI Hybrid Premium';
     }
 
