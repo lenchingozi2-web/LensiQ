@@ -1,0 +1,166 @@
+name: Extract Z-Anatomy models
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: "Runner label. Use a larger GitHub-hosted runner if enabled for this repository."
+        required: true
+        default: "ubuntu-24.04"
+      blender_version:
+        description: "Blender release to install"
+        required: true
+        default: "4.3.3"
+
+permissions:
+  contents: read
+
+env:
+  ZENODO_RECORD: "4953712"
+  ZENODO_ARCHIVE_URL: "https://zenodo.org/api/records/4953712/files/Z-Anatomy.zip/content"
+  # Zenodo record 4953712, Z-Anatomy.zip (MD5 from the published record).
+  ZENODO_ARCHIVE_MD5: "231a7c2f3b118ce250404a968fbd0525"
+  OUTPUT_DIR: "${{ github.workspace }}/artifacts/z-anatomy"
+  SUPABASE_BUCKET: "medical-models"
+
+jobs:
+  extract-and-upload:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 360
+    env:
+      BLENDER_VERSION: ${{ inputs.blender_version }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_URL" || { echo "::error::SUPABASE_URL is not configured"; exit 1; }
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::SUPABASE_SERVICE_ROLE_KEY is not configured"; exit 1; }
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            ca-certificates curl jq unzip xz-utils python3 python3-pip
+
+      - name: Add swap space for Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! sudo swapon --show | grep -q .; then
+            sudo fallocate -l 16G /swapfile
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+          fi
+          free -h
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender_url="https://download.blender.org/release/Blender${BLENDER_VERSION%.*}/blender-${BLENDER_VERSION}-linux-x64.tar.xz"
+          curl --fail --location --retry 5 --retry-all-errors --output /tmp/blender.tar.xz "$blender_url"
+          sudo mkdir -p /opt/blender
+          sudo tar -xJf /tmp/blender.tar.xz --strip-components=1 -C /opt/blender
+          sudo ln -sf /opt/blender/blender /usr/local/bin/blender
+          blender --version
+
+      - name: Install gltf-pipeline
+        run: npm install --global gltf-pipeline@4.1.0
+
+      - name: Download and verify Z-Anatomy
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/z-anatomy"
+          curl --fail --location --retry 5 --retry-all-errors \
+            --output "$RUNNER_TEMP/z-anatomy/Z-Anatomy.zip" \
+            "$ZENODO_ARCHIVE_URL"
+          printf '%s  %s\n' "$ZENODO_ARCHIVE_MD5" "$RUNNER_TEMP/z-anatomy/Z-Anatomy.zip" | md5sum --check -
+          unzip -q "$RUNNER_TEMP/z-anatomy/Z-Anatomy.zip" -d "$RUNNER_TEMP/z-anatomy/source"
+          find "$RUNNER_TEMP/z-anatomy/source" -type f -printf '%p\n' | sort
+
+      - name: Extract systems and organs
+        run: |
+          mkdir -p "$OUTPUT_DIR"
+          blender --background --factory-startup --python scripts/extract_z_anatomy.py -- \
+            --source-root "$RUNNER_TEMP/z-anatomy/source" \
+            --output-dir "$OUTPUT_DIR" \
+            --source-record "$ZENODO_RECORD"
+
+      - name: Compress exported models with Draco
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' model; do
+            tmp="${model}.draco"
+            gltf-pipeline -i "$model" -o "$tmp" -d
+            mv "$tmp" "$model"
+          done < <(find "$OUTPUT_DIR" -type f -name '*.glb' -print0)
+          test "$(find "$OUTPUT_DIR" -type f -name '*.glb' | wc -l)" -eq 16
+
+      - name: Ensure Supabase bucket exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(
+            curl --silent --show-error --location \
+              --output /tmp/create-bucket-response.json \
+              --write-out '%{http_code}' \
+              --request POST \
+              --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              --header "Content-Type: application/json" \
+              --data "{\"id\":\"$SUPABASE_BUCKET\",\"name\":\"$SUPABASE_BUCKET\",\"public\":false}" \
+              "${SUPABASE_URL%/}/storage/v1/bucket"
+          )"
+          case "$status" in
+            200|201|409) ;;
+            *) cat /tmp/create-bucket-response.json; exit 1 ;;
+          esac
+
+      - name: Upload models to Supabase Storage
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_url="${SUPABASE_URL%/}/storage/v1/object"
+          while IFS= read -r -d '' model; do
+            relative="${model#"$OUTPUT_DIR"/}"
+            encoded_path="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe="/"))' "$relative")"
+            curl --fail --silent --show-error --location \
+              --request POST \
+              --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              --header "Content-Type: model/gltf-binary" \
+              --header "x-upsert: true" \
+              --data-binary "@$model" \
+              "$base_url/$SUPABASE_BUCKET/$encoded_path"
+          done < <(find "$OUTPUT_DIR" -type f -name '*.glb' -print0)
+
+      - name: Upload extraction manifest to Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            --request POST \
+            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "Content-Type: application/json" \
+            --header "x-upsert: true" \
+            --data-binary "@$OUTPUT_DIR/manifest.json" \
+            "${SUPABASE_URL%/}/storage/v1/object/$SUPABASE_BUCKET/manifest.json"
+
+      - name: Save workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: z-anatomy-models
+          path: ${{ env.OUTPUT_DIR }}
+          if-no-files-found: error
+          retention-days: 7
