@@ -7,10 +7,6 @@ on:
         description: "Runner label. Use a larger GitHub-hosted runner if enabled for this repository."
         required: true
         default: "ubuntu-24.04"
-      blender_version:
-        description: "Blender release to install"
-        required: true
-        default: "4.3.3"
 
 permissions:
   contents: read
@@ -26,7 +22,6 @@ jobs:
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 360
     env:
-      BLENDER_VERSION: ${{ inputs.blender_version }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
@@ -45,7 +40,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
-            ca-certificates curl jq unzip xz-utils python3 python3-pip
+            ca-certificates curl jq unzip python3 python3-pip
 
       - name: Add swap space for Blender
         shell: bash
@@ -60,15 +55,7 @@ jobs:
           free -h
 
       - name: Install Blender
-        shell: bash
-        run: |
-          set -euo pipefail
-          blender_url="https://download.blender.org/release/Blender${BLENDER_VERSION%.*}/blender-${BLENDER_VERSION}-linux-x64.tar.xz"
-          curl --fail --location --retry 5 --retry-all-errors --output /tmp/blender.tar.xz "$blender_url"
-          sudo mkdir -p /opt/blender
-          sudo tar -xJf /tmp/blender.tar.xz --strip-components=1 -C /opt/blender
-          sudo ln -sf /opt/blender/blender /usr/local/bin/blender
-          blender --version
+        run: sudo snap install blender --classic
 
       - name: Install gltf-pipeline
         run: npm install --global gltf-pipeline@4.1.0
