@@ -80,16 +80,58 @@ jobs:
             --output-dir "$OUTPUT_DIR" \
             --source-record "$ZENODO_RECORD"
 
-      - name: Compress exported models with Draco
+      - name: Check extracted models
         shell: bash
         run: |
           set -euo pipefail
-          while IFS= read -r -d '' model; do
+          du -ah "$OUTPUT_DIR" | sort -h | tail -30
+          free -h
+          find "$OUTPUT_DIR" -type f -name '*.glb' -printf '%s %p\n' | sort -n
+
+      - name: Compress exported models with Draco
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          mapfile -d '' models < <(
+            find "$OUTPUT_DIR" -type f -name '*.glb' -print0 | sort -z
+          )
+
+          echo "Found ${#models[@]} GLB files before compression:"
+          printf ' - %s\n' "${models[@]}"
+
+          if [ "${#models[@]}" -ne 16 ]; then
+            echo "::error::Expected 16 GLB files, found ${#models[@]}"
+            find "$OUTPUT_DIR" -type f -printf '%P\n' | sort
+            exit 1
+          fi
+
+          for model in "${models[@]}"; do
             tmp="${model}.draco"
-            gltf-pipeline -i "$model" -o "$tmp" -d
-            mv "$tmp" "$model"
-          done < <(find "$OUTPUT_DIR" -type f -name '*.glb' -print0)
-          test "$(find "$OUTPUT_DIR" -type f -name '*.glb' | wc -l)" -eq 16
+            echo "::group::Compressing ${model#"$OUTPUT_DIR"/}"
+
+            if ! gltf-pipeline \
+              --input "$model" \
+              --output "$tmp" \
+              --draco.compressionLevel 7 \
+              --draco.quantizePositionBits 14 \
+              --draco.quantizeNormalBits 10 \
+              --draco.quantizeTexcoordBits 12; then
+              echo "::error::Draco compression failed for $model"
+              rm -f "$tmp"
+              exit 1
+            fi
+
+            test -s "$tmp" || {
+              echo "::error::gltf-pipeline produced an empty file for $model"
+              exit 1
+            }
+
+            mv -- "$tmp" "$model"
+            echo "::endgroup::"
+          done
+
+          echo "Compressed ${#models[@]} GLB files successfully."
 
       - name: Ensure Supabase bucket exists
         shell: bash
