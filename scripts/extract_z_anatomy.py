@@ -57,12 +57,26 @@ def mesh_objects() -> list[bpy.types.Object]:
     return [obj for obj in bpy.data.objects if obj.type == "MESH"]
 
 
+def collection_parent_map() -> dict[int, bpy.types.Collection]:
+    parent_by_child: dict[int, bpy.types.Collection] = {}
+    for parent in bpy.data.collections:
+        for child in parent.children:
+            parent_by_child[child.as_pointer()] = parent
+    return parent_by_child
+
+
 def searchable_name(obj: bpy.types.Object) -> str:
     names = [obj.name]
+    parent_by_child = collection_parent_map()
     collection = obj.users_collection[0] if obj.users_collection else None
+    visited: set[int] = set()
     while collection:
+        pointer = collection.as_pointer()
+        if pointer in visited:
+            break
+        visited.add(pointer)
         names.append(collection.name)
-        collection = collection.parent
+        collection = parent_by_child.get(pointer)
     return normalize(" ".join(names))
 
 
