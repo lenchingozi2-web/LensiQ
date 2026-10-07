@@ -44,3 +44,6 @@ next-env.d.ts
 /ocr_review/
 /timetable_extracted.txt
 /scripts/knowledge_chunks_seed.json
+
+process_models.py
+models_temp/

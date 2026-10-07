@@ -29,7 +29,7 @@ export default defineAgent({
     });
 
     await session.start({
-      agent: createAgent(),
+      agent: createAgent(ctx.room),
       room: ctx.room,
       inputOptions: {
         noiseCancellation: aiCoustics.audioEnhancement({ model: 'quailL' }),

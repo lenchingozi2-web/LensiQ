@@ -17,9 +17,7 @@ permissions:
 
 env:
   ZENODO_RECORD: "4953712"
-  ZENODO_ARCHIVE_URL: "https://zenodo.org/records/4953712/files/Z-Anatomy.zip?download=1"
-  # Zenodo record 4953712, Z-Anatomy.zip (MD5 from the published record).
-  ZENODO_ARCHIVE_MD5: "231a7c2f3b118ce250404a968fbd0525"
+  Z_ANATOMY_ARCHIVE_URL: "https://github.com/Z-Anatomy/Models-of-human-anatomy/raw/master/Z-Anatomy.zip"
   OUTPUT_DIR: "${{ github.workspace }}/artifacts/z-anatomy"
   SUPABASE_BUCKET: "medical-models"
 
@@ -75,7 +73,7 @@ jobs:
       - name: Install gltf-pipeline
         run: npm install --global gltf-pipeline@4.1.0
 
-      - name: Download and verify Z-Anatomy
+      - name: Download Z-Anatomy
         shell: bash
         run: |
           set -euo pipefail
@@ -83,8 +81,7 @@ jobs:
           curl --fail --location --retry 5 --retry-all-errors \
             --header "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36" \
             --output "$RUNNER_TEMP/z-anatomy/Z-Anatomy.zip" \
-            "$ZENODO_ARCHIVE_URL"
-          printf '%s  %s\n' "$ZENODO_ARCHIVE_MD5" "$RUNNER_TEMP/z-anatomy/Z-Anatomy.zip" | md5sum --check -
+            "$Z_ANATOMY_ARCHIVE_URL"
           unzip -q "$RUNNER_TEMP/z-anatomy/Z-Anatomy.zip" -d "$RUNNER_TEMP/z-anatomy/source"
           find "$RUNNER_TEMP/z-anatomy/source" -type f -printf '%p\n' | sort
 
