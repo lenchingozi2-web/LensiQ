@@ -118,7 +118,7 @@ jobs:
             log="${model%.glb}.draco.log"
             echo "::group::Compressing ${model#"$OUTPUT_DIR"/}"
 
-            if ! npx --no-install gltf-pipeline \
+            if ! npx --yes --no-install gltf-pipeline \
               --input "$model" \
               --output "$tmp" \
               --draco.compressionLevel 5 \
