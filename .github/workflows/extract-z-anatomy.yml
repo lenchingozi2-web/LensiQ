@@ -107,7 +107,7 @@ jobs:
           fi
 
           for model in "${models[@]}"; do
-            tmp="${model}.draco"
+            tmp="${model%.glb}.draco.glb"
             echo "::group::Compressing ${model#"$OUTPUT_DIR"/}"
 
             if ! gltf-pipeline \
