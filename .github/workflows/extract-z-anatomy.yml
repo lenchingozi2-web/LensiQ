@@ -58,7 +58,14 @@ jobs:
         run: sudo snap install blender --classic
 
       - name: Install gltf-pipeline
-        run: npm install --global gltf-pipeline@4.1.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gltf-pipeline"
+          cd "$RUNNER_TEMP/gltf-pipeline"
+          npm init --yes
+          npm pkg set "overrides.cesium=1.105.1"
+          npm install --save-exact gltf-pipeline@4.1.0
 
       - name: Download Z-Anatomy
         shell: bash
@@ -90,6 +97,7 @@ jobs:
 
       - name: Compress exported models with Draco
         shell: bash
+        working-directory: ${{ runner.temp }}/gltf-pipeline
         run: |
           set -Eeuo pipefail
 
@@ -110,7 +118,7 @@ jobs:
             tmp="${model}.draco"
             echo "::group::Compressing ${model#"$OUTPUT_DIR"/}"
 
-            if ! gltf-pipeline \
+            if ! npx --no-install gltf-pipeline \
               --input "$model" \
               --output "$tmp" \
               --draco.compressionLevel 7 \
