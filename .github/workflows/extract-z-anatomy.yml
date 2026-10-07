@@ -90,6 +90,8 @@ jobs:
 
       - name: Compress exported models with Draco
         shell: bash
+        env:
+          NODE_OPTIONS: --max-old-space-size=12288
         run: |
           set -Eeuo pipefail
 
@@ -108,26 +110,32 @@ jobs:
 
           for model in "${models[@]}"; do
             tmp="${model%.glb}.draco.glb"
+            log="${model%.glb}.draco.log"
             echo "::group::Compressing ${model#"$OUTPUT_DIR"/}"
 
             if ! gltf-pipeline \
               --input "$model" \
               --output "$tmp" \
-              --draco.compressionLevel 7 \
-              --draco.quantizePositionBits 14 \
-              --draco.quantizeNormalBits 10 \
-              --draco.quantizeTexcoordBits 12; then
+              --draco.compressionLevel 5 \
+              --draco.quantizePositionBits 12 \
+              --draco.quantizeNormalBits 8 \
+              --draco.quantizeTexcoordBits 10 \
+              >"$log" 2>&1; then
               echo "::error::Draco compression failed for $model"
+              cat "$log"
               rm -f "$tmp"
               exit 1
             fi
 
             test -s "$tmp" || {
               echo "::error::gltf-pipeline produced an empty file for $model"
+              cat "$log"
+              rm -f "$tmp"
               exit 1
             }
 
             mv -- "$tmp" "$model"
+            rm -f "$log"
             echo "::endgroup::"
           done
 
