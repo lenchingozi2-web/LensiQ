@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import AnatomyViewer from '@/components/AnatomyViewer';
 
 const journeys = [
   {
@@ -75,6 +76,18 @@ export default function Home() {
             </div>
             <div className="mt-8 border-t border-white/10 pt-5 text-xs leading-5 text-slate-400">Course-specific material is prioritised for teaching, while broader medical knowledge fills genuine gaps when useful.</div>
           </div>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-6 lg:px-8">
+        <div className="grid items-center gap-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:grid-cols-[0.8fr_1.2fr]">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#9A5D00]">Explore anatomy</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0B1220] sm:text-3xl">Study the brain in 3D.</h2>
+            <p className="mt-4 max-w-lg text-sm leading-7 text-slate-600">Rotate the model to explore it from every angle, then continue into a focused teaching session when you are ready to go deeper.</p>
+            <Link href="/teach" className="mt-6 inline-flex rounded-xl bg-[#0B1220] px-5 py-3 text-sm font-black text-white hover:bg-slate-800">Ask the tutor about anatomy →</Link>
+          </div>
+          <AnatomyViewer modelUrl="https://hixvbcrrklyajhkyliay.supabase.co/storage/v1/object/public/medical-models/organs/Brain.glb" />
         </div>
       </section>
 
