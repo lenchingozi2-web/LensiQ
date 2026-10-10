@@ -124,7 +124,7 @@ export default function AnatomyViewer({ modelUrl, onStructureSelect }: AnatomyVi
   useGLTF.preload(modelUrl);
 
   return (
-    <div className="w-full h-[500px] bg-slate-900 rounded-xl overflow-hidden shadow-lg border border-slate-700">
+    <div className="h-full w-full overflow-hidden bg-slate-900">
       <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
         <Suspense fallback={null}>
           <Stage adjustCamera={1.2} environment="studio" intensity={0.8}>
