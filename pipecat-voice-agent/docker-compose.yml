@@ -1,0 +1,26 @@
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --dev --bind 0.0.0.0
+    network_mode: "host"
+
+  voice-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    network_mode: "host"
+    depends_on:
+      - livekit
+    environment:
+      LIVEKIT_URL: ws://127.0.0.1:7880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
+      DEEPSEEK_API_KEY: sk-8c3d2a58f72e4fea8f9659eb71c90e58
+      SUPABASE_URL: https://hixvbcrrklyajhkyliay.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhpeHZiY3Jya3lyajh5a3lsaWF5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDA1OTY4OSwiZXhwIjoyMDk5NjM1Njg5fQ.XHx5_RRyBUtXiWpLasiQCSKAxP5Rno9spLozhP_znog
+      LIVEKIT_ROOM: live-class
+      LIVEKIT_AGENT_IDENTITY: pipecat-agent
+      DEEPSEEK_MODEL: deepseek-chat
+      WHISPER_MODEL: small.en
+      KOKORO_VOICE: af_heart
+    restart: unless-stopped

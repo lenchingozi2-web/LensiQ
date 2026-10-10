@@ -3,11 +3,15 @@ import { createClient } from '../../lib/supabase/server';
 import { getOrCreateProfile } from '../../lib/profile';
 import { issueActiveSession } from '../../lib/auth/active-session';
 
+function safeNextPath(value: string | null | undefined) {
+  return value?.startsWith('/') && !value.startsWith('//') ? value : '/dashboard';
+}
+
 // We add searchParams so we can read error messages from the URL
 export default async function AuthPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -15,11 +19,13 @@ export default async function AuthPage({
 
   // Resolve the searchParams promise for Next.js 15
   const resolvedParams = await searchParams;
+  const next = safeNextPath(resolvedParams?.next);
 
   async function handleLogin(formData: FormData) {
     "use server";
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
+    const nextPath = safeNextPath(formData.get('next') as string | null);
     const supabaseServer = await createClient();
 
     const { data, error } = await supabaseServer.auth.signInWithPassword({
@@ -29,13 +35,13 @@ export default async function AuthPage({
 
     if (!error && data.user) {
       const { error: profileError } = await getOrCreateProfile(supabaseServer, data.user);
-      if (profileError) redirect('/signup?error=Your account could not be initialized. Please try again.');
+      if (profileError) redirect(`/signup?error=Your account could not be initialized. Please try again.&next=${encodeURIComponent(nextPath)}`);
       const { error: activeSessionError } = await issueActiveSession(supabaseServer, data.user.id);
-      if (activeSessionError) redirect('/signup?error=Your account session could not be secured. Please try again.');
-      redirect('/dashboard');
+      if (activeSessionError) redirect(`/signup?error=Your account session could not be secured. Please try again.&next=${encodeURIComponent(nextPath)}`);
+      redirect(nextPath);
     } else {
       // If login fails, redirect back to the page and attach the error to the URL
-      redirect(`/signup?error=Invalid credentials. Please check your email and password.`);
+      redirect(`/signup?error=Invalid credentials. Please check your email and password.&next=${encodeURIComponent(nextPath)}`);
     }
   }
 
@@ -43,6 +49,7 @@ export default async function AuthPage({
     "use server";
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
+    const nextPath = safeNextPath(formData.get('next') as string | null);
     const supabaseServer = await createClient();
 
     const { data, error } = await supabaseServer.auth.signUp({
@@ -52,13 +59,13 @@ export default async function AuthPage({
 
     if (!error && data.user) {
       const { error: profileError } = await getOrCreateProfile(supabaseServer, data.user);
-      if (profileError) redirect('/signup?error=Your account could not be initialized. Please try again.');
+      if (profileError) redirect(`/signup?error=Your account could not be initialized. Please try again.&next=${encodeURIComponent(nextPath)}`);
       const { error: activeSessionError } = await issueActiveSession(supabaseServer, data.user.id);
-      if (activeSessionError) redirect('/signup?error=Your account session could not be secured. Please try again.');
-      redirect('/dashboard');
+      if (activeSessionError) redirect(`/signup?error=Your account session could not be secured. Please try again.&next=${encodeURIComponent(nextPath)}`);
+      redirect(nextPath);
     } else {
       // Send the Supabase error message straight to the user
-      redirect(`/signup?error=${error?.message || 'Error creating account.'}`);
+      redirect(`/signup?error=${encodeURIComponent(error?.message || 'Error creating account.')}&next=${encodeURIComponent(nextPath)}`);
     }
   }
 
@@ -82,6 +89,7 @@ export default async function AuthPage({
         )}
 
         <form className="space-y-5">
+          <input type="hidden" name="next" value={next} />
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Email Address
@@ -124,7 +132,7 @@ export default async function AuthPage({
             </button>
           </div>
           <div className="my-3 flex items-center gap-3 text-xs font-semibold text-slate-400"><span className="h-px flex-1 bg-slate-200" /><span>OR</span><span className="h-px flex-1 bg-slate-200" /></div>
-          <a href="/auth/google?next=/dashboard" className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 bg-white px-4 py-3 font-bold text-slate-800 shadow-sm hover:bg-slate-50">
+          <a href={`/auth/google?next=${encodeURIComponent(next)}`} className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 bg-white px-4 py-3 font-bold text-slate-800 shadow-sm hover:bg-slate-50">
             <span aria-hidden="true" className="text-base font-black">G</span>
             Continue with Google
           </a>

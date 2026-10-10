@@ -1,15 +1,20 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
 
+function safeNextPath(value: string | null) {
+  return value?.startsWith('/') && !value.startsWith('//') ? value : '/dashboard';
+}
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
+  const next = safeNextPath(requestUrl.searchParams.get('next'));
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       // Keep the provider redirect exactly equal to the Supabase allow-listed callback URL.
       // The destination is selected after the code exchange by the callback route.
-      redirectTo: `${requestUrl.origin}/auth/callback`,
+      redirectTo: `${requestUrl.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       queryParams: { access_type: 'offline', prompt: 'select_account' },
     },
   });

@@ -1,5 +1,9 @@
+'use client';
+
 import Link from 'next/link';
-import AnatomyViewer from '@/components/AnatomyViewer';
+import dynamic from 'next/dynamic';
+
+const AnatomyViewer = dynamic(() => import('@/components/AnatomyViewer'), { ssr: false });
 
 const journeys = [
   {

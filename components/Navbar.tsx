@@ -2,18 +2,11 @@ import { createClient } from '../lib/supabase/server';
 import Link from 'next/link';
 import UserDropdown from './UserDropdown';
 import MobileNav from './MobileNav';
+import NavbarControls from './NavbarControls';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { clearActiveSession } from '../lib/auth/active-session';
-
-const primaryLinks = [
-  { href: '/curriculum', label: 'Study', shortLabel: 'Curriculum' },
-  { href: '/browse', label: 'Practice', shortLabel: 'Question bank' },
-  { href: '/search', label: 'Search', shortLabel: 'Find questions' },
-  { href: '/teach', label: 'Teach', shortLabel: 'AI Teaching' },
-  { href: '/voice', label: 'Voice Tutor', shortLabel: 'Speak with LenxiQ AI' },
-  { href: '/voice?mode=class', label: 'Live Class', shortLabel: 'Live teaching room' },
-];
+import { primaryNavigation, secondaryNavigation } from '@/lib/navigation';
 
 export default async function Navbar() {
   const supabase = await createClient();
@@ -71,18 +64,14 @@ export default async function Navbar() {
           </span>
         </Link>
 
-        <div className="hidden items-center gap-1 lg:flex">
-          {primaryLinks.map((link) => (
-            <Link key={link.href} href={link.href} className="rounded-lg px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 hover:text-[#0B1220]">
-              {link.label}
-            </Link>
-          ))}
-        </div>
+        <NavbarControls
+          links={user ? primaryNavigation : primaryNavigation.filter((link) => link.href !== '/dashboard')}
+          isAuthenticated={Boolean(user)}
+        />
 
         <div className="flex shrink-0 items-center gap-2">
-          <Link href="/pricing" className="rounded-lg border border-[#E8A23D]/50 bg-[#FFF8E9] px-3 py-2 text-xs font-black text-[#8B5709] hover:bg-[#FFF0CF] sm:text-sm">Plans</Link>
-          {user ? <UserDropdown email={user.email || 'User'} role={userRole} /> : <Link href="/signup" className="rounded-xl bg-[#0B1220] px-3.5 py-2.5 text-sm font-black text-white shadow-sm hover:bg-slate-800 sm:px-4">Get started</Link>}
-          <MobileNav links={primaryLinks} />
+          {user && <UserDropdown email={user.email || 'User'} role={userRole} />}
+          <MobileNav links={user ? primaryNavigation : primaryNavigation.filter((link) => link.href !== '/dashboard')} secondaryLinks={secondaryNavigation} isAuthenticated={Boolean(user)} />
         </div>
       </nav>
     </header>

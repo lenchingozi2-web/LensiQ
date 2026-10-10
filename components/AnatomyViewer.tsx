@@ -75,7 +75,12 @@ function getAnatomyType(modelUrl: string): AnatomyType {
   return 'default';
 }
 
-function Model({ url }: { url: string }) {
+type ModelProps = {
+  url: string;
+  onStructureSelect?: (meshName: string) => void;
+};
+
+function Model({ url, onStructureSelect }: ModelProps) {
   const { scene } = useGLTF(url);
   const anatomyType = getAnatomyType(url);
 
@@ -99,19 +104,41 @@ function Model({ url }: { url: string }) {
     };
   }, [anatomyType, scene]);
 
-  return <primitive object={scene} />;
+  return (
+    <primitive
+      object={scene}
+      onClick={(event: { stopPropagation: () => void; object: THREE.Object3D }) => {
+        event.stopPropagation();
+        onStructureSelect?.(event.object.name || 'Unnamed structure');
+      }}
+    />
+  );
 }
 
-export default function AnatomyViewer({ modelUrl }: { modelUrl: string }) {
+export type AnatomyViewerProps = {
+  modelUrl: string;
+  onStructureSelect?: (meshName: string) => void;
+};
+
+export default function AnatomyViewer({ modelUrl, onStructureSelect }: AnatomyViewerProps) {
+  useGLTF.preload(modelUrl);
+
   return (
     <div className="w-full h-[500px] bg-slate-900 rounded-xl overflow-hidden shadow-lg border border-slate-700">
       <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
         <Suspense fallback={null}>
-          <Stage adjustCamera={1.2} environment="studio" intensity={0.2}>
-            <Model url={modelUrl} />
+          <Stage adjustCamera={1.2} environment="studio" intensity={0.8}>
+            <Model url={modelUrl} onStructureSelect={onStructureSelect} />
           </Stage>
         </Suspense>
-        <OrbitControls autoRotate autoRotateSpeed={1.5} makeDefault />
+        <OrbitControls
+          makeDefault
+          enablePan
+          enableZoom
+          enableRotate
+          enableDamping
+          dampingFactor={0.08}
+        />
       </Canvas>
     </div>
   );
