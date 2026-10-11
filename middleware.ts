@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 const activeSessionCookie = 'session_token';
@@ -27,6 +27,12 @@ function sessionReplacedResponse(request: NextRequest) {
 }
 
 export async function middleware(request: NextRequest) {
+  // The callback must exchange the OAuth code and set the session cookies
+  // before middleware attempts to validate the authenticated request.
+  if (request.nextUrl.pathname === '/auth/callback') {
+    return NextResponse.next();
+  }
+
   // Allow the site to render a recoverable page if deployment configuration is
   // temporarily incomplete instead of throwing an Edge runtime error.
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -49,18 +55,22 @@ export async function middleware(request: NextRequest) {
         fetch: fetchWithTimeout,
       },
       cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
+        getAll() {
+          return request.cookies.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options });
+        setAll(cookiesToSet, headers) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set({ name, value, ...options });
+          });
+
           response = NextResponse.next({ request: { headers: request.headers } });
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: '', ...options });
-          response = NextResponse.next({ request: { headers: request.headers } });
-          response.cookies.set({ name, value: '', ...options });
+
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set({ name, value, ...options });
+          });
+          Object.entries(headers).forEach(([name, value]) => {
+            response.headers.set(name, value);
+          });
         },
       },
     });
@@ -83,7 +93,7 @@ export async function middleware(request: NextRequest) {
       if (profileError) {
         // A temporary database failure must not kick out a valid Supabase user.
         console.error('[Middleware] Active-session lookup failed:', profileError.message);
-      } else if (profile?.session_token && profile.session_token !== activeToken) {
+      } else if (activeToken && profile?.session_token && profile.session_token !== activeToken) {
         return sessionReplacedResponse(request);
       }
     }
