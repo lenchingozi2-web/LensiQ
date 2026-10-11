@@ -46,7 +46,6 @@ export default function PreClassSetup({
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadedUrlsRef = useRef(new Map<string, string>());
-  const uploadFolderRef = useRef<string | null>(null);
   const totalBytes = files.reduce((total, file) => total + file.size, 0);
 
   const publishUploadedUrls = () => {
@@ -87,20 +86,28 @@ export default function PreClassSetup({
       if (typeof window === 'undefined') throw new Error('File uploads are only available in the browser.');
       const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
-      const uploadFolder = uploadFolderRef.current ?? `class_${Date.now()}_${window.crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
-      uploadFolderRef.current = uploadFolder;
-
       for (const [index, file] of newFiles.entries()) {
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const filePath = `${uploadFolder}/${safeName}`;
-        const { error: uploadError } = await supabase.storage.from('ephemeral_class_materials').upload(filePath, file);
+        const prepareResponse = await fetch('/api/uploads/lecture', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scope: 'search', fileName: file.name, mimeType: file.type || 'application/octet-stream', sizeBytes: file.size }),
+        });
+        const uploadData = await prepareResponse.json().catch(() => ({}));
+        if (!prepareResponse.ok || typeof uploadData.path !== 'string' || typeof uploadData.token !== 'string') {
+          throw new Error(uploadData.error || `Unable to prepare ${file.name} for upload.`);
+        }
+        const { error: uploadError } = await supabase.storage
+          .from(uploadData.bucket)
+          .uploadToSignedUrl(uploadData.path, uploadData.token, file, { contentType: file.type || uploadData.mimeType });
         if (uploadError) throw new Error(`Unable to upload ${file.name}: ${uploadError.message}`);
-        const { data } = supabase.storage.from('ephemeral_class_materials').getPublicUrl(filePath);
-        uploadedUrlsRef.current.set(fileKey(file), data.publicUrl);
+        const { data: signedData, error: signedError } = await supabase.storage
+          .from(uploadData.bucket)
+          .createSignedUrl(uploadData.path, 60 * 60);
+        if (signedError || !signedData?.signedUrl) throw new Error(`Unable to authorize ${file.name} for Live Class.`);
+        uploadedUrlsRef.current.set(fileKey(file), signedData.signedUrl);
         uploadedFiles.push(file);
         setUploadProgress(Math.round(((index + 1) / newFiles.length) * 100));
       }
-
       onFilesChange([...files, ...uploadedFiles]);
       publishUploadedUrls();
     } catch (uploadError) {

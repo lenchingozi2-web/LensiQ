@@ -599,7 +599,6 @@ function VoiceTutorContent() {
       webAudioMix: false,
     });
     Object.defineProperty(window, '__lensiqLiveRoom', { configurable: true, value: room });
-    await room.startAudio().catch(() => setAudioState('blocked'));
     const microphoneTrack = await requestMicrophone();
     if (!microphoneTrack) { room.disconnect(); setRuntimeState('ERROR'); setConnecting(false); return; }
     try {
@@ -691,13 +690,12 @@ function VoiceTutorContent() {
           }
         }
       }
-      await room.startAudio().catch((playbackError) => { clientStage('AGENT_AUDIO_PLAYBACK_BLOCKED', { error: String(playbackError) }); setAudioState('blocked'); });
       audioContainerRef.current?.querySelectorAll('audio').forEach((element) => {
         element.muted = tutorMutedRef.current;
         element.volume = tutorMutedRef.current ? 0 : 1;
         void element.play().catch(() => undefined);
       });
-      const microphonePublication = await room.localParticipant.publishTrack(microphoneTrack, { source: Track.Source.Microphone });
+      const microphonePublication = await room.localParticipant.publishTrack(microphoneTrack, { source: Track.Source.Microphone, dtx: false, red: true });
       if (!microphonePublication?.track) throw new Error('Live Class could not publish the microphone track.');
       clientStage('MIC_TRACK_PUBLISHED', { trackId: microphonePublication.trackSid, enabled: microphoneTrack.enabled, readyState: microphoneTrack.readyState });
       setMicState('live');

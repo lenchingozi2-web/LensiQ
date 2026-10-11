@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { AccessToken, AgentDispatchClient } from 'livekit-server-sdk';
 import { createClient } from '../../../../lib/supabase/server';
-import { buildLiveClassSeed } from '../../../../lib/ai/live-class-context';
 
 function normalizeLiveKitUrl(value: string) {
   const trimmed = value.trim().replace(/^['"]|['"]$/g, '').replace(/\/$/, '');
@@ -41,6 +40,7 @@ export async function POST(req: Request) {
   const courseName = typeof body?.courseName === 'string' && body.courseName.trim() ? body.courseName.trim().slice(0, 120) : 'Live Class';
   const topicFocus = typeof body?.topicFocus === 'string' && body.topicFocus.trim() ? body.topicFocus.trim().slice(0, 300) : '';
   const conversationId = typeof body?.conversationId === 'string' && body.conversationId.trim() ? body.conversationId.trim() : null;
+  const materialUrls = Array.isArray(body?.fileUrls) ? body.fileUrls.filter((value: unknown): value is string => typeof value === 'string' && value.startsWith('http')).slice(0, 20) : [];
   const roomName = `lensiq-voice-${user.id.slice(0, 8)}-${crypto.randomUUID()}`;
 
   const { data: reservation, error: reservationError } = await supabase.rpc('reserve_live_class_session', {
@@ -52,7 +52,8 @@ export async function POST(req: Request) {
 
   if (reservationError || !quota) {
     console.error('Live Class reservation failed:', reservationError);
-    return NextResponse.json({ error: 'Unable to reserve a Live Class session right now. Please try again.' }, { status: 500 });
+    const databaseIssue = reservationError?.code === '42883' || reservationError?.code === '42703' || /does not exist|column|function/i.test(reservationError?.message || '');
+    return NextResponse.json({ error: databaseIssue ? 'Live Class backend migration is not active yet. Please contact the administrator to apply the latest database migration.' : 'Unable to reserve a Live Class session right now. Please try again.' }, { status: 503 });
   }
 
   if (!quota.allowed) {
@@ -82,7 +83,6 @@ export async function POST(req: Request) {
 
   const isUnlimited = Boolean(quota.is_unlimited);
   const maxDurationSeconds = isUnlimited ? 86400 : Math.max(60, Number(quota.max_duration_seconds ?? 1800));
-  const evidenceSeed = await buildLiveClassSeed(supabase, courseName, topicFocus);
   const dispatchHost = livekitUrl.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:');
   const dispatchMetadata = JSON.stringify({
     userId: user.id,
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     topicFocus,
     sessionType: 'live_class',
     contextEndpoint: `${new URL(req.url).origin}/api/voice/context`,
-    evidenceSeed,
+    materialUrls,
   });
   try {
     const dispatchClient = new AgentDispatchClient(dispatchHost, apiKey, apiSecret);
