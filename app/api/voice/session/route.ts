@@ -51,8 +51,8 @@ export async function POST(req: Request) {
     shouldEnd: Boolean(charge.should_end),
     chargedMinutes: charge.charged_minutes ?? 0,
     message: charge.should_end
-      ? charge.reason === 'free_trial_complete'
-        ? 'Your one-time free Live Class has ended after 10 minutes.'
+      ? charge.reason === 'free_monthly_exhausted'
+        ? 'Your free Live Class allowance has ended for this month. It refreshes next month.'
         : 'Your Premium Live Class allowance has ended. Minutes refresh on your next monthly billing date.'
       : null,
   });

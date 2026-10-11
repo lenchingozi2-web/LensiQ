@@ -57,9 +57,9 @@ export async function POST(req: Request) {
 
   if (!quota.allowed) {
     const limitMessage = quota.reason === 'premium_required'
-      ? 'Your one-time free Live Class has been used. Upgrade to Hybrid Premium for 6 hours of Live Class each billing month.'
-      : quota.reason === 'free_trial_used'
-        ? 'Your one-time free Live Class has already been used. Upgrade to Hybrid Premium for 6 hours of Live Class each billing month.'
+      ? 'Your free Live Class allowance is used for this month. It refreshes next month, or upgrade to Hybrid Premium for 6 hours each billing month.'
+      : quota.reason === 'free_monthly_exhausted'
+        ? 'Your free Live Class allowance is used for this month. It refreshes next month, or upgrade to Hybrid Premium for 6 hours each billing month.'
       : quota.reason === 'voice_balance_empty'
         ? 'Your Premium Live Class allowance is used. Minutes refresh on your next monthly billing date; additional minute purchases are not available.'
         : quota.reason === 'active_session'
@@ -74,14 +74,14 @@ export async function POST(req: Request) {
         isUnlimited: false,
         usedSessions: quota.used_sessions ?? 0,
         maxSessions: quota.max_sessions ?? 1,
-        maxDurationSeconds: quota.max_duration_seconds ?? 600,
+        maxDurationSeconds: quota.max_duration_seconds ?? 1800,
         resetsAt: quota.expires_at,
       },
     }, { status: 403 });
   }
 
   const isUnlimited = Boolean(quota.is_unlimited);
-  const maxDurationSeconds = isUnlimited ? 86400 : Math.max(60, Number(quota.max_duration_seconds ?? 600));
+  const maxDurationSeconds = isUnlimited ? 86400 : Math.max(60, Number(quota.max_duration_seconds ?? 1800));
   const evidenceSeed = await buildLiveClassSeed(supabase, courseName, topicFocus);
   const dispatchHost = livekitUrl.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:');
   const dispatchMetadata = JSON.stringify({

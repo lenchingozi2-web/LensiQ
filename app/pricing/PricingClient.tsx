@@ -58,7 +58,7 @@ export default function PricingClient() {
                 <li>✓ 30 AI explanations per month</li>
                 <li>✓ 6 text-teaching starts per month</li>
                 <li>✓ 3 quiz attempts per month</li>
-                <li>✓ One Live Class per account, up to 10 minutes</li>
+                <li>✓ 30 Live Class minutes each month</li>
                 <li>✓ One free Anatomical Pathology organ/system</li>
               </ul>
             </div>
