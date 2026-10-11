@@ -5,12 +5,23 @@ import { getOrCreateProfile } from '../../lib/profile';
 import { issueActiveSession } from '../../lib/auth/active-session';
 
 function safeNextPath(value: string | null | undefined) {
-  return value?.startsWith('/') && !value.startsWith('//') ? value : '/';
+  if (!value?.startsWith('/') || value.startsWith('//')) return '/dashboard';
+
+  const pathname = new URL(value, 'http://localhost').pathname;
+  if (pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/')) {
+    return '/dashboard';
+  }
+
+  return value;
 }
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; message?: string }> }) {
   const params = await searchParams;
   const next = safeNextPath(params.next);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (user) redirect(next);
 
   const login = async (formData: FormData) => {
     'use server'
