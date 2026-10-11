@@ -40,10 +40,10 @@ export default function NavbarControls({ links, isAuthenticated }: NavbarControl
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <Link href="/pricing" className="rounded-lg border border-[#E8A23D]/50 bg-[#FFF8E9] px-3 py-2 text-xs font-black text-[#8B5709] hover:bg-[#FFF0CF] sm:text-sm">Plans</Link>
+        <Link href="/pricing" className="hidden rounded-lg border border-[#E8A23D]/50 bg-[#FFF8E9] px-3 py-2 text-xs font-black text-[#8B5709] hover:bg-[#FFF0CF] sm:inline-flex sm:text-sm">Plans</Link>
         {!isAuthenticated && (
           <>
-            <Link href={`${LOGIN_PATH}${authQuery}`} className="rounded-xl bg-[#0B1220] px-3.5 py-2.5 text-sm font-black text-white shadow-sm hover:bg-slate-800 sm:px-4">Sign In / Get Started</Link>
+            <Link href={`${LOGIN_PATH}${authQuery}`} className="rounded-xl bg-[#0B1220] px-3 py-2 text-sm font-black text-white shadow-sm hover:bg-slate-800 sm:px-4 sm:py-2.5">Sign in</Link>
           </>
         )}
       </div>

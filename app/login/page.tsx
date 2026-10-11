@@ -8,7 +8,7 @@ function safeNextPath(value: string | null | undefined) {
   if (!value?.startsWith('/') || value.startsWith('//')) return '/dashboard';
 
   const pathname = new URL(value, 'http://localhost').pathname;
-  if (pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/')) {
+  if (pathname === '/' || pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/')) {
     return '/dashboard';
   }
 

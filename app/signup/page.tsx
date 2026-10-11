@@ -4,7 +4,10 @@ import { getOrCreateProfile } from '../../lib/profile';
 import { issueActiveSession } from '../../lib/auth/active-session';
 
 function safeNextPath(value: string | null | undefined) {
-  return value?.startsWith('/') && !value.startsWith('//') ? value : '/dashboard';
+  if (!value?.startsWith('/') || value.startsWith('//')) return '/dashboard';
+  const pathname = new URL(value, 'http://localhost').pathname;
+  if (pathname === '/' || pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/')) return '/dashboard';
+  return value;
 }
 
 // We add searchParams so we can read error messages from the URL

@@ -4,7 +4,7 @@ import { createClient } from '../../../lib/supabase/server';
 function safeNextPath(value: string | null) {
   if (!value?.startsWith('/') || value.startsWith('//')) return '/dashboard';
   const pathname = new URL(value, 'http://localhost').pathname;
-  return pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/') ? '/dashboard' : value;
+  return pathname === '/' || pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/') ? '/dashboard' : value;
 }
 
 export async function GET(request: Request) {
