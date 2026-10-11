@@ -57,9 +57,9 @@ export async function POST(req: Request) {
 
   if (!quota.allowed) {
     const limitMessage = quota.reason === 'premium_required'
-      ? 'Your one-time free Live Class has been used. Upgrade to Hybrid Premium for 60 Live Class minutes each billing month.'
+      ? 'Your one-time free Live Class has been used. Upgrade to Hybrid Premium for 6 hours of Live Class each billing month.'
       : quota.reason === 'free_trial_used'
-        ? 'Your one-time free Live Class has already been used. Upgrade to Hybrid Premium for 60 Live Class minutes each billing month.'
+        ? 'Your one-time free Live Class has already been used. Upgrade to Hybrid Premium for 6 hours of Live Class each billing month.'
       : quota.reason === 'voice_balance_empty'
         ? 'Your Premium Live Class allowance is used. Minutes refresh on your next monthly billing date; additional minute purchases are not available.'
         : quota.reason === 'active_session'

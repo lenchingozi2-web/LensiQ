@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.lenxiq.online';
     const txRef = `lenxiq_subscription_${user.id}_${plan.id}_${crypto.randomUUID()}`;
-    const description = `${plan.label}: ${plan.durationMonths === 1 ? 'billed monthly' : `${plan.durationMonths} monthly billing cycles prepaid`}, with 50 text-teaching credits and 60 Live Class voice minutes per monthly cycle`;
+    const description = `${plan.label}: ${plan.durationMonths === 1 ? 'billed monthly' : `${plan.durationMonths} monthly billing cycles prepaid`}, with 50 text-teaching credits and 6 hours of Live Class per monthly cycle`;
     const response = await fetch('https://api.flutterwave.com/v3/payments', {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`, 'Content-Type': 'application/json' },

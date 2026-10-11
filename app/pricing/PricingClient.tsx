@@ -70,7 +70,7 @@ export default function PricingClient() {
             <div className="relative">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-[#e8a23d]">Hybrid Premium</p>
               <h2 className="mt-2 text-3xl font-bold text-white">Choose your subscription term</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Every term includes the same monthly benefits: 60 Live Class minutes and 50 text-teaching credits, refreshed each billing cycle.</p>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Every term includes the same monthly benefits: 6 hours of Live Class and 50 text-teaching credits, refreshed each billing cycle.</p>
               <div className="mt-6 grid gap-4 md:grid-cols-3">
                 {PUBLIC_PAID_PLANS.map((plan) => {
                   const isSixMonth = plan.durationMonths === 6;
@@ -85,7 +85,7 @@ export default function PricingClient() {
                       <p className="mt-5 text-3xl font-black text-white">₦{plan.amountNaira.toLocaleString()} <span className="text-sm font-bold text-slate-300">{prepaid ? 'total' : 'per month'}</span></p>
                       {prepaid && <p className="mt-1 text-xs font-semibold text-slate-400">₦{monthlyEquivalent.toLocaleString()} per month equivalent</p>}
                       {isSixMonth && <p className="mt-1 text-xs font-bold text-[#ffe2a8]">Save ₦3,600 versus six monthly payments.</p>}
-                      <p className="mt-4 min-h-12 text-xs font-semibold leading-5 text-[#ffe2a8]">60 Live Class minutes + 50 text credits each month</p>
+                      <p className="mt-4 min-h-12 text-xs font-semibold leading-5 text-[#ffe2a8]">6 hours of Live Class + 50 text credits each month</p>
                       <button type="button" onClick={() => void handleCheckout(plan.id)} disabled={Boolean(loading)} className="mt-auto w-full rounded-xl bg-[#e8a23d] px-3 py-3 text-center text-sm font-bold text-slate-900 shadow-lg shadow-amber-500/20 transition-colors hover:bg-amber-500 disabled:opacity-50">
                         {loading === plan.id ? 'Connecting secure gateway…' : prepaid ? `Subscribe for ${plan.durationMonths} months` : 'Subscribe monthly'}
                       </button>
@@ -98,7 +98,7 @@ export default function PricingClient() {
                 <li><span className="text-[#e8a23d]">✓</span> Unlimited AI explanations and quiz attempts</li>
                 <li><span className="text-[#e8a23d]">✓</span> Unlimited Anatomical Pathology practical systems</li>
                 <li><span className="text-[#e8a23d]">✓</span> Voice and visual tutoring in one AI Tutor</li>
-                <li><span className="text-[#e8a23d]">✓</span> Monthly usage allowances; no new minute top-ups</li>
+                <li><span className="text-[#e8a23d]">✓</span> Monthly usage allowances; no additional voice-minute purchases</li>
                 <li><span className="text-[#e8a23d]">✓</span> 20 MB lecture files and 100 MB retained Teaching storage</li>
               </ul>
             </div>

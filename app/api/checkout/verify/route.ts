@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '../../../../lib/supabase/service';
-import { getPaidPlan, getWalletTopup, isPaidPlan } from '../../../../lib/plans';
+import { getPaidPlan } from '../../../../lib/plans';
 
 export async function GET(req: Request) {
   try {
@@ -23,23 +23,7 @@ export async function GET(req: Request) {
     const paymentReference = String(transaction?.id || transaction?.tx_ref || transactionId);
     const service = createServiceClient();
 
-    if (productType === 'topup') {
-      const topup = getWalletTopup(transaction?.meta?.product_id);
-      const { data: profile } = await service.from('profiles').select('role,plan,plan_expires_at').eq('id', userId).maybeSingle();
-      const paidActive = profile?.role !== 'admin' && isPaidPlan(profile?.plan) && (!profile?.plan_expires_at || new Date(profile.plan_expires_at) > new Date());
-      const valid = verifyResponse.ok && verifyData.status === 'success' && transaction?.status === 'successful' && verifiedCurrency === 'NGN' && Boolean(topup) && verifiedAmount === topup?.amountNaira && Number(transaction?.meta?.voice_minutes) === topup?.voiceMinutes && Boolean(userId) && paidActive;
-      if (!valid || !topup) throw new Error('Payment verification failed voice top-up validation.');
-      const { error } = await service.rpc('settle_verified_payment', {
-        p_payment_reference: `flutterwave:${paymentReference}`,
-        p_user_id: userId,
-        p_event_type: 'topup_payment',
-        p_revenue_amount_ngn: topup.amountNaira,
-        p_voice_minutes: topup.voiceMinutes,
-        p_metadata: { provider: 'flutterwave', transaction_id: paymentReference, tx_ref: transaction.tx_ref, product_id: topup.id },
-      });
-      if (error) throw error;
-      return NextResponse.redirect(new URL('/dashboard?wallet=success', req.url));
-    }
+    if (productType === 'topup') throw new Error('Voice-minute top-ups are no longer supported.');
 
     const plan = getPaidPlan(transaction?.meta?.plan_id || 'premium_monthly');
     const valid = verifyResponse.ok && verifyData.status === 'success' && transaction?.status === 'successful' && verifiedCurrency === 'NGN' && Boolean(plan) && verifiedAmount === plan?.amountNaira && Number(transaction?.meta?.plan_duration) === plan?.durationMonths && Boolean(userId);

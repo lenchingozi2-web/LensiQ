@@ -24,6 +24,7 @@ export async function GET() {
     .from('billing_events')
     .select('id,event_type,units,revenue_amount_ngn,created_at,metadata')
     .eq('user_id', user.id)
+    .neq('event_type', 'topup_payment')
     .order('created_at', { ascending: false })
     .limit(100);
   if (eventsError) return NextResponse.json({ error: 'Unable to load wallet history.' }, { status: 503 });

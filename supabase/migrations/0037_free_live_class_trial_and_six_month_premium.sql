@@ -325,10 +325,10 @@ begin
   loop
     v_next := v_record.wallet_reset_at + interval '1 month';
     update public.profiles
-      set voice_minutes_balance = 60, text_teaching_balance = 50, wallet_reset_at = v_next
+      set voice_minutes_balance = 360, text_teaching_balance = 50, wallet_reset_at = v_next
       where id = v_record.id;
     insert into public.billing_events (user_id, event_type, units, metadata)
-      values (v_record.id, 'monthly_grant', 110, jsonb_build_object('voice_minutes', 60, 'text_teaching_credits', 50, 'rollover', false));
+      values (v_record.id, 'monthly_grant', 410, jsonb_build_object('voice_minutes', 360, 'text_teaching_credits', 50, 'rollover', false));
     v_count := v_count + 1;
   end loop;
   return v_count;
@@ -397,7 +397,7 @@ begin
       set plan = coalesce(p_plan_id, 'premium_monthly'),
           plan_duration = greatest(1, coalesce(p_plan_duration, 1)),
           plan_expires_at = v_expiration,
-          voice_minutes_balance = 60,
+          voice_minutes_balance = 360,
           text_teaching_balance = 50,
           wallet_reset_at = now() + interval '1 month',
           ai_explanations_used = 0,
@@ -405,8 +405,8 @@ begin
           quiz_attempts_used = 0
       where id = p_user_id;
     insert into public.billing_events (user_id, event_type, plan_id, units, metadata)
-      values (p_user_id, 'monthly_grant', p_plan_id, 110,
-        jsonb_build_object('voice_minutes', 60, 'text_teaching_credits', 50, 'rollover', false, 'payment_reference', p_payment_reference));
+      values (p_user_id, 'monthly_grant', p_plan_id, 410,
+        jsonb_build_object('voice_minutes', 360, 'text_teaching_credits', 50, 'rollover', false, 'payment_reference', p_payment_reference));
   else
     update public.profiles
       set voice_minutes_balance = voice_minutes_balance + greatest(0, coalesce(p_voice_minutes, 0))

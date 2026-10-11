@@ -37,7 +37,6 @@ const emptyWallet: WalletData = {
 function formatEvent(event: WalletEvent) {
   const labels: Record<string, string> = {
     subscription_payment: 'Premium subscription payment',
-    topup_payment: 'Legacy voice-minute purchase',
     monthly_grant: 'Monthly allowance grant',
     voice_charge: 'Live Class voice usage',
     text_teaching_charge: 'Text-teaching usage',
@@ -115,10 +114,10 @@ export default function WalletPage() {
                 <article className="rounded-2xl border border-[#E8A23D]/40 bg-[#FFF8E9] p-6">
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#9A5D00]">Included AI Tutor access</p>
                   <h2 className="mt-2 text-xl font-black text-[#0B1220]">{wallet.isPremium ? 'Monthly Premium allowance' : wallet.isAdmin ? 'Administrator wallet' : 'One-time Free Live Class'}</h2>
-                  <p className="mt-3 text-sm font-semibold leading-6 text-[#6E501E]">{wallet.isAdmin ? 'Administrators have unlimited Live Class access. Usage is tracked internally for cost intelligence.' : wallet.isPremium ? 'Premium includes 60 Live Class minutes and 50 text-teaching credits per monthly billing cycle. Existing wallet minutes remain usable; new pay-as-you-go minute purchases are no longer available.' : wallet.freeLiveClassTrialUsedAt ? 'The one-time Free Live Class (up to 10 minutes) has already been used. Upgrade to Hybrid Premium for 60 minutes per billing month.' : 'Your account can start one free Live Class lasting up to 10 minutes. Upgrade to Hybrid Premium for 60 minutes per billing month.'}</p>
+                  <p className="mt-3 text-sm font-semibold leading-6 text-[#6E501E]">{wallet.isAdmin ? 'Administrators have unlimited Live Class access. Usage is tracked internally for cost intelligence.' : wallet.isPremium ? 'Premium includes 6 hours of Live Class and 50 text-teaching credits per monthly billing cycle. Unused monthly allowances do not roll over.' : wallet.freeLiveClassTrialUsedAt ? 'The one-time Free Live Class (up to 10 minutes) has already been used. Upgrade to Hybrid Premium for 6 hours per billing month.' : 'Your account can start one free Live Class lasting up to 10 minutes. Upgrade to Hybrid Premium for 6 hours per billing month.'}</p>
                   {!wallet.isAdmin && <Link href="/pricing" className="mt-5 inline-flex rounded-xl bg-[#0B1220] px-4 py-3 text-sm font-black text-white">{wallet.isPremium ? 'View plan details' : 'View Premium plans'}</Link>}
                 </article>
-                <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Billing cycle</p><p className="mt-3 text-sm font-bold text-slate-700">{wallet.isAdmin ? 'Not applicable to administrators' : wallet.walletResetAt ? `Next reset: ${new Date(wallet.walletResetAt).toLocaleDateString()}` : 'Monthly allowances begin after Premium payment'}</p><p className="mt-2 text-xs leading-5 text-slate-500">Premium voice and text allowances reset to 60 minutes and 50 credits monthly. Unused monthly allowances do not roll over.{wallet.planExpiresAt ? ` Subscription ends ${new Date(wallet.planExpiresAt).toLocaleDateString()}.` : ''}</p></article>
+                <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Billing cycle</p><p className="mt-3 text-sm font-bold text-slate-700">{wallet.isAdmin ? 'Not applicable to administrators' : wallet.walletResetAt ? `Next reset: ${new Date(wallet.walletResetAt).toLocaleDateString()}` : 'Monthly allowances begin after Premium payment'}</p><p className="mt-2 text-xs leading-5 text-slate-500">Premium voice and text allowances reset to 6 hours and 50 credits monthly. Unused monthly allowances do not roll over.{wallet.planExpiresAt ? ` Subscription ends ${new Date(wallet.planExpiresAt).toLocaleDateString()}.` : ''}</p></article>
               </aside>
             </section>
           </>
