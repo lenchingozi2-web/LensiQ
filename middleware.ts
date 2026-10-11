@@ -2,6 +2,17 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 const activeSessionCookie = 'session_token';
+const sessionCheckTimeoutMs = 5000;
+
+function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), sessionCheckTimeoutMs);
+
+  return fetch(input, {
+    ...init,
+    signal: init?.signal ?? controller.signal,
+  }).finally(() => clearTimeout(timeoutId));
+}
 
 function sessionReplacedResponse(request: NextRequest) {
   const response = NextResponse.redirect(new URL('/login?reason=session_replaced', request.url));
@@ -34,6 +45,9 @@ export async function middleware(request: NextRequest) {
 
   try {
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        fetch: fetchWithTimeout,
+      },
       cookies: {
         get(name: string) {
           return request.cookies.get(name)?.value;
@@ -72,10 +86,6 @@ export async function middleware(request: NextRequest) {
       } else if (profile?.session_token && profile.session_token !== activeToken) {
         return sessionReplacedResponse(request);
       }
-    } else if (authError) {
-      // Supabase remains the authority for genuine authentication failures. Do
-      // not delete cookies here: the next request may refresh successfully.
-      console.warn('[Middleware] Supabase session check did not complete:', authError.message);
     }
   } catch (error) {
     // Fail open for transient network/service failures. Protected server pages
