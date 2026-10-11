@@ -11,7 +11,7 @@ export async function GET() {
 
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('role, plan, plan_expires_at, wallet_reset_at, voice_minutes_balance, text_teaching_balance, storage_limit_bytes')
+    .select('role, plan, plan_expires_at, wallet_reset_at, voice_minutes_balance, text_teaching_balance, storage_limit_bytes, free_live_class_trial_used_at')
     .eq('id', user.id)
     .single();
   if (error || !profile) return NextResponse.json({ error: 'Unable to load wallet.' }, { status: 500 });
@@ -38,6 +38,7 @@ export async function GET() {
     isPremium: activePremium && profile.role !== 'admin',
     planExpiresAt: profile.plan_expires_at,
     walletResetAt: profile.wallet_reset_at,
+    freeLiveClassTrialUsedAt: profile.free_live_class_trial_used_at,
     rollover: false,
     voiceMinutes,
     textTeachingCredits: textCredits,

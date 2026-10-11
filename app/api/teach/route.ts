@@ -72,7 +72,7 @@ export async function POST(req: Request) {
       if (!liveClassSessionId) return NextResponse.json({ error: 'Live Class session is required.' }, { status: 400 });
       const { data: liveSession } = await supabase
         .from('live_class_sessions')
-        .select('id, status, started_at')
+        .select('id, status, started_at, is_free_trial')
         .eq('id', liveClassSessionId)
         .eq('user_id', user.id)
         .eq('status', 'active')
@@ -83,9 +83,10 @@ export async function POST(req: Request) {
       if (profileError || !profile) return NextResponse.json({ error: 'Your account profile could not be loaded.' }, { status: 503 });
       const isAdmin = profile.role === 'admin';
       const isPremiumVoice = isPaidPlan(profile.plan) && (!profile.plan_expires_at || new Date(profile.plan_expires_at) > new Date());
-      if (!isAdmin && !isPremiumVoice) {
+      const isFreeTrial = liveSession.is_free_trial === true;
+      if (!isAdmin && !isPremiumVoice && !isFreeTrial) {
         await supabase.from('live_class_sessions').update({ status: 'expired', ended_at: new Date().toISOString() }).eq('id', liveClassSessionId).eq('user_id', user.id);
-        return NextResponse.json({ error: 'Live Class is available only to active Premium subscribers and administrators. Upgrade to Hybrid Premium to activate voice minutes.' }, { status: 403 });
+        return NextResponse.json({ error: 'Your one-time free Live Class has been used. Upgrade to Hybrid Premium for monthly Live Class access.' }, { status: 403 });
       }
       if (!isAdmin) {
         const { data: chargeRows, error: chargeError } = await supabase.rpc('charge_live_class_session', {
@@ -95,7 +96,7 @@ export async function POST(req: Request) {
         });
         const charge = Array.isArray(chargeRows) ? chargeRows[0] : chargeRows;
         if (chargeError || !charge?.ok) return NextResponse.json({ error: 'Unable to confirm the remaining Live Class wallet balance.' }, { status: 503 });
-        if (charge.should_end) return NextResponse.json({ error: 'Your voice-minute balance has reached zero. The Live Class has ended gracefully; you can top up and start again.' }, { status: 403 });
+        if (charge.should_end) return NextResponse.json({ error: charge.reason === 'free_trial_complete' ? 'Your one-time free Live Class has ended after 10 minutes.' : 'Your Premium Live Class allowance has ended. Minutes refresh on your next monthly billing date.' }, { status: 403 });
       }
     } else if (messages.length === 1) {
       const access = await checkAccess('teaching');

@@ -4,19 +4,20 @@ type WhiteboardProps = {
 
 export default function Whiteboard({ topic }: WhiteboardProps) {
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#FBFAF7] text-[#27231D]">
-      <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-[#E8A23D]/20 blur-3xl" />
-      <div className="absolute -bottom-32 -left-20 h-72 w-72 rounded-full bg-[#D9E4E8]/60 blur-3xl" />
-      <div className="relative flex h-full flex-col justify-center px-6 py-24 sm:px-12 lg:px-20">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#9A5D00]">Live whiteboard</p>
-        <h1 className="mt-3 max-w-3xl text-4xl font-black tracking-[-0.06em] sm:text-6xl">{topic || 'Your lesson topic'}</h1>
-        <div className="mt-10 max-w-2xl rounded-3xl border border-dashed border-[#D9D3C5] bg-white/75 p-6 shadow-[0_18px_50px_rgba(65,57,43,0.08)] backdrop-blur-sm sm:p-8">
-          <p className="text-base font-black text-[#514D45] sm:text-lg">Your visual lesson is ready</p>
-          <p className="mt-3 text-sm leading-7 text-[#8B8578] sm:text-base">As your tutor teaches, key concepts and explanations will appear here. Ask a question aloud to guide the board.</p>
-          <div className="mt-8 grid gap-3 sm:grid-cols-3" aria-hidden="true">
-            <span className="h-2 rounded-full bg-[#E8A23D]/60" />
-            <span className="h-2 rounded-full bg-[#D9D3C5]" />
-            <span className="h-2 rounded-full bg-[#D9D3C5]" />
+    <div className="relative isolate h-full w-full overflow-hidden bg-[#09111f] text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_25%,rgba(232,162,61,0.18),transparent_28%),radial-gradient(circle_at_24%_78%,rgba(41,95,132,0.22),transparent_36%)]" />
+      <div className="absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,0.25)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.25)_1px,transparent_1px)] [background-size:48px_48px]" />
+      <div className="absolute -right-36 top-1/4 h-[32rem] w-[32rem] rounded-full border border-white/10" aria-hidden="true" />
+      <div className="absolute -right-20 top-[30%] h-[24rem] w-[24rem] rounded-full border border-[#e8a23d]/15" aria-hidden="true" />
+      <div className="relative flex h-full min-h-[28rem] flex-col justify-center px-6 pb-32 pt-28 sm:px-12 lg:px-20">
+        <div className="max-w-3xl">
+          <p className="inline-flex items-center gap-2 rounded-full border border-[#e8a23d]/25 bg-[#e8a23d]/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-[#ffd68d]"><span className="h-1.5 w-1.5 rounded-full bg-[#e8a23d] shadow-[0_0_14px_rgba(232,162,61,0.9)]" /> Visual classroom · ready</p>
+          <h1 className="mt-5 text-4xl font-black tracking-[-0.06em] text-white sm:text-6xl lg:text-7xl">{topic || 'Your lesson topic'}</h1>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">Your tutor can bring complex medical concepts to life with interactive anatomy models. If a model is not available, the visual lesson continues here on the whiteboard.</p>
+          <div className="mt-9 grid max-w-2xl gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#e8a23d]">01</span><p className="mt-2 text-sm font-bold text-white">See the structure</p><p className="mt-1 text-xs leading-5 text-slate-400">Explore the anatomy as the tutor explains.</p></div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#e8a23d]">02</span><p className="mt-2 text-sm font-bold text-white">Ask naturally</p><p className="mt-1 text-xs leading-5 text-slate-400">Interrupt, clarify, or change focus aloud.</p></div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#e8a23d]">03</span><p className="mt-2 text-sm font-bold text-white">Keep the lesson</p><p className="mt-1 text-xs leading-5 text-slate-400">Review the transcript in your class history.</p></div>
           </div>
         </div>
       </div>

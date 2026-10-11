@@ -11,9 +11,8 @@ export const primaryNavigation: NavigationLink[] = [
   { href: '/dashboard', label: 'Dashboard', description: 'Your progress and next steps' },
   { href: '/curriculum', label: 'Study', description: 'Follow your course pathways' },
   { href: '/browse', label: 'Practice', description: 'Work through question banks' },
-  { href: '/teach', label: 'Teaching', description: 'Learn with the text tutor' },
-  { href: '/voice', label: 'Voice Tutors', description: 'Have a spoken study session' },
-  { href: LIVE_CLASS_PATH, label: 'Live Class', description: 'Join a guided live lesson' },
+  { href: '/teach', label: 'Text Tutor', description: 'Learn through guided conversation' },
+  { href: '/voice', label: 'AI Tutor', description: 'Voice lessons and visual Live Class' },
 ];
 
 export const secondaryNavigation: NavigationLink[] = [

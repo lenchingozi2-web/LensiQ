@@ -18,6 +18,10 @@ function normalizeLiveKitUrl(value: string) {
 }
 
 export async function POST(req: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Not authenticated.', message: 'Sign in to start your Live Class.' }, { status: 401 });
+
   const rawLivekitUrl = process.env.LIVEKIT_URL;
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
@@ -32,10 +36,6 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: 'The LiveKit server URL is invalid. It must be a LiveKit ws:// or wss:// endpoint.' }, { status: 503 });
   }
-
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const courseName = typeof body?.courseName === 'string' && body.courseName.trim() ? body.courseName.trim().slice(0, 120) : 'Live Class';
@@ -57,21 +57,23 @@ export async function POST(req: Request) {
 
   if (!quota.allowed) {
     const limitMessage = quota.reason === 'premium_required'
-      ? 'Live Class is available to active Premium subscribers and administrators. Upgrade to Hybrid Premium to activate voice minutes.'
-      : quota.reason === 'limit_reached'
-      ? 'Your Foundation Scholar plan does not include Live Class. Upgrade to Hybrid Premium to activate 60 voice minutes each billing month.'
+      ? 'Your one-time free Live Class has been used. Upgrade to Hybrid Premium for 60 Live Class minutes each billing month.'
+      : quota.reason === 'free_trial_used'
+        ? 'Your one-time free Live Class has already been used. Upgrade to Hybrid Premium for 60 Live Class minutes each billing month.'
       : quota.reason === 'voice_balance_empty'
-        ? 'Your Premium voice-minute balance is empty. Top up voice minutes to continue with Live Class.'
+        ? 'Your Premium Live Class allowance is used. Minutes refresh on your next monthly billing date; additional minute purchases are not available.'
         : quota.reason === 'active_session'
           ? 'You already have an active Live Class. End it before starting another one.'
-          : 'Sign in to start Live Class.';
+          : quota.reason === 'profile_missing'
+            ? 'Your account is still being set up. Refresh the page and try again.'
+            : 'Live Class could not be started. Please try again.';
     return NextResponse.json({
       error: 'live_class_limit',
       message: limitMessage,
       quota: {
         isUnlimited: false,
-        usedSessions: quota.used_sessions ?? 3,
-        maxSessions: quota.max_sessions ?? 3,
+        usedSessions: quota.used_sessions ?? 0,
+        maxSessions: quota.max_sessions ?? 1,
         maxDurationSeconds: quota.max_duration_seconds ?? 600,
         resetsAt: quota.expires_at,
       },
