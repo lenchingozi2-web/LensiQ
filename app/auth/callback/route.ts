@@ -5,6 +5,8 @@ import { issueActiveSession } from '../../../lib/auth/active-session';
 
 function safeNextPath(value: string | null) {
   if (!value || !value.startsWith('/') || value.startsWith('//')) return '/dashboard';
+  const pathname = new URL(value, 'http://localhost').pathname;
+  if (pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/')) return '/dashboard';
   return value;
 }
 

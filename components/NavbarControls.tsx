@@ -43,8 +43,7 @@ export default function NavbarControls({ links, isAuthenticated }: NavbarControl
         <Link href="/pricing" className="rounded-lg border border-[#E8A23D]/50 bg-[#FFF8E9] px-3 py-2 text-xs font-black text-[#8B5709] hover:bg-[#FFF0CF] sm:text-sm">Plans</Link>
         {!isAuthenticated && (
           <>
-            <Link href={`${LOGIN_PATH}${authQuery}`} className="hidden rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-black text-[#0B1220] hover:bg-slate-50 sm:inline-flex">Sign In</Link>
-            <Link href={`${LOGIN_PATH}${authQuery}`} className="rounded-xl bg-[#0B1220] px-3.5 py-2.5 text-sm font-black text-white shadow-sm hover:bg-slate-800 sm:px-4">Get Started</Link>
+            <Link href={`${LOGIN_PATH}${authQuery}`} className="rounded-xl bg-[#0B1220] px-3.5 py-2.5 text-sm font-black text-white shadow-sm hover:bg-slate-800 sm:px-4">Sign In / Get Started</Link>
           </>
         )}
       </div>

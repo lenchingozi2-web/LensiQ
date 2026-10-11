@@ -45,3 +45,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   a, button { transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
   button:active, a:active { transform: scale(0.98); }
 }
+
+/* The Live Class query route owns the entire viewport, including the site shell. */
+body:has([data-live-class="true"]) > header { display: none; }
+body:has([data-live-class="true"]) > main { min-height: 100dvh !important; }
