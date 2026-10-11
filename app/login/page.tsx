@@ -78,6 +78,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <form className="flex-1 flex flex-col w-full justify-center gap-2 text-slate-800">
         <input type="hidden" name="next" value={next} />
         <h1 className="text-3xl font-bold mb-6 text-center text-[#0B1220]">LenxiQ AI access</h1>
+        {params.message && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-800">{params.message === 'Could not authenticate user' ? 'Email or password did not match. Try again or continue with Google.' : 'Sign-in could not be completed. Please retry or continue with Google.'}</p>}
         
         <label className="text-sm font-semibold" htmlFor="email">Email Address</label>
         <input 
