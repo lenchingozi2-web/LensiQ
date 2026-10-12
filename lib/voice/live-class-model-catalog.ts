@@ -1,9 +1,6 @@
 import { LIVE_CLASS_MODEL_ASSETS, LIVE_CLASS_MOLECULE_ASSETS } from '@/lib/voice/live-class-visuals';
 
 const LIVE_CLASS_MODEL_CATALOG_ENTRIES = [
-  { key: 'brain', modelUrl: LIVE_CLASS_MODEL_ASSETS.brain, title: 'Brain', category: 'anatomy', topics: ['gross neuroanatomy', 'cerebrum', 'cerebellum', 'brainstem'], source: 'Z-Anatomy / BodyParts3D; see manifest for attribution and dual-license terms.' },
-  { key: 'lungs', modelUrl: LIVE_CLASS_MODEL_ASSETS.lungs, title: 'Lungs', category: 'anatomy', topics: ['lungs', 'pulmonary anatomy', 'bronchi', 'alveoli'], source: 'Z-Anatomy / BodyParts3D; see manifest for attribution and dual-license terms.' },
-  { key: 'liver', modelUrl: LIVE_CLASS_MODEL_ASSETS.liver, title: 'Liver', category: 'anatomy', topics: ['liver', 'hepatic anatomy', 'hepatobiliary system'], source: 'Z-Anatomy / BodyParts3D; see manifest for attribution and dual-license terms.' },
   { key: 'kidneys', modelUrl: LIVE_CLASS_MODEL_ASSETS.kidneys, title: 'Kidney, Male, Right', category: 'anatomy', topics: ['right kidney', 'renal anatomy', 'urinary system'], source: 'HRA 3D Reference Object Library, “Kidney, Male, Right,” by Kristen Browne and Heidi Schlehlein; v1.2; CC BY 4.0; DOI 10.48539/HBM364.QTSC.334.', sourceUrl: 'https://3d.nih.gov/entries/21002/1' },
   { key: 'bloodCellMorphology', modelUrl: LIVE_CLASS_MODEL_ASSETS.bloodCellMorphology, title: 'Blood-cell morphology', category: 'cytology', topics: ['normal erythrocyte', 'sickle-shaped erythrocyte', 'red blood cell', 'haemoglobin', 'oxygen transport'], source: 'Original LenxiQ educational schematic; CC BY 4.0; simplified, not a diagnostic micrograph.' },
   { key: 'leukocyteMorphology', modelUrl: LIVE_CLASS_MODEL_ASSETS.leukocyteMorphology, title: 'Leukocyte morphology', category: 'cytology', topics: ['neutrophil', 'lymphocyte', 'eosinophil', 'granules'], source: 'Original LenxiQ educational schematic; CC BY 4.0; simplified, not a diagnostic micrograph.' },

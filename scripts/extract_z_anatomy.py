@@ -18,9 +18,7 @@ import bpy
 SYSTEMS: dict[str, tuple[str, ...]] = {}
 
 ORGANS = {
-    "Brain": ("brain", "encephalon"),
-    "Liver": ("liver", "hepatic"),
-    "Lungs": ("lung", "lungs", "pulmonary"),
+    "Kidneys": ("kidney", "renal"),
 }
 
 

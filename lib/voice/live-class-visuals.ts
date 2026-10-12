@@ -7,9 +7,6 @@ const storageOrigin = configuredSupabaseUrl
 const assetRoot = `${storageOrigin}/storage/v1/object/public/medical-models`;
 
 export const LIVE_CLASS_MODEL_ASSETS = {
-  brain: `${assetRoot}/organs/Brain.glb`,
-  lungs: `${assetRoot}/organs/Lungs.glb`,
-  liver: `${assetRoot}/organs/Liver.glb`,
   kidneys: `${assetRoot}/organs/Kidneys.glb`,
   bloodCellMorphology: `${assetRoot}/cytology/Blood_Cell_Morphology.glb`,
   leukocyteMorphology: `${assetRoot}/cytology/Leukocyte_Morphology.glb`,
@@ -61,9 +58,6 @@ export type VisualContext =
   | { type: 'media'; mediaUrl: string; caption?: string };
 
 const MODEL_LABELS: Record<string, string> = {
-  [LIVE_CLASS_MODEL_ASSETS.brain]: 'Brain',
-  [LIVE_CLASS_MODEL_ASSETS.lungs]: 'Lungs',
-  [LIVE_CLASS_MODEL_ASSETS.liver]: 'Liver',
   [LIVE_CLASS_MODEL_ASSETS.kidneys]: 'Kidney, Male, Right',
   [LIVE_CLASS_MODEL_ASSETS.bloodCellMorphology]: 'Blood-cell morphology · schematic',
   [LIVE_CLASS_MODEL_ASSETS.leukocyteMorphology]: 'Leukocyte morphology · schematic',
@@ -264,9 +258,6 @@ export function inferLiveClassVisual(speech: string, courseName: string): Visual
   }
 
   const specificOrgans: Array<{ key: keyof typeof LIVE_CLASS_MODEL_ASSETS; pattern: RegExp; structure?: RegExp }> = [
-    { key: 'brain', pattern: /\b(brain|cerebrum|cerebellum|brainstem|hippocamp(?:us|al)|cerebral cortex|cerebral)\b/i, structure: /\b(brainstem|cerebellum|hippocamp(?:us|al)|cerebral cortex|cerebrum)\b/i },
-    { key: 'lungs', pattern: /\b(lung|pulmonary|alveol(?:us|i|ar)|bronch(?:us|i|ial))\b/i, structure: /\b(alveol(?:us|i|ar)|bronch(?:us|i|ial))\b/i },
-    { key: 'liver', pattern: /\b(liver|hepatic|hepatocyte|hepatobiliary)\b/i, structure: /\b(hepatocyte|hepatic lobule|bile duct)\b/i },
     { key: 'kidneys', pattern: /\b(kidney|renal|nephron|glomerul(?:us|i|ar))\b/i, structure: /\b(nephron|glomerul(?:us|i|ar)|renal tubule)\b/i },
   ];
   for (const organ of specificOrgans) {

@@ -101,7 +101,7 @@ PHARMACOLOGY_ASSETS = {
 }
 
 EXPECTED_ANATOMY = [
-    *(f"organs/{name}.glb" for name in ("Brain", "Liver", "Lungs", "Kidneys")),
+    "organs/Kidneys.glb",
 ]
 
 
