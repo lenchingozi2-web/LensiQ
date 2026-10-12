@@ -93,10 +93,11 @@ jobs:
           source_blend="$(find "$RUNNER_TEMP/z-anatomy/source" -type f -name 'Z-Anatomy.blend' -print -quit)"
           test -n "$source_blend" || { echo "::error::Verified source blend is missing"; exit 1; }
           if ! blender --background --factory-startup "$source_blend" \
+            --python-exit-code 1 \
             --python scripts/extract_z_anatomy.py -- \
             --output-dir "$OUTPUT_DIR" \
             --source-record "$ZENODO_RECORD" \
-            >"$RUNNER_TEMP/anatomy-export.log" 2>&1; then
+            2>&1 | tee "$RUNNER_TEMP/anatomy-export.log"; then
             tail -n 160 "$RUNNER_TEMP/anatomy-export.log"
             exit 1
           fi

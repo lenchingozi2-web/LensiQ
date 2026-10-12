@@ -130,9 +130,11 @@ def validate_glb(path: Path) -> dict[str, int]:
 def export(objects: list[bpy.types.Object], output: Path, label: str) -> dict[str, int]:
     copies: list[bpy.types.Object] = []
     export_collection = bpy.context.scene.collection
+    print(f"Exporting {label}: {len(objects)} source mesh objects", flush=True)
     for obj in objects:
         duplicate = obj.copy()
-        duplicate.data = obj.data.copy()
+        # Keep the source mesh datablock shared; deep-copying every atlas mesh can
+        # multiply Blender's memory use before the exporter even runs.
         duplicate.name = obj.name
         duplicate.parent = None
         duplicate.hide_set(False)
