@@ -26,7 +26,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
   const login = async (formData: FormData) => {
     'use server'
-    const email = formData.get('email') as string;
+    const email = String(formData.get('email') ?? '').trim().toLowerCase();
     const password = formData.get('password') as string;
     const nextPath = safeNextPath(formData.get('next') as string | null);
     const supabase = await createClient();
@@ -51,7 +51,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
   const signup = async (formData: FormData) => {
     'use server'
-    const email = formData.get('email') as string;
+    const email = String(formData.get('email') ?? '').trim().toLowerCase();
     const password = formData.get('password') as string;
     const nextPath = safeNextPath(formData.get('next') as string | null);
     const supabase = await createClient(); 

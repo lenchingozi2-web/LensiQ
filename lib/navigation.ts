@@ -12,7 +12,7 @@ export const primaryNavigation: NavigationLink[] = [
   { href: '/curriculum', label: 'Study', description: 'Follow your course pathways' },
   { href: '/browse', label: 'Practice', description: 'Work through question banks' },
   { href: '/teach', label: 'Text Tutor', description: 'Learn through guided conversation' },
-  { href: '/voice', label: 'AI Tutor', description: 'Voice lessons and visual Live Class' },
+  { href: LIVE_CLASS_PATH, label: 'Live Class', description: 'Visual medical mastery workspace' },
 ];
 
 export const secondaryNavigation: NavigationLink[] = [

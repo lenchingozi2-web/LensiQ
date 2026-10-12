@@ -65,9 +65,13 @@ export async function POST(req: Request) {
         ? 'Your Premium Live Class allowance is used. Minutes refresh on your next monthly billing date; additional minute purchases are not available.'
         : quota.reason === 'active_session'
           ? 'You already have an active Live Class. End it before starting another one.'
-          : quota.reason === 'profile_missing'
-            ? 'Your account is still being set up. Refresh the page and try again.'
-            : 'Live Class could not be started. Please try again.';
+          : quota.reason === 'free_trial_used'
+            ? 'This account is still using the previous one-time trial rule. Apply the latest Live Class quota migration, then try again.'
+            : quota.reason === 'profile_missing'
+              ? 'Your account is still being set up. Refresh the page and try again.'
+              : quota.reason === 'not_authenticated'
+                ? 'Your sign-in session expired. Sign in again and try again.'
+                : `Live Class could not be started (${quota.reason || 'unknown backend reason'}). Please try again.`;
     return NextResponse.json({
       error: 'live_class_limit',
       message: limitMessage,
@@ -77,6 +81,7 @@ export async function POST(req: Request) {
         maxSessions: quota.max_sessions ?? 1,
         maxDurationSeconds: quota.max_duration_seconds ?? 1800,
         resetsAt: quota.expires_at,
+        reason: quota.reason ?? null,
       },
     }, { status: 403 });
   }
