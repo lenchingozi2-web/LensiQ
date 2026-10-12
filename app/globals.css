@@ -49,3 +49,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 /* The Live Class query route owns the entire viewport, including the site shell. */
 body:has([data-live-class="true"]) > header { display: none; }
 body:has([data-live-class="true"]) > main { min-height: 100dvh !important; }
+
+@keyframes lab-badge-in {
+  from { opacity: 0; transform: translateY(22px) scale(.985); filter: blur(8px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+@keyframes lab-reveal {
+  from { opacity: .2; transform: scale(1.025); }
+  to { opacity: 1; transform: scale(1); }
+}

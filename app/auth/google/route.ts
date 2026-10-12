@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     const message = error?.message?.toLowerCase().includes('provider')
       ? 'Google sign-in is not enabled yet. Please use email and password or try again later.'
       : 'Google sign-in could not be started. Please try again.';
-    return NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent(message)}`, requestUrl.origin));
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(message)}&next=${encodeURIComponent(next)}`, requestUrl.origin));
   }
 
   return NextResponse.redirect(data.url);
