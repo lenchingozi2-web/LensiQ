@@ -14,11 +14,15 @@ MAX_TOTAL_BYTES = 250_000_000
 
 ANATOMY_LICENSE = {
     "source": "Z-Anatomy, Open source atlas of human anatomy",
+    "source_url": "https://zenodo.org/records/4953712",
     "zenodo_record": "https://zenodo.org/records/4953712",
     "doi": "10.5281/zenodo.4953712",
+    "license": "CC BY-SA 2.1 Japan",
+    "license_url": "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html",
+    "license_note": "The Zenodo record lists CC BY 4.0; the embedded BodyParts3D license requires derivatives of its meshes to be distributed under CC BY-SA 2.1 Japan.",
     "record_license": "CC BY 4.0",
     "embedded_source_license": "CC BY-SA 2.1 Japan",
-    "attribution": "BodyParts3D (Database Center for Life Science); Z-Anatomy / Gauthier Kervyn. Derived model export; see source archive Licence.txt and Zenodo record.",
+    "attribution": "BodyParts3D, © The Database Center for Life Science, licensed under CC Attribution-Share Alike 2.1 Japan; Z-Anatomy / Gauthier Kervyn. Derived model export; see the source archive Licence.txt and Zenodo record.",
 }
 
 ANATOMY_LABELS = {

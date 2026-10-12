@@ -7,7 +7,7 @@ import type { Participant, Room as LiveKitRoom, Track as LiveKitTrack, Transcrip
 import PreClassSetup from '@/components/PreClassSetup';
 import LiveClassVisualStage from '@/components/LiveClassVisualStage';
 import type { PhysiologyPreset } from '@/components/PhysiologySimulator';
-import { inferLiveClassVisual, getMoleculeAsset, isApprovedMedicalModelUrl, isApprovedMoleculeModelUrl, type VisualContext } from '@/lib/voice/live-class-visuals';
+import { inferLiveClassVisual, shouldApplyTutorTranscriptVisual, getMoleculeAsset, isApprovedMedicalModelUrl, isApprovedMoleculeModelUrl, type VisualContext } from '@/lib/voice/live-class-visuals';
 
 type PermissionState = 'unknown' | 'granted' | 'denied';
 type LiveRuntimeState = 'READY' | 'INITIALIZING' | 'SESSION_READY' | 'GREETING' | 'WAITING_FOR_TOPIC' | 'LISTENING' | 'THINKING' | 'TEACHING' | 'INTERRUPTED' | 'ANSWERING' | 'RESUMING' | 'PAUSED' | 'ENDING' | 'ENDED' | 'ERROR';
@@ -254,10 +254,11 @@ function VoiceTutorContent() {
 
   const applyTutorTranscript = (content: string) => {
     const spokenText = content.trim();
-    if (spokenText.length < 8 || /^(hi|hello|good morning|good afternoon|can you hear me|what would you like to learn|what topic should we cover)\b/i.test(spokenText)) return;
     if (explicitVisualThisTurnRef.current) return;
+    const visual = inferLiveClassVisual(spokenText, courseName);
+    if (!shouldApplyTutorTranscriptVisual(spokenText, visual)) return;
     pendingHighlightRef.current = null;
-    updateVisualContext(inferLiveClassVisual(spokenText, courseName));
+    updateVisualContext(visual);
   };
 
   const createConversation = async () => {

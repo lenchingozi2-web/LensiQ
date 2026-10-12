@@ -138,15 +138,17 @@ function normalizeSpeech(speech: string) {
 
 function extractTopic(speech: string, courseName: string) {
   const namedTopics: Array<[RegExp, string]> = [
-    [/\b(liver function test|lfts?|bilirubin|transaminases?|\balt\b|\bast\b|\bggt\b|alkaline phosphatase|albumin)\b/i, 'Chemical pathology · liver function'],
+    [/\b(liver function (?:tests?|panel)|lfts?|bilirubin|transaminases?|\balt\b|\bast\b|\bggt\b|\balp\b|alkaline phosphatase|albumin)\b/i, 'Chemical pathology · liver function'],
     [/\b(renal function test|urea and electrolytes|u\s*&\s*e|creatinine|estimated glomerular filtration|\begfr\b)\b/i, 'Chemical pathology · renal function and electrolytes'],
-    [/\b(arterial blood gas|blood gas|acid[-– ]base|anion gap|bicarbonate|metabolic acidosis|metabolic alkalosis)\b/i, 'Chemical pathology · acid–base balance'],
-    [/\b(thyroid function test|\btsh\b|free t[34]|thyroxine|triiodothyronine)\b/i, 'Chemical pathology · thyroid function'],
+    [/\b(arterial blood gas|\babg\b|blood gas|acid[-– ]base|anion gap|bicarbonate|metabolic acidosis|metabolic alkalosis)\b/i, 'Chemical pathology · acid–base balance'],
+    [/\b(thyroid function test|\btfts?\b|\btsh\b|free t[34]|thyroxine|triiodothyronine)\b/i, 'Chemical pathology · thyroid function'],
     [/\b(lipid profile|cholesterol|triglycerides?|\bldl\b|\bhdl\b)\b/i, 'Chemical pathology · lipid profile'],
     [/\b(hba1c|glycated haemoglobin|glycated hemoglobin|fasting glucose|\bogtt\b|glucose tolerance|blood glucose)\b/i, 'Chemical pathology · glucose regulation'],
     [/\b(electrolytes?|serum sodium|serum potassium|serum calcium|phosphate|magnesium)\b/i, 'Chemical pathology · electrolytes'],
+    [/\b(troponin|ck[- ]?mb|creatine kinase|amylase|lipase|procalcitonin|c-reactive protein|\bcrp\b)\b/i, 'Chemical pathology · biomarkers and enzymes'],
     [/\b(chemical pathology|clinical chemistry|clinical biochemistry|laboratory medicine)\b/i, 'Chemical pathology'],
     [/\b(pharmacokinetic|pharmacodynamic|\badme\b|dose[- ]response|therapeutic index|bioavailability|drug clearance|half[- ]life|drug interaction)\b/i, 'Pharmacology · drug disposition and response'],
+    [/\b(warfarin|aspirin|heparin|insulin|metformin|penicillin|amoxicillin|paracetamol|acetaminophen|morphine|salbutamol|albuterol|adrenaline|epinephrine|atorvastatin|simvastatin)\b/i, 'Pharmacology · drug mechanism and clinical use'],
     [/\b(pharmacology|agonist|antagonist|enzyme inhibitor|drug receptor|mechanism of action)\b/i, 'Pharmacology mechanism'],
     [/\bantibod(?:y|ies)\b/i, 'Antibody production'],
     [/\bantigen(?:s)?\b/i, 'Antigens and immune response'],
@@ -156,6 +158,7 @@ function extractTopic(speech: string, courseName: string) {
     [/\b(erythrocyte|red blood cell|haemoglobin|hemoglobin|anaemia|anemia)\b/i, 'Red blood cells and oxygen transport'],
     [/\b(neutrophil|lymphocyte|monocyte|eosinophil|basophil)\b/i, 'Blood-cell function'],
     [/\b(inflammation|cytokine|complement)\b/i, 'Inflammation and immune signalling'],
+    [/\b(apoptosis|apoptotic|programmed cell death|necrosis|necrotic cell death)\b/i, 'Cell injury and cell death'],
   ];
   for (const [pattern, label] of namedTopics) {
     if (pattern.test(speech)) return label;
@@ -175,6 +178,41 @@ export function transcriptToWhiteboardMarkdown(speech: string) {
 
   if (statements.length === 0) return '';
   return `### The tutor's explanation\n\n${statements.map((statement, index) => `- **${index + 1}.** ${statement}`).join('\n')}`;
+}
+
+const SPECIFIC_WHITEBOARD_TOPICS = /^(chemical pathology|pharmacology|antibody production|antigens and immune response|autoimmune disorders|leukaemia|haemostasis and coagulation|red blood cells and oxygen transport|blood-cell function|inflammation and immune signalling|cell injury and cell death)\b/i;
+
+const FILLER_ONLY_UTTERANCES = new Set([
+  'hi', 'hello', 'hey', 'hello there', 'hey there', 'good morning', 'good afternoon', 'good evening',
+  'can you hear me', 'are you there', 'what would you like to learn', 'what topic should we cover',
+  'okay', 'ok', 'yes', 'yeah', 'yep', 'no', 'sure', 'sure thing', 'great', 'good', 'right', 'exactly', 'correct',
+  'absolutely', 'definitely', 'thanks', 'thank you', 'thanks for asking', 'great question', 'good question',
+  'that is a good question', 'that is a great question', "that's a good question", "that's a great question",
+  "that's right", 'that is right', "you're right", "you're correct", 'perfect', 'brilliant', 'interesting', 'fair enough', 'i see', 'got it',
+  'understood', 'i understand', 'i agree', 'i think so', 'i suppose', 'sounds good', 'looks good', 'makes sense',
+  'noted', 'true', 'go ahead', 'please continue', 'just a moment', 'one moment', 'just a second', 'here we go',
+  'i can hear you', 'can you repeat that', "let's move on", 'good one', 'very good', 'you know',
+  'uh', 'um', 'erm', 'hmm', 'mm', 'mm hmm', 'uh huh', 'oh', 'ah', 'well',
+]);
+
+const NONCONCEPT_SHORT_WORDS = new Set([
+  'a', 'an', 'the', 'i', 'you', 'we', 'they', 'he', 'she', 'it', 'this', 'that', 'these', 'those',
+  'what', 'which', 'where', 'when', 'who', 'why', 'how', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'am',
+  'do', 'does', 'did', 'can', 'could', 'would', 'should', 'will', 'have', 'has', 'had', 'to', 'of', 'for', 'with',
+  'on', 'in', 'at', 'by', 'and', 'or', 'but', 'so', 'then', 'than', 'yes', 'no', 'yeah', 'yep', 'ok', 'okay',
+  'sure', 'right', 'exactly', 'correct', 'good', 'great', 'thanks', 'thank', 'hello', 'hi', 'hey', 'please', 'well',
+  'just', 'like', 'make', 'makes', 'sense', 'think', 'guess', 'maybe', 'actually', 'point', 'question', 'any',
+  'same', 'know', 'one', 'very', 'hear', 'repeat', 'move', 'true',
+]);
+
+export function shouldApplyTutorTranscriptVisual(speech: string, visual: VisualContext) {
+  const text = normalizeSpeech(speech);
+  const normalized = text.toLowerCase().replace(/[’]/g, "'").replace(/[.!?,;:]+/g, '').replace(/\s+/g, ' ').trim();
+  if (!normalized || FILLER_ONLY_UTTERANCES.has(normalized)) return false;
+  const words = normalized.match(/[a-z0-9]+(?:['-][a-z0-9]+)*/g) ?? [];
+  if (visual.type !== 'whiteboard' || SPECIFIC_WHITEBOARD_TOPICS.test(visual.topic)) return true;
+  const hasShortConcept = text.length >= 4 && words.length <= 4 && words.some((word) => !NONCONCEPT_SHORT_WORDS.has(word));
+  return hasShortConcept || (text.length >= 42 && words.length >= 6);
 }
 
 function modelContext(key: keyof typeof LIVE_CLASS_MODEL_ASSETS): VisualContext {
@@ -202,10 +240,10 @@ export function inferLiveClassVisual(speech: string, courseName: string): Visual
   }
 
   const chemicalPathologyTopics: Array<[RegExp, string]> = [
-    [/\b(liver function test|lfts?|bilirubin|transaminases?|\balt\b|\bast\b|\bggt\b|alkaline phosphatase|albumin)\b/i, 'Chemical pathology · liver function'],
+    [/\b(liver function (?:tests?|panel)|lfts?|bilirubin|transaminases?|\balt\b|\bast\b|\bggt\b|\balp\b|alkaline phosphatase|albumin)\b/i, 'Chemical pathology · liver function'],
     [/\b(renal function test|urea and electrolytes|u\s*&\s*e|creatinine|estimated glomerular filtration|\begfr\b)\b/i, 'Chemical pathology · renal function and electrolytes'],
-    [/\b(arterial blood gas|blood gas|acid[-– ]base|anion gap|bicarbonate|metabolic acidosis|metabolic alkalosis)\b/i, 'Chemical pathology · acid–base balance'],
-    [/\b(thyroid function test|\btsh\b|free t[34]|thyroxine|triiodothyronine)\b/i, 'Chemical pathology · thyroid function'],
+    [/\b(arterial blood gas|\babg\b|blood gas|acid[-– ]base|anion gap|bicarbonate|metabolic acidosis|metabolic alkalosis)\b/i, 'Chemical pathology · acid–base balance'],
+    [/\b(thyroid function test|\btfts?\b|\btsh\b|free t[34]|thyroxine|triiodothyronine)\b/i, 'Chemical pathology · thyroid function'],
     [/\b(lipid profile|cholesterol|triglycerides?|\bldl\b|\bhdl\b)\b/i, 'Chemical pathology · lipid profile'],
     [/\b(hba1c|glycated haemoglobin|glycated hemoglobin|fasting glucose|\bogtt\b|glucose tolerance|blood glucose)\b/i, 'Chemical pathology · glucose regulation'],
     [/\b(electrolytes?|serum sodium|serum potassium|serum calcium|phosphate|magnesium)\b/i, 'Chemical pathology · electrolytes'],

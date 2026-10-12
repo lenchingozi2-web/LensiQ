@@ -75,6 +75,12 @@ export default function LiveClassVisualStage({ visualContext, selectedStructure,
     const catalogEntry = getLiveClassModelCatalogEntry(visualContext.modelUrl);
     const modelName = getLiveClassModelLabel(visualContext.modelUrl);
     const modelCategory = catalogEntry?.category ?? 'anatomy';
+    const sourceUrl = catalogEntry && 'sourceUrl' in catalogEntry ? catalogEntry.sourceUrl : undefined;
+    const sourceLabel = catalogEntry && 'sourceLabel' in catalogEntry ? catalogEntry.sourceLabel : undefined;
+    const licenseLabel = catalogEntry && 'licenseLabel' in catalogEntry ? catalogEntry.licenseLabel : undefined;
+    const recordUrl = catalogEntry && 'recordUrl' in catalogEntry ? catalogEntry.recordUrl : undefined;
+    const licenseUrl = catalogEntry && 'licenseUrl' in catalogEntry ? catalogEntry.licenseUrl : undefined;
+    const sourceLinkUrl = recordUrl ?? sourceUrl;
     const focusedStructure = selectedStructure || visualContext.structureId;
     return (
       <section className="relative h-full w-full overflow-hidden" aria-label={`Interactive 3D ${modelCategory} model: ${modelName}`}>
@@ -88,11 +94,14 @@ export default function LiveClassVisualStage({ visualContext, selectedStructure,
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#ffd68d]">Interactive 3D {modelCategory}</p>
           <h2 className="mt-1 text-lg font-black tracking-tight text-white sm:text-2xl">{modelName}{focusedStructure && <span className="text-white/60"> · {focusedStructure}</span>}</h2>
           <p className="mt-1 text-[10px] font-semibold text-white/55 sm:text-xs">Drag to rotate · pinch or scroll to zoom · tap a structure to focus</p>
-          {catalogEntry?.source && <p className="mt-1 text-[9px] font-medium leading-4 text-white/45">{catalogEntry.source.split(';')[0]}</p>}
-          {catalogEntry && 'sourceUrl' in catalogEntry && catalogEntry.sourceUrl && (
-            <a className="pointer-events-auto mt-1 inline-flex text-[9px] font-bold uppercase tracking-[0.12em] text-[#ffd68d] underline decoration-white/20 underline-offset-4 hover:text-white" href={catalogEntry.sourceUrl} target="_blank" rel="noreferrer">
-              HRA source · CC BY 4.0
-            </a>
+          {catalogEntry?.source && <p className="mt-1 text-[9px] font-medium leading-4 text-white/45">{catalogEntry.source}</p>}
+          {(sourceLinkUrl || licenseLabel) && (
+            <div className="pointer-events-auto mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[9px] font-bold uppercase tracking-[0.12em]">
+              {sourceLinkUrl && <a className="text-[#ffd68d] underline decoration-white/20 underline-offset-4 hover:text-white" href={sourceLinkUrl} target="_blank" rel="noreferrer">{recordUrl ? 'Source record' : sourceLabel ?? 'Source'}</a>}
+              {licenseLabel && (licenseUrl
+                ? <a className="text-white/55 underline decoration-white/20 underline-offset-4 hover:text-white" href={licenseUrl} target="_blank" rel="noreferrer">License · {licenseLabel}</a>
+                : <span className="text-white/45">{sourceLabel ? `${sourceLabel} · ` : ''}{licenseLabel}</span>)}
+            </div>
           )}
         </div>
       </section>

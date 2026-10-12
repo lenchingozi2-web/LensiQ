@@ -1,6 +1,6 @@
 import { LIVE_CLASS_MODEL_ASSETS, LIVE_CLASS_MOLECULE_ASSETS } from '@/lib/voice/live-class-visuals';
 
-export const LIVE_CLASS_MODEL_CATALOG = [
+const LIVE_CLASS_MODEL_CATALOG_ENTRIES = [
   { key: 'brain', modelUrl: LIVE_CLASS_MODEL_ASSETS.brain, title: 'Brain', category: 'anatomy', topics: ['gross neuroanatomy', 'cerebrum', 'cerebellum', 'brainstem'], source: 'Z-Anatomy / BodyParts3D; see manifest for attribution and dual-license terms.' },
   { key: 'heart', modelUrl: LIVE_CLASS_MODEL_ASSETS.heart, title: 'Heart', category: 'anatomy', topics: ['cardiac anatomy', 'atria', 'ventricles', 'valves', 'myocardium'], source: 'Z-Anatomy / BodyParts3D; see manifest for attribution and dual-license terms.' },
   { key: 'lungs', modelUrl: LIVE_CLASS_MODEL_ASSETS.lungs, title: 'Lungs', category: 'anatomy', topics: ['lungs', 'pulmonary anatomy', 'bronchi', 'alveoli'], source: 'Z-Anatomy / BodyParts3D; see manifest for attribution and dual-license terms.' },
@@ -24,6 +24,30 @@ export const LIVE_CLASS_MODEL_CATALOG = [
   { key: 'atherosclerosis', modelUrl: LIVE_CLASS_MODEL_ASSETS.atherosclerosis, title: 'Atherosclerosis and arterial plaque', category: 'pathology', topics: ['arterial wall', 'plaque', 'lumen narrowing', 'atherosclerosis'], source: 'Original LenxiQ educational schematic; CC BY 4.0; simplified, not a diagnostic model.' },
   { key: 'tumorMicroenvironment', modelUrl: LIVE_CLASS_MODEL_ASSETS.tumorMicroenvironment, title: 'Tumour microenvironment', category: 'pathology', topics: ['tumour cells', 'stromal cells', 'microvessels', 'angiogenesis'], source: 'Original LenxiQ educational schematic; CC BY 4.0; simplified, not a diagnostic model.' },
 ] as const;
+
+const Z_ANATOMY_ATTRIBUTION = {
+  source: 'BodyParts3D, © The Database Center for Life Science; Z-Anatomy / Gauthier Kervyn. Derived model export.',
+  sourceUrl: 'https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html',
+  sourceLabel: 'BodyParts3D / Z-Anatomy',
+  license: 'CC BY-SA 2.1 Japan',
+  licenseLabel: 'CC BY-SA 2.1 Japan',
+  recordLicense: 'CC BY 4.0',
+  licenseUrl: 'https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html',
+  recordUrl: 'https://zenodo.org/records/4953712',
+} as const;
+
+export const LIVE_CLASS_MODEL_CATALOG = LIVE_CLASS_MODEL_CATALOG_ENTRIES.map((asset) => {
+  if (asset.source.startsWith('Z-Anatomy / BodyParts3D')) {
+    return { ...asset, ...Z_ANATOMY_ATTRIBUTION };
+  }
+  if (asset.key === 'kidneys') {
+    return { ...asset, sourceLabel: 'HRA 3D Reference Object Library', license: 'CC BY 4.0', licenseLabel: 'CC BY 4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/' };
+  }
+  if (['bloodCellMorphology', 'leukocyteMorphology', 'leukemiaBlastMorphology', 'epithelialDysplasia', 'atherosclerosis', 'tumorMicroenvironment'].includes(asset.key)) {
+    return { ...asset, sourceLabel: 'Original LenxiQ educational schematic', license: 'CC BY 4.0', licenseLabel: 'CC BY 4.0' };
+  }
+  return asset;
+});
 
 export const LIVE_CLASS_MOLECULE_CATALOG = [
   {
