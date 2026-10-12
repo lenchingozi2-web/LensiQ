@@ -155,12 +155,15 @@ function VoiceTutorContent() {
   const recordingDownloadUrlRef = useRef<string | null>(null);
   const endingRef = useRef(false);
   const endSessionRef = useRef<(message?: string) => Promise<void>>(async () => undefined);
+  const uploadedMaterialPathsRef = useRef<string[]>([]);
   const historyRef = useRef<HTMLDivElement>(null);
   const ambience = useMemo(() => SOUNDSCAPES.find((item) => item.id === ambienceId) ?? SOUNDSCAPES[0], [ambienceId]);
 
   useEffect(() => {
     const handleUploadedMaterials = (event: Event) => {
-      setUploadedFileUrls((event as CustomEvent<string[]>).detail ?? []);
+      const detail = (event as CustomEvent<{ urls?: string[]; paths?: string[] } | string[]>).detail;
+      setUploadedFileUrls(Array.isArray(detail) ? detail : detail?.urls ?? []);
+      uploadedMaterialPathsRef.current = Array.isArray(detail) ? [] : detail?.paths ?? [];
     };
     window.addEventListener('lensiq:uploaded-materials', handleUploadedMaterials);
     return () => window.removeEventListener('lensiq:uploaded-materials', handleUploadedMaterials);
@@ -549,6 +552,18 @@ function VoiceTutorContent() {
       formData.append('file', new File([recordingBlob], 'lenxiq-live-class.webm', { type: recordingBlob.type || 'audio/webm' }));
       await fetch('/api/voice/recording', { method: 'POST', body: formData }).catch(() => undefined);
     }
+    if (uploadedMaterialPathsRef.current.length > 0) {
+      const paths = uploadedMaterialPathsRef.current;
+      uploadedMaterialPathsRef.current = [];
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        await createClient().storage.from('ephemeral_class_materials').remove(paths);
+      } catch (cleanupError) {
+        console.warn('Ephemeral Live Class material cleanup failed:', cleanupError);
+      }
+    }
+    setUploadedFileUrls([]);
+    window.dispatchEvent(new CustomEvent('lensiq:clear-uploaded-materials'));
     setSessionSummary({ topic: topicFocus || courseName, durationSeconds, turns: messagesRef.current.filter((item) => item.role === 'user').length, recordingAvailable: Boolean(recordingBlob?.size) });
     sessionStartedAtRef.current = null;
     ambienceAudioRef.current?.pause();

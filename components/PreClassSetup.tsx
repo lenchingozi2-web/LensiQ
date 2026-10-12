@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 
 const MAX_FILES = 20;
@@ -46,13 +46,26 @@ export default function PreClassSetup({
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadedUrlsRef = useRef(new Map<string, string>());
+  const uploadedPathsRef = useRef(new Map<string, string>());
+  const uploadFolderRef = useRef<string | null>(null);
   const totalBytes = files.reduce((total, file) => total + file.size, 0);
 
   const publishUploadedUrls = () => {
     const urls = Array.from(uploadedUrlsRef.current.values());
     onUploadedFileUrlsChange?.(urls);
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lensiq:uploaded-materials', { detail: urls }));
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lensiq:uploaded-materials', { detail: { urls, paths: Array.from(uploadedPathsRef.current.values()) } }));
   };
+  useEffect(() => {
+    const clearMaterials = () => {
+      uploadedUrlsRef.current.clear();
+      uploadedPathsRef.current.clear();
+      uploadFolderRef.current = null;
+      onFilesChange([]);
+      onUploadedFileUrlsChange?.([]);
+    };
+    window.addEventListener('lensiq:clear-uploaded-materials', clearMaterials);
+    return () => window.removeEventListener('lensiq:clear-uploaded-materials', clearMaterials);
+  }, [onFilesChange, onUploadedFileUrlsChange]);
 
   const addFiles = async (incomingFiles: File[]) => {
     setError('');
@@ -86,25 +99,23 @@ export default function PreClassSetup({
       if (typeof window === 'undefined') throw new Error('File uploads are only available in the browser.');
       const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Sign in before uploading Live Class material.');
+      const uploadFolder = uploadFolderRef.current ?? `class_${Date.now()}_${window.crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
+      uploadFolderRef.current = uploadFolder;
       for (const [index, file] of newFiles.entries()) {
-        const prepareResponse = await fetch('/api/uploads/lecture', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scope: 'search', fileName: file.name, mimeType: file.type || 'application/octet-stream', sizeBytes: file.size }),
-        });
-        const uploadData = await prepareResponse.json().catch(() => ({}));
-        if (!prepareResponse.ok || typeof uploadData.path !== 'string' || typeof uploadData.token !== 'string') {
-          throw new Error(uploadData.error || `Unable to prepare ${file.name} for upload.`);
-        }
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const filePath = `${user.id}/${uploadFolder}/${safeName}`;
         const { error: uploadError } = await supabase.storage
-          .from(uploadData.bucket)
-          .uploadToSignedUrl(uploadData.path, uploadData.token, file, { contentType: file.type || uploadData.mimeType });
+          .from('ephemeral_class_materials')
+          .upload(filePath, file, { contentType: file.type || 'application/octet-stream', upsert: false });
         if (uploadError) throw new Error(`Unable to upload ${file.name}: ${uploadError.message}`);
         const { data: signedData, error: signedError } = await supabase.storage
-          .from(uploadData.bucket)
-          .createSignedUrl(uploadData.path, 60 * 60);
+          .from('ephemeral_class_materials')
+          .createSignedUrl(filePath, 60 * 60);
         if (signedError || !signedData?.signedUrl) throw new Error(`Unable to authorize ${file.name} for Live Class.`);
         uploadedUrlsRef.current.set(fileKey(file), signedData.signedUrl);
+        uploadedPathsRef.current.set(fileKey(file), filePath);
         uploadedFiles.push(file);
         setUploadProgress(Math.round(((index + 1) / newFiles.length) * 100));
       }
