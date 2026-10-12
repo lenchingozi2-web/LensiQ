@@ -9,6 +9,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import type { Participant, Room as LiveKitRoom, Track as LiveKitTrack, TranscriptionSegment } from 'livekit-client';
 import Whiteboard from '@/components/Whiteboard';
 import PreClassSetup from '@/components/PreClassSetup';
+import PhysiologySimulator, { type PhysiologyPreset } from '@/components/PhysiologySimulator';
 
 const AnatomyViewer = dynamic(() => import('@/components/AnatomyViewer'), { ssr: false });
 
@@ -20,7 +21,7 @@ type SessionSummary = { topic: string; durationSeconds: number; turns: number; r
 type Conversation = { id: string; course_name: string; title: string; session_type?: string; is_pinned?: boolean; created_at: string; updated_at: string };
 type Quota = { isUnlimited: boolean; usedSessions: number | null; maxSessions: number | null; maxDurationSeconds: number | null; resetsAt: string | null };
 type Soundscape = { id: string; label: string; description: string; src: string };
-type VisualContext = { type: 'model'; modelUrl: string } | { type: 'media'; mediaUrl: string; caption?: string } | { type: 'whiteboard'; topic: string; markdown?: string };
+type VisualContext = { type: 'model'; modelUrl: string } | { type: 'media'; mediaUrl: string; caption?: string } | { type: 'whiteboard'; topic: string; markdown?: string } | { type: 'simulation'; preset: PhysiologyPreset; title: string };
 type RecordingBundle = { context: AudioContext; destination: MediaStreamAudioDestinationNode; recorder: MediaRecorder; sources: Map<string, MediaStreamAudioSourceNode>; chunks: Blob[] };
 type MicMonitor = { context: AudioContext; source: MediaStreamAudioSourceNode; analyser: AnalyserNode; frame: number; sampleCount: number; lastUiLevel: number };
 type AmbienceGraph = { context: AudioContext; source: MediaElementAudioSourceNode; gain: GainNode };
@@ -80,6 +81,9 @@ function Waveform({ active, level = 0 }: { active: boolean; level?: number }) {
 }
 
 function LiveClassVisualArea({ visualContext }: { visualContext: VisualContext }) {
+  if (visualContext.type === 'simulation') {
+    return <section className="flex h-full w-full items-center justify-center overflow-y-auto bg-[radial-gradient(circle_at_50%_25%,rgba(35,57,85,.7),#070b13_68%)] px-4 pb-[44dvh] pt-24 sm:px-8" aria-label="Interactive physiology simulation"><PhysiologySimulator preset={visualContext.preset} title={visualContext.title} /></section>;
+  }
   if (visualContext.type === 'model') {
     return (
       <section className="h-full w-full" aria-label="Interactive anatomy model">
@@ -662,9 +666,13 @@ function VoiceTutorContent() {
       room.on(RoomEvent.Reconnected, () => { const nextState = runtimeStateBeforeReconnectRef.current === 'PAUSED' ? 'LISTENING' : runtimeStateBeforeReconnectRef.current; setRuntimeState(nextState); setStatus(nextState === 'TEACHING' ? 'Study room reconnected. LenxiQ AI can continue your lesson.' : 'Study room reconnected. Your lesson context is preserved.'); });
       room.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
         try {
-          const data = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; mediaUrl?: string; imageUrl?: string; topic?: string; title?: string; markdown?: string; cardId?: string; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
+          const data = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; mediaUrl?: string; imageUrl?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
           if (data.type === 'show_3d_model' && data.modelUrl) {
             setVisualContext({ type: 'model', modelUrl: data.modelUrl });
+            return;
+          }
+          if (data.type === 'show_physiology_simulation' && data.preset && ['cardiac_output', 'mean_arterial_pressure', 'alveolar_ventilation'].includes(data.preset)) {
+            setVisualContext({ type: 'simulation', preset: data.preset, title: data.title || courseName });
             return;
           }
           if ((data.type === 'show_medical_media' || data.type === 'show_supabase_image') && (data.mediaUrl || data.imageUrl)) {

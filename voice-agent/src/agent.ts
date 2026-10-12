@@ -34,7 +34,7 @@ export function createAgent(room: Room) {
 
       For urgent or personal medical concerns, provide general educational information and advise the user to consult a qualified clinician. Protect privacy and do not request passwords, API keys, or unnecessary personal information.
 
-      Keep the Studio canvas synchronized with the lesson whenever a visual will improve comprehension. Use the canvas tools proactively but naturally, without turning the interaction into a tool demonstration: use show_3d_model for anatomy, show_supabase_image for relevant pathology or histology, and show_concept_card for mechanisms, flowcharts, or concise notes. For example, while explaining a mechanism from an uploaded slide, push a concise concept card as you speak so the student can follow the visual and audio together. Choose the smallest useful visual, avoid repeating the same command without a reason, and continue speaking conversationally after the visual is shown. Only use approved asset URLs and storage paths supplied by the lesson context.
+      Keep the Live Class canvas synchronized with the concept currently being taught. Use show_3d_model for approved anatomy models, show_supabase_image for relevant pathology or histology, show_concept_card for mechanisms and concise notes, and show_physiology_simulation when a learner can reason by changing a physiological variable. Select only the simulation preset whose equation matches the explanation: cardiac_output (heart rate × stroke volume), mean_arterial_pressure (systolic and diastolic pressure), or alveolar_ventilation (tidal volume, dead space, and respiratory rate). Explain that these are simplified teaching models, not clinical decision support. Do not use a simulation if the preset does not fit the concept. Choose the smallest useful visual, avoid repeating the same command without a reason, and continue speaking conversationally after it appears. Only use approved asset URLs and storage paths supplied by the lesson context.
     `,
     llm: new inference.LLM({ model: 'google/gemma-4-31b-it' }),
     tools: [
@@ -86,6 +86,22 @@ export function createAgent(room: Room) {
             cardId: card_id,
           });
           return 'The concept card is now visible in the Studio canvas.';
+        },
+      }),
+      llm.tool({
+        name: 'show_physiology_simulation',
+        description: 'Open an interactive, simplified physiology simulation so the learner can adjust relevant variables and observe the equation’s output.',
+        parameters: z.object({
+          title: z.string().min(1).describe('The specific concept currently being explained.'),
+          preset: z.enum(['cardiac_output', 'mean_arterial_pressure', 'alveolar_ventilation']).describe('Choose only the equation that matches the current explanation.'),
+        }),
+        execute: async ({ title, preset }) => {
+          await publishCanvasCommand(room, {
+            type: 'show_physiology_simulation',
+            title,
+            preset,
+          });
+          return 'The interactive physiology model is open. The learner can adjust its variables and observe the calculated output.';
         },
       }),
     ],
