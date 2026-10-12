@@ -43,12 +43,26 @@ export async function POST(req: Request) {
   const materialUrls = Array.isArray(body?.fileUrls) ? body.fileUrls.filter((value: unknown): value is string => typeof value === 'string' && value.startsWith('http')).slice(0, 20) : [];
   const roomName = `lensiq-voice-${user.id.slice(0, 8)}-${crypto.randomUUID()}`;
 
-  const { data: reservation, error: reservationError } = await supabase.rpc('reserve_live_class_session', {
+  const reserveSession = () => supabase.rpc('reserve_live_class_session', {
     p_room_name: roomName,
     p_course_name: courseName,
     p_conversation_id: conversationId,
   });
-  const quota = Array.isArray(reservation) ? reservation[0] : reservation;
+  let { data: reservation, error: reservationError } = await reserveSession();
+  let quota = Array.isArray(reservation) ? reservation[0] : reservation;
+
+  // Some deployments still expose the pre-monthly quota RPC. Clear its consumed
+  // marker once, then retry so an account is not blocked by the stale rule.
+  if (!reservationError && quota?.reason === 'free_trial_used') {
+    const { error: legacyMarkerError } = await supabase
+      .from('profiles')
+      .update({ free_live_class_trial_used_at: null })
+      .eq('id', user.id);
+    if (!legacyMarkerError) {
+      ({ data: reservation, error: reservationError } = await reserveSession());
+      quota = Array.isArray(reservation) ? reservation[0] : reservation;
+    }
+  }
 
   if (reservationError || !quota) {
     console.error('Live Class reservation failed:', reservationError);
@@ -66,7 +80,7 @@ export async function POST(req: Request) {
         : quota.reason === 'active_session'
           ? 'You already have an active Live Class. End it before starting another one.'
           : quota.reason === 'free_trial_used'
-            ? 'This account is still using the previous one-time trial rule. Apply the latest Live Class quota migration, then try again.'
+            ? 'Your Live Class quota is still being updated. Please try again shortly.'
             : quota.reason === 'profile_missing'
               ? 'Your account is still being set up. Refresh the page and try again.'
               : quota.reason === 'not_authenticated'
