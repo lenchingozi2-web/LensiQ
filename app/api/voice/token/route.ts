@@ -113,7 +113,8 @@ export async function POST(req: Request) {
   });
   try {
     const dispatchClient = new AgentDispatchClient(dispatchHost, apiKey, apiSecret);
-    await dispatchClient.createDispatch(roomName, 'lensiq-voice-tutor', { metadata: dispatchMetadata });
+    const agentName = process.env.LIVEKIT_AGENT_NAME?.trim() || 'lensiq-voice-tutor';
+    await dispatchClient.createDispatch(roomName, agentName, { metadata: dispatchMetadata });
   } catch (dispatchError) {
     console.error('Live Class agent dispatch failed:', dispatchError);
     return NextResponse.json({ error: 'The Live Class tutor could not be dispatched. Please try again.' }, { status: 503 });

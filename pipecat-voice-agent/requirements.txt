@@ -1,9 +1,0 @@
-pipecat-ai[livekit,silero]
-faster-whisper
-kokoro-onnx
-soundfile
-openai
-supabase
-python-dotenv
-livekit-api
-requests

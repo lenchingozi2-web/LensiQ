@@ -78,9 +78,11 @@ function getAnatomyType(modelUrl: string): AnatomyType {
 type ModelProps = {
   url: string;
   onStructureSelect?: (meshName: string) => void;
+  highlightStructure?: string;
+  highlightColor?: string;
 };
 
-function Model({ url, onStructureSelect }: ModelProps) {
+function Model({ url, onStructureSelect, highlightStructure, highlightColor }: ModelProps) {
   const { scene } = useGLTF(url);
   const anatomyType = getAnatomyType(url);
 
@@ -104,6 +106,22 @@ function Model({ url, onStructureSelect }: ModelProps) {
     };
   }, [anatomyType, scene]);
 
+  useEffect(() => {
+    const target = highlightStructure?.trim().toLowerCase();
+    scene.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      const matches = Boolean(target && child.name.toLowerCase().includes(target));
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach((material) => {
+        if (material instanceof THREE.MeshStandardMaterial) {
+          material.emissive.set(matches ? (highlightColor || '#E8A23D') : '#000000');
+          material.emissiveIntensity = matches ? 0.72 : 0;
+          material.needsUpdate = true;
+        }
+      });
+    });
+  }, [highlightColor, highlightStructure, scene]);
+
   return (
     <primitive
       object={scene}
@@ -118,9 +136,11 @@ function Model({ url, onStructureSelect }: ModelProps) {
 export type AnatomyViewerProps = {
   modelUrl: string;
   onStructureSelect?: (meshName: string) => void;
+  highlightStructure?: string;
+  highlightColor?: string;
 };
 
-export default function AnatomyViewer({ modelUrl, onStructureSelect }: AnatomyViewerProps) {
+export default function AnatomyViewer({ modelUrl, onStructureSelect, highlightStructure, highlightColor }: AnatomyViewerProps) {
   useGLTF.preload(modelUrl);
 
   return (
@@ -128,7 +148,7 @@ export default function AnatomyViewer({ modelUrl, onStructureSelect }: AnatomyVi
       <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
         <Suspense fallback={null}>
           <Stage adjustCamera={1.2} environment="studio" intensity={0.8}>
-            <Model url={modelUrl} onStructureSelect={onStructureSelect} />
+            <Model url={modelUrl} onStructureSelect={onStructureSelect} highlightStructure={highlightStructure} highlightColor={highlightColor} />
           </Stage>
         </Suspense>
         <OrbitControls
