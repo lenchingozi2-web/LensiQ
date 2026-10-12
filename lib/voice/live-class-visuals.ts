@@ -8,7 +8,6 @@ const assetRoot = `${storageOrigin}/storage/v1/object/public/medical-models`;
 
 export const LIVE_CLASS_MODEL_ASSETS = {
   brain: `${assetRoot}/organs/Brain.glb`,
-  heart: `${assetRoot}/organs/Heart.glb`,
   lungs: `${assetRoot}/organs/Lungs.glb`,
   liver: `${assetRoot}/organs/Liver.glb`,
   kidneys: `${assetRoot}/organs/Kidneys.glb`,
@@ -63,7 +62,6 @@ export type VisualContext =
 
 const MODEL_LABELS: Record<string, string> = {
   [LIVE_CLASS_MODEL_ASSETS.brain]: 'Brain',
-  [LIVE_CLASS_MODEL_ASSETS.heart]: 'Heart',
   [LIVE_CLASS_MODEL_ASSETS.lungs]: 'Lungs',
   [LIVE_CLASS_MODEL_ASSETS.liver]: 'Liver',
   [LIVE_CLASS_MODEL_ASSETS.kidneys]: 'Kidney, Male, Right',
@@ -267,7 +265,6 @@ export function inferLiveClassVisual(speech: string, courseName: string): Visual
 
   const specificOrgans: Array<{ key: keyof typeof LIVE_CLASS_MODEL_ASSETS; pattern: RegExp; structure?: RegExp }> = [
     { key: 'brain', pattern: /\b(brain|cerebrum|cerebellum|brainstem|hippocamp(?:us|al)|cerebral cortex|cerebral)\b/i, structure: /\b(brainstem|cerebellum|hippocamp(?:us|al)|cerebral cortex|cerebrum)\b/i },
-    { key: 'heart', pattern: /\b(heart|myocardium|myocardial|atrium|atria|ventricle|ventricular|valve)\b/i, structure: /\b(myocardium|atrium|atria|ventricle|ventricular|valve)\b/i },
     { key: 'lungs', pattern: /\b(lung|pulmonary|alveol(?:us|i|ar)|bronch(?:us|i|ial))\b/i, structure: /\b(alveol(?:us|i|ar)|bronch(?:us|i|ial))\b/i },
     { key: 'liver', pattern: /\b(liver|hepatic|hepatocyte|hepatobiliary)\b/i, structure: /\b(hepatocyte|hepatic lobule|bile duct)\b/i },
     { key: 'kidneys', pattern: /\b(kidney|renal|nephron|glomerul(?:us|i|ar))\b/i, structure: /\b(nephron|glomerul(?:us|i|ar)|renal tubule)\b/i },
