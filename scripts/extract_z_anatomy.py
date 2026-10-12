@@ -129,9 +129,11 @@ def validate_glb(path: Path) -> dict[str, int]:
 def export(objects: list[bpy.types.Object], output: Path, label: str) -> dict[str, int]:
     copies: list[bpy.types.Object] = []
     export_collection = bpy.context.scene.collection
+    print(f"Exporting {label}: {len(objects)} source mesh objects", flush=True)
     for obj in objects:
         duplicate = obj.copy()
-        duplicate.data = obj.data.copy()
+        # Share source mesh datablocks; deep-copying every atlas mesh can multiply
+        # Blender memory use before the exporter runs.
         duplicate.name = obj.name
         duplicate.parent = None
         duplicate.hide_set(False)
@@ -156,10 +158,7 @@ def export(objects: list[bpy.types.Object], output: Path, label: str) -> dict[st
         export_draco_mesh_compression_enable=False,
     )
     for duplicate in copies:
-        mesh_data = duplicate.data
         bpy.data.objects.remove(duplicate, do_unlink=True)
-        if mesh_data.users == 0:
-            bpy.data.meshes.remove(mesh_data)
     stats = validate_glb(output)
     print(f"Validated {label} / {output.name}: {output.stat().st_size} bytes, {stats}", flush=True)
     return stats
