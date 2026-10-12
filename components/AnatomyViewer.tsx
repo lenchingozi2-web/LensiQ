@@ -18,11 +18,34 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor }: M
     const clonedScene = sourceScene.clone(true);
     clonedScene.traverse((child) => {
       if (!(child instanceof THREE.Mesh)) return;
+      const cloneMaterial = (material: THREE.Material) => {
+        const clonedMaterial = material.clone();
+        clonedMaterial.side = THREE.DoubleSide;
+        clonedMaterial.needsUpdate = true;
+        return clonedMaterial;
+      };
       child.material = Array.isArray(child.material)
-        ? child.material.map((material) => material.clone())
-        : child.material.clone();
+        ? child.material.map(cloneMaterial)
+        : cloneMaterial(child.material);
     });
-    return clonedScene;
+
+    const normalizedScene = new THREE.Group();
+    normalizedScene.name = 'LiveClassMedicalModel';
+    normalizedScene.add(clonedScene);
+    normalizedScene.updateMatrixWorld(true);
+
+    const bounds = new THREE.Box3().setFromObject(clonedScene);
+    const size = bounds.getSize(new THREE.Vector3());
+    const largestDimension = Math.max(size.x, size.y, size.z);
+    if (Number.isFinite(largestDimension) && largestDimension > 0) {
+      const center = bounds.getCenter(new THREE.Vector3());
+      const fitScale = 2.4 / largestDimension;
+      normalizedScene.scale.setScalar(fitScale);
+      normalizedScene.position.copy(center).multiplyScalar(-fitScale);
+      normalizedScene.updateMatrixWorld(true);
+    }
+
+    return normalizedScene;
   }, [sourceScene]);
   const originalEmissive = useMemo(() => {
     const baseline = new Map<THREE.Material, { color: THREE.Color; intensity: number }>();

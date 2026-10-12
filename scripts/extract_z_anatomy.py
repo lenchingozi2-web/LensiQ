@@ -1,7 +1,7 @@
-"""Export validated system and organ GLBs from the Z-Anatomy Blender source.
+"""Export validated system and organ GLBs from the preloaded Z-Anatomy blend.
 
-The exporter intentionally refuses the small application-template Startup.blend:
-only the named Z-Anatomy source archive contains the anatomy dataset.
+The workflow must load the verified source .blend before invoking this script.
+Reopening a blend from inside Blender can reset the running script.
 """
 
 from __future__ import annotations
@@ -39,18 +39,6 @@ ORGANS = {
 
 def normalize(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", value.casefold()).strip()
-
-
-def source_blend(source_root: Path) -> Path:
-    candidates = sorted(source_root.rglob("*.blend"))
-    preferred = [path for path in candidates if "z-anatomy" in path.name.casefold()]
-    if not preferred:
-        names = ", ".join(path.name for path in candidates[:8]) or "none"
-        raise RuntimeError(
-            "Refusing to export the application-template Startup.blend. "
-            f"Expected the full Z-Anatomy source blend under {source_root}; found: {names}"
-        )
-    return preferred[0]
 
 
 def collection_parent_map() -> dict[int, bpy.types.Collection]:
@@ -181,17 +169,21 @@ def export(objects: list[bpy.types.Object], output: Path, label: str) -> dict[st
 def parse_args() -> argparse.Namespace:
     separator = sys.argv.index("--") if "--" in sys.argv else len(sys.argv)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source-root", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--source-record", required=True)
+    parser.add_argument("--only-model", choices=sorted((*SYSTEMS, *ORGANS)))
     return parser.parse_args(sys.argv[separator + 1 :])
 
 
 def main() -> None:
     args = parse_args()
-    blend = source_blend(args.source_root)
-    print(f"Opening verified anatomy source: {blend}", flush=True)
-    bpy.ops.wm.open_mainfile(filepath=str(blend))
+    blend = Path(bpy.data.filepath)
+    if not blend.is_file() or "z-anatomy" not in blend.name.casefold():
+        raise RuntimeError(
+            "The verified full Z-Anatomy.blend must be loaded before this exporter runs; "
+            f"current Blender file is {blend or 'unsaved'}"
+        )
+    print(f"Using preloaded verified anatomy source: {blend}", flush=True)
 
     mesh_objects = [obj for obj in bpy.data.objects if obj.type == "MESH"]
     parent_by_child = collection_parent_map()
@@ -203,6 +195,8 @@ def main() -> None:
     groups = [("systems", SYSTEMS), ("organs", ORGANS)]
     for folder, group in groups:
         for label, keywords in group.items():
+            if args.only_model and label != args.only_model:
+                continue
             matches = objects_for_keywords(mesh_objects, names_by_object, keywords, label)
             relative_path = f"{folder}/{label}.glb"
             stats_by_path[relative_path] = export(

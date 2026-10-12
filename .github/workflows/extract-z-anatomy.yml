@@ -43,7 +43,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
-            ca-certificates curl jq unzip python3 python3-pip blender
+            ca-certificates curl jq unzip python3 python3-pip python3-numpy blender
+          echo "PYTHONPATH=/usr/lib/python3/dist-packages" >> "$GITHUB_ENV"
 
       - name: Add swap space for Blender
         shell: bash
@@ -89,16 +90,17 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$OUTPUT_DIR"
-          if ! blender --background --factory-startup \
+          source_blend="$(find "$RUNNER_TEMP/z-anatomy/source" -type f -name 'Z-Anatomy.blend' -print -quit)"
+          test -n "$source_blend" || { echo "::error::Verified source blend is missing"; exit 1; }
+          if ! blender --background --factory-startup "$source_blend" \
             --python scripts/extract_z_anatomy.py -- \
-            --source-root "$RUNNER_TEMP/z-anatomy/source" \
             --output-dir "$OUTPUT_DIR" \
             --source-record "$ZENODO_RECORD" \
             >"$RUNNER_TEMP/anatomy-export.log" 2>&1; then
             tail -n 160 "$RUNNER_TEMP/anatomy-export.log"
             exit 1
           fi
-          grep -E 'Opening verified anatomy source|Validated ' "$RUNNER_TEMP/anatomy-export.log" || true
+          grep -E 'Using preloaded verified anatomy source|Validated ' "$RUNNER_TEMP/anatomy-export.log" || true
 
       - name: Download verified CC BY 4.0 HRA kidney GLB
         shell: bash
