@@ -12,16 +12,6 @@ export const LIVE_CLASS_MODEL_ASSETS = {
   lungs: `${assetRoot}/organs/Lungs.glb`,
   liver: `${assetRoot}/organs/Liver.glb`,
   kidneys: `${assetRoot}/organs/Kidneys.glb`,
-  integumentarySystem: `${assetRoot}/systems/Integumentary_System.glb`,
-  muscularSystem: `${assetRoot}/systems/Muscular_System.glb`,
-  nervousSystem: `${assetRoot}/systems/Nervous_System.glb`,
-  endocrineSystem: `${assetRoot}/systems/Endocrine_System.glb`,
-  cardiovascularSystem: `${assetRoot}/systems/Cardiovascular_System.glb`,
-  lymphaticSystem: `${assetRoot}/systems/Lymphatic_System.glb`,
-  respiratorySystem: `${assetRoot}/systems/Respiratory_System.glb`,
-  digestiveSystem: `${assetRoot}/systems/Digestive_System.glb`,
-  urinarySystem: `${assetRoot}/systems/Urinary_System.glb`,
-  reproductiveSystem: `${assetRoot}/systems/Reproductive_System.glb`,
   bloodCellMorphology: `${assetRoot}/cytology/Blood_Cell_Morphology.glb`,
   leukocyteMorphology: `${assetRoot}/cytology/Leukocyte_Morphology.glb`,
   leukemiaBlastMorphology: `${assetRoot}/pathology/Leukemia_Blast_Morphology.glb`,
@@ -77,16 +67,6 @@ const MODEL_LABELS: Record<string, string> = {
   [LIVE_CLASS_MODEL_ASSETS.lungs]: 'Lungs',
   [LIVE_CLASS_MODEL_ASSETS.liver]: 'Liver',
   [LIVE_CLASS_MODEL_ASSETS.kidneys]: 'Kidney, Male, Right',
-  [LIVE_CLASS_MODEL_ASSETS.integumentarySystem]: 'Integumentary system',
-  [LIVE_CLASS_MODEL_ASSETS.muscularSystem]: 'Muscular system',
-  [LIVE_CLASS_MODEL_ASSETS.nervousSystem]: 'Nervous system',
-  [LIVE_CLASS_MODEL_ASSETS.endocrineSystem]: 'Endocrine system',
-  [LIVE_CLASS_MODEL_ASSETS.cardiovascularSystem]: 'Cardiovascular system',
-  [LIVE_CLASS_MODEL_ASSETS.lymphaticSystem]: 'Lymphatic system',
-  [LIVE_CLASS_MODEL_ASSETS.respiratorySystem]: 'Respiratory system',
-  [LIVE_CLASS_MODEL_ASSETS.digestiveSystem]: 'Digestive system',
-  [LIVE_CLASS_MODEL_ASSETS.urinarySystem]: 'Urinary system',
-  [LIVE_CLASS_MODEL_ASSETS.reproductiveSystem]: 'Reproductive system',
   [LIVE_CLASS_MODEL_ASSETS.bloodCellMorphology]: 'Blood-cell morphology · schematic',
   [LIVE_CLASS_MODEL_ASSETS.leukocyteMorphology]: 'Leukocyte morphology · schematic',
   [LIVE_CLASS_MODEL_ASSETS.leukemiaBlastMorphology]: 'Leukaemia blast morphology · schematic',
@@ -298,21 +278,6 @@ export function inferLiveClassVisual(speech: string, courseName: string): Visual
     return { type: 'model', modelUrl: LIVE_CLASS_MODEL_ASSETS[organ.key], ...(structureId ? { structureId } : {}) };
   }
 
-  const systems: Array<[keyof typeof LIVE_CLASS_MODEL_ASSETS, RegExp]> = [
-    ['integumentarySystem', /\b(integument(?:ary)?|skin system|epidermis|dermis|cutaneous|hair follicle|skin appendage)\b/i],
-    ['muscularSystem', /\b(muscular system|skeletal muscle|myology|muscle group|muscle anatomy)\b/i],
-    ['nervousSystem', /\b(nervous system|spinal cord|peripheral nerve|autonomic nervous system|neuroanatomy)\b/i],
-    ['endocrineSystem', /\b(endocrine system|endocrine gland|hormone|pituitary|adrenal gland|thyroid gland|pancreatic islet)\b/i],
-    ['cardiovascularSystem', /\b(cardiovascular system|circulatory system|blood vessel|arterial circulation|venous circulation)\b/i],
-    ['lymphaticSystem', /\b(lymphatic system|lymph node|lymph vessel|immune system|lymphoid organ)\b/i],
-    ['respiratorySystem', /\b(respiratory system|respiratory tract|airway|pulmonary ventilation)\b/i],
-    ['digestiveSystem', /\b(digestive system|gastrointestinal tract|alimentary canal|digestive tract|gut anatomy)\b/i],
-    ['urinarySystem', /\b(urinary system|urinary tract|renal system|kidney anatomy|urinary bladder)\b/i],
-    ['reproductiveSystem', /\b(reproductive system|reproductive anatomy|genital system|male reproductive|female reproductive)\b/i],
-  ];
-  for (const [key, pattern] of systems) {
-    if (pattern.test(text)) return modelContext(key);
-  }
 
   return {
     type: 'whiteboard',

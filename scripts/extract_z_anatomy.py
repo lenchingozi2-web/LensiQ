@@ -15,18 +15,7 @@ from pathlib import Path
 
 import bpy
 
-SYSTEMS = {
-    "Integumentary_System": ("integument", "skin", "cutaneous"),
-    "Muscular_System": ("muscular", "muscle", "muscles"),
-    "Nervous_System": ("nervous", "brain", "spinal cord", "nerve"),
-    "Endocrine_System": ("endocrine",),
-    "Cardiovascular_System": ("cardiovascular", "cardio", "circulatory"),
-    "Lymphatic_System": ("lymphatic", "lymph"),
-    "Respiratory_System": ("respiratory", "respiration"),
-    "Digestive_System": ("digestive", "gastrointestinal", "alimentary"),
-    "Urinary_System": ("urinary", "urogenital"),
-    "Reproductive_System": ("reproductive", "genital"),
-}
+SYSTEMS: dict[str, tuple[str, ...]] = {}
 
 ORGANS = {
     "Heart": ("heart",),

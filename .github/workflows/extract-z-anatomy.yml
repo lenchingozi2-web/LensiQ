@@ -171,8 +171,8 @@ jobs:
           set -Eeuo pipefail
           mapfile -d '' models < <(find "$OUTPUT_DIR" -type f -name '*.glb' -print0 | sort -z)
           echo "Found ${#models[@]} GLB models before Draco compression"
-          if [ "${#models[@]}" -ne 21 ]; then
-            echo "::error::Expected 21 GLB models (15 anatomy, excluding skeletal system, plus 6 schematics), found ${#models[@]}"
+          if [ "${#models[@]}" -ne 11 ]; then
+            echo "::error::Expected 11 GLB models (5 core organs plus 6 pathology, histology, and cytology schematics), found ${#models[@]}"
             find "$OUTPUT_DIR" -type f -printf '%P\n' | sort
             exit 1
           fi
@@ -252,16 +252,22 @@ jobs:
             --data-binary "@$OUTPUT_DIR/manifest.json" \
             "${SUPABASE_URL%/}/storage/v1/object/$SUPABASE_BUCKET/manifest.json"
 
-      - name: Remove excluded skeletal placeholder
+      - name: Remove excluded and superseded system placeholders
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location \
-            --request DELETE \
-            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            "${SUPABASE_URL%/}/storage/v1/object/$SUPABASE_BUCKET/systems/Skeletal_System.glb"
-          echo "Removed excluded skeletal system asset from $SUPABASE_BUCKET."
+          for path in \
+            systems/Integumentary_System.glb systems/Skeletal_System.glb systems/Muscular_System.glb \
+            systems/Nervous_System.glb systems/Endocrine_System.glb systems/Cardiovascular_System.glb \
+            systems/Lymphatic_System.glb systems/Respiratory_System.glb systems/Digestive_System.glb \
+            systems/Urinary_System.glb systems/Reproductive_System.glb; do
+            curl --fail --silent --show-error --location \
+              --request DELETE \
+              --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              "${SUPABASE_URL%/}/storage/v1/object/$SUPABASE_BUCKET/$path" || true
+            echo "Removed superseded system asset: $path"
+          done
 
       - name: Save validated assets as a short-lived workflow artifact
         uses: actions/upload-artifact@v4

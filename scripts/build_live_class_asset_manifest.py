@@ -101,11 +101,6 @@ PHARMACOLOGY_ASSETS = {
 }
 
 EXPECTED_ANATOMY = [
-    *(f"systems/{name}.glb" for name in (
-        "Integumentary_System", "Muscular_System", "Nervous_System",
-        "Endocrine_System", "Cardiovascular_System", "Lymphatic_System", "Respiratory_System",
-        "Digestive_System", "Urinary_System", "Reproductive_System",
-    )),
     *(f"organs/{name}.glb" for name in ("Heart", "Brain", "Liver", "Lungs", "Kidneys")),
 ]
 
