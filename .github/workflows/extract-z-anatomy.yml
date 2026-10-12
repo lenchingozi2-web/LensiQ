@@ -58,16 +58,6 @@ jobs:
           fi
           free -h
 
-      - name: Install Draco GLB compressor
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/gltf-pipeline"
-          cd "$RUNNER_TEMP/gltf-pipeline"
-          npm init --yes
-          npm pkg set "overrides.cesium=1.105.1"
-          npm install --save-exact gltf-pipeline@4.1.0
-
       - name: Download verified Z-Anatomy archive
         shell: bash
         run: |
@@ -165,35 +155,26 @@ jobs:
             echo "Downloaded RCSB PDB $pdb ($(wc -c < "$OUTPUT_DIR/pharmacology/$pdb.pdb") bytes)"
           done
 
-      - name: Compress and validate every GLB for Supabase limits
+      - name: Validate every GLB for Supabase limits
         shell: bash
         run: |
           set -Eeuo pipefail
           mapfile -d '' models < <(find "$OUTPUT_DIR" -type f -name '*.glb' -print0 | sort -z)
-          echo "Found ${#models[@]} GLB models before Draco compression"
+          echo "Found ${#models[@]} GLB models before upload"
           if [ "${#models[@]}" -ne 11 ]; then
             echo "::error::Expected 11 GLB models (5 core organs plus 6 pathology, histology, and cytology schematics), found ${#models[@]}"
             find "$OUTPUT_DIR" -type f -printf '%P\n' | sort
             exit 1
           fi
           for model in "${models[@]}"; do
-            tmp="${model%.glb}.draco.glb"
-            log="${model%.glb}.draco.log"
-            if ! node "$RUNNER_TEMP/gltf-pipeline/node_modules/gltf-pipeline/bin/gltf-pipeline.js" \
-              --input "$model" --output "$tmp" \
-              --draco.compressionLevel 5 \
-              --draco.quantizePositionBits 12 \
-              --draco.quantizeNormalBits 8 \
-              --draco.quantizeTexcoordBits 10 >"$log" 2>&1; then
-              echo "::error::Draco compression failed for $model"
-              cat "$log"
+            size=$(wc -c < "$model")
+            if [ "$size" -le 0 ] || [ "$size" -gt "$MAX_MODEL_FILE_BYTES" ]; then
+              echo "::error::GLB exceeds the safe per-file limit: $model ($size bytes)"
               exit 1
             fi
-            test -s "$tmp" || { cat "$log"; exit 1; }
-            mv -- "$tmp" "$model"
-            rm -f "$log"
+            echo "Validated upload size: ${model#"$OUTPUT_DIR"/} ($size bytes)"
           done
-          echo "Draco compression completed for all ${#models[@]} GLBs."
+          echo "All ${#models[@]} GLBs are within the upload-size ceiling."
 
       - name: Validate full catalog, source metadata, and upload-size ceilings
         shell: bash
