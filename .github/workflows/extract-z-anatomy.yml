@@ -1,4 +1,4 @@
-name: Extract Z-Anatomy models
+name: Build and upload Live Class visual assets
 
 on:
   workflow_dispatch:
@@ -13,9 +13,12 @@ permissions:
 
 env:
   ZENODO_RECORD: "4953712"
-  Z_ANATOMY_ARCHIVE_URL: "https://github.com/Z-Anatomy/Models-of-human-anatomy/raw/master/Z-Anatomy.zip"
-  OUTPUT_DIR: "${{ github.workspace }}/artifacts/z-anatomy"
+  Z_ANATOMY_ARCHIVE_URL: "https://zenodo.org/records/4953712/files/Z-Anatomy.zip?download=1"
+  Z_ANATOMY_ARCHIVE_MD5: "231a7c2f3b118ce250404a968fbd0525"
+  OUTPUT_DIR: "${{ github.workspace }}/artifacts/live-class"
   SUPABASE_BUCKET: "medical-models"
+  PROJECT_STORAGE_CAP_BYTES: "250000000"
+  MAX_MODEL_FILE_BYTES: "48000000"
 
 jobs:
   extract-and-upload:
@@ -40,24 +43,22 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
-            ca-certificates curl jq unzip python3 python3-pip
+            ca-certificates curl jq unzip python3 python3-pip python3-numpy blender
+          echo "PYTHONPATH=/usr/lib/python3/dist-packages" >> "$GITHUB_ENV"
 
       - name: Add swap space for Blender
         shell: bash
         run: |
           set -euo pipefail
           if ! sudo swapon --show | grep -q .; then
-            sudo fallocate -l 16G /swapfile
+            sudo fallocate -l 2G /swapfile
             sudo chmod 600 /swapfile
             sudo mkswap /swapfile
             sudo swapon /swapfile
           fi
           free -h
 
-      - name: Install Blender
-        run: sudo snap install blender --classic
-
-      - name: Install gltf-pipeline
+      - name: Install Draco GLB compressor
         shell: bash
         run: |
           set -euo pipefail
@@ -67,124 +68,177 @@ jobs:
           npm pkg set "overrides.cesium=1.105.1"
           npm install --save-exact gltf-pipeline@4.1.0
 
-      - name: Download Z-Anatomy
+      - name: Download verified Z-Anatomy archive
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/z-anatomy"
+          mkdir -p "$RUNNER_TEMP/z-anatomy/source"
           curl --fail --location --retry 5 --retry-all-errors \
-            --header "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36" \
+            --header "User-Agent: LenxiQ-Live-Class-Asset-Builder/1.0" \
             --output "$RUNNER_TEMP/z-anatomy/Z-Anatomy.zip" \
             "$Z_ANATOMY_ARCHIVE_URL"
+          echo "$Z_ANATOMY_ARCHIVE_MD5  $RUNNER_TEMP/z-anatomy/Z-Anatomy.zip" | md5sum --check
           unzip -q "$RUNNER_TEMP/z-anatomy/Z-Anatomy.zip" -d "$RUNNER_TEMP/z-anatomy/source"
-          find "$RUNNER_TEMP/z-anatomy/source" -type f -printf '%p\n' | sort
+          find "$RUNNER_TEMP/z-anatomy/source" -type f -name '*.blend' -printf '%p %s bytes\n' | sort
+          test -n "$(find "$RUNNER_TEMP/z-anatomy/source" -type f -name 'Z-Anatomy.blend' -print -quit)" || {
+            echo "::error::The archive does not contain the full Z-Anatomy.blend source"
+            exit 1
+          }
 
-      - name: Extract systems and organs
-        run: |
-          mkdir -p "$OUTPUT_DIR"
-          blender --background --factory-startup --python scripts/extract_z_anatomy.py -- \
-            --source-root "$RUNNER_TEMP/z-anatomy/source" \
-            --output-dir "$OUTPUT_DIR" \
-            --source-record "$ZENODO_RECORD"
-
-      - name: Check extracted models
+      - name: Export all system and organ models with geometry checks
         shell: bash
         run: |
           set -euo pipefail
-          du -ah "$OUTPUT_DIR" | sort -h | tail -30
-          free -h
-          find "$OUTPUT_DIR" -type f -name '*.glb' -printf '%s %p\n' | sort -n
+          mkdir -p "$OUTPUT_DIR"
+          source_blend="$(find "$RUNNER_TEMP/z-anatomy/source" -type f -name 'Z-Anatomy.blend' -print -quit)"
+          test -n "$source_blend" || { echo "::error::Verified source blend is missing"; exit 1; }
+          if ! blender --background --factory-startup "$source_blend" \
+            --python scripts/extract_z_anatomy.py -- \
+            --output-dir "$OUTPUT_DIR" \
+            --source-record "$ZENODO_RECORD" \
+            >"$RUNNER_TEMP/anatomy-export.log" 2>&1; then
+            tail -n 160 "$RUNNER_TEMP/anatomy-export.log"
+            exit 1
+          fi
+          grep -E 'Using preloaded verified anatomy source|Validated ' "$RUNNER_TEMP/anatomy-export.log" || true
 
-      - name: Compress exported models with Draco
+      - name: Download verified CC BY 4.0 HRA kidney GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUTPUT_DIR/organs"
+          curl --fail --location --retry 5 --retry-all-errors \
+            --header "User-Agent: LenxiQ-Live-Class-Asset-Builder/1.0" \
+            --output "$OUTPUT_DIR/organs/Kidneys.glb" \
+            "https://3d.nih.gov/api/submissions/26478/runs/636044aa-1afe-42ba-b162-c991fe17335c/output-files/607562"
+          python3 - "$OUTPUT_DIR/organs/Kidneys.glb" <<'PY'
+          import json, pathlib, struct, sys
+          path = pathlib.Path(sys.argv[1])
+          data = path.read_bytes()
+          if len(data) < 20 or data[:4] != b"glTF":
+              raise SystemExit("The NIH HRA kidney endpoint did not return a GLB")
+          _, version, declared_length = struct.unpack("<4sII", data[:12])
+          if version != 2 or declared_length != len(data):
+              raise SystemExit("Invalid HRA kidney GLB header")
+          offset = 12
+          document = None
+          while offset + 8 <= len(data):
+              length, kind = struct.unpack("<II", data[offset:offset + 8])
+              offset += 8
+              chunk = data[offset:offset + length]
+              offset += length
+              if kind == 0x4E4F534A:
+                  document = json.loads(chunk.decode("utf-8").rstrip(" \t\r\n\0"))
+                  break
+          primitives = [p for mesh in (document or {}).get("meshes", []) for p in mesh.get("primitives", [])]
+          accessors = (document or {}).get("accessors", [])
+          vertices = sum(accessors[p["attributes"]["POSITION"]].get("count", 0) for p in primitives if "POSITION" in p.get("attributes", {}))
+          if not primitives or vertices < 1000:
+              raise SystemExit("Refusing an empty or invalid HRA kidney model")
+          print(f"Verified HRA kidney GLB: {path.stat().st_size:,} bytes, {len(primitives)} primitives, {vertices:,} vertices")
+
+      - name: Generate original pathology, histology, and cytology schematics
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! blender --background --factory-startup \
+            --python scripts/create_live_class_schematics.py -- \
+            --output-dir "$OUTPUT_DIR" \
+            >"$RUNNER_TEMP/schematic-export.log" 2>&1; then
+            cat "$RUNNER_TEMP/schematic-export.log"
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/schematic-export.log"
+
+      - name: Download CC0 pharmacology target structures
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUTPUT_DIR/pharmacology"
+          for pdb in 2RH1 4EY7 1U72; do
+            curl --fail --location --retry 5 --retry-all-errors \
+              --header "User-Agent: LenxiQ-Live-Class-Asset-Builder/1.0" \
+              --output "$OUTPUT_DIR/pharmacology/$pdb.pdb" \
+              "https://files.rcsb.org/download/$pdb.pdb"
+            test "$(grep -Ec '^(ATOM  |HETATM)' "$OUTPUT_DIR/pharmacology/$pdb.pdb")" -ge 100
+            echo "Downloaded RCSB PDB $pdb ($(wc -c < "$OUTPUT_DIR/pharmacology/$pdb.pdb") bytes)"
+          done
+
+      - name: Compress and validate every GLB for Supabase limits
         shell: bash
         run: |
           set -Eeuo pipefail
-
-          mapfile -d '' models < <(
-            find "$OUTPUT_DIR" -type f -name '*.glb' -print0 | sort -z
-          )
-
-          echo "Found ${#models[@]} GLB files before compression:"
-          printf ' - %s\n' "${models[@]}"
-
-          if [ "${#models[@]}" -ne 16 ]; then
-            echo "::error::Expected 16 GLB files, found ${#models[@]}"
+          mapfile -d '' models < <(find "$OUTPUT_DIR" -type f -name '*.glb' -print0 | sort -z)
+          echo "Found ${#models[@]} GLB models before Draco compression"
+          if [ "${#models[@]}" -ne 22 ]; then
+            echo "::error::Expected 22 GLB models (16 anatomy, including the verified HRA kidney, plus 6 schematics), found ${#models[@]}"
             find "$OUTPUT_DIR" -type f -printf '%P\n' | sort
             exit 1
           fi
-
           for model in "${models[@]}"; do
             tmp="${model%.glb}.draco.glb"
             log="${model%.glb}.draco.log"
-            echo "::group::Compressing ${model#"$OUTPUT_DIR"/}"
-
             if ! node "$RUNNER_TEMP/gltf-pipeline/node_modules/gltf-pipeline/bin/gltf-pipeline.js" \
-              --input "$model" \
-              --output "$tmp" \
+              --input "$model" --output "$tmp" \
               --draco.compressionLevel 5 \
               --draco.quantizePositionBits 12 \
               --draco.quantizeNormalBits 8 \
-              --draco.quantizeTexcoordBits 10 \
-              >"$log" 2>&1; then
+              --draco.quantizeTexcoordBits 10 >"$log" 2>&1; then
               echo "::error::Draco compression failed for $model"
               cat "$log"
-              rm -f "$tmp"
               exit 1
             fi
-
-            test -s "$tmp" || {
-              echo "::error::gltf-pipeline produced an empty file for $model"
-              cat "$log"
-              rm -f "$tmp"
-              exit 1
-            }
-
+            test -s "$tmp" || { cat "$log"; exit 1; }
             mv -- "$tmp" "$model"
             rm -f "$log"
-            echo "::endgroup::"
           done
+          echo "Draco compression completed for all ${#models[@]} GLBs."
 
-          echo "Compressed ${#models[@]} GLB files successfully."
-
-      - name: Ensure Supabase bucket exists
+      - name: Validate full catalog, source metadata, and upload-size ceilings
         shell: bash
         run: |
           set -euo pipefail
-          status="$(
-            curl --silent --show-error --location \
-              --output /tmp/create-bucket-response.json \
-              --write-out '%{http_code}' \
-              --request POST \
-              --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-              --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-              --header "Content-Type: application/json" \
-              --data "{\"id\":\"$SUPABASE_BUCKET\",\"name\":\"$SUPABASE_BUCKET\",\"public\":false}" \
-              "${SUPABASE_URL%/}/storage/v1/bucket"
-          )"
-          case "$status" in
-            200|201|409) ;;
-            *) cat /tmp/create-bucket-response.json; exit 1 ;;
-          esac
+          python3 scripts/build_live_class_asset_manifest.py \
+            --asset-dir "$OUTPUT_DIR" \
+            --max-total-bytes 250000000 \
+            --max-file-bytes "$MAX_MODEL_FILE_BYTES"
+          du -ah "$OUTPUT_DIR" | sort -h | tail -30
 
-      - name: Upload models to Supabase Storage
+      - name: Read-only Supabase storage and quota preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/supabase_storage_preflight.py \
+            --asset-dir "$OUTPUT_DIR" \
+            --target-bucket "$SUPABASE_BUCKET" \
+            --project-cap-bytes "$PROJECT_STORAGE_CAP_BYTES" \
+            --max-file-bytes "$MAX_MODEL_FILE_BYTES"
+
+      - name: Upload validated assets without changing bucket visibility
         shell: bash
         run: |
           set -euo pipefail
           base_url="${SUPABASE_URL%/}/storage/v1/object"
-          while IFS= read -r -d '' model; do
-            relative="${model#"$OUTPUT_DIR"/}"
+          while IFS= read -r -d '' asset; do
+            relative="${asset#"$OUTPUT_DIR"/}"
             encoded_path="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe="/"))' "$relative")"
+            case "${asset##*.}" in
+              glb) content_type="model/gltf-binary" ;;
+              pdb) content_type="text/plain; charset=utf-8" ;;
+              *) echo "::error::Unexpected asset type: $relative"; exit 1 ;;
+            esac
             curl --fail --silent --show-error --location \
               --request POST \
               --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
               --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-              --header "Content-Type: model/gltf-binary" \
+              --header "Content-Type: $content_type" \
               --header "x-upsert: true" \
-              --data-binary "@$model" \
+              --data-binary "@$asset" \
               "$base_url/$SUPABASE_BUCKET/$encoded_path"
-          done < <(find "$OUTPUT_DIR" -type f -name '*.glb' -print0)
+            echo "Uploaded $relative ($(wc -c < "$asset") bytes)"
+          done < <(find "$OUTPUT_DIR" -type f \( -name '*.glb' -o -name '*.pdb' \) -print0 | sort -z)
 
-      - name: Upload extraction manifest to Supabase
+      - name: Upload source and asset manifest
         shell: bash
         run: |
           set -euo pipefail
@@ -197,10 +251,10 @@ jobs:
             --data-binary "@$OUTPUT_DIR/manifest.json" \
             "${SUPABASE_URL%/}/storage/v1/object/$SUPABASE_BUCKET/manifest.json"
 
-      - name: Save workflow artifacts
+      - name: Save validated assets as a short-lived workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: z-anatomy-models
+          name: lenxiq-live-class-visual-assets
           path: ${{ env.OUTPUT_DIR }}
           if-no-files-found: error
           retention-days: 7

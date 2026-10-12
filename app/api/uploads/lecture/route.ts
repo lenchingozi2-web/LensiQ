@@ -1,16 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
+import { isSupportedLectureFile, normalizeLectureMimeType } from '@/lib/curriculum/file-types';
 
 const BUCKET = 'teaching-attachments';
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_STORAGE_BYTES = 100 * 1024 * 1024;
-const ALLOWED_TYPES = new Set([
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'text/plain',
-]);
-const PARSEABLE_EXTENSIONS = new Set(['pdf', 'pptx', 'docx', 'txt']);
 
 function safeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 160) || 'lecture-file';
@@ -28,9 +22,8 @@ export async function POST(request: Request) {
   if (!scope || !fileName || !Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_FILE_SIZE) {
     return NextResponse.json({ error: 'Lecture files must be between 1 byte and 20 MB.' }, { status: 413 });
   }
-  const extension = fileName.toLowerCase().split('.').pop() ?? '';
-  if (!ALLOWED_TYPES.has(mimeType) && !PARSEABLE_EXTENSIONS.has(extension)) return NextResponse.json({ error: 'Use a PDF, PPTX, DOCX, or plain-text lecture file.' }, { status: 415 });
-  const normalizedMimeType = ALLOWED_TYPES.has(mimeType) ? mimeType : extension === 'pdf' ? 'application/pdf' : extension === 'txt' ? 'text/plain' : extension === 'pptx' ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (!isSupportedLectureFile(fileName, mimeType)) return NextResponse.json({ error: 'Use a PDF, DOC, DOCX, PPTX, or plain-text lecture file.' }, { status: 415 });
+  const normalizedMimeType = normalizeLectureMimeType(fileName, mimeType);
 
   if (scope === 'teaching') {
     const { data: usage, error: usageError } = await supabase.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id });

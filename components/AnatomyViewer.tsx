@@ -1,79 +1,9 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
-import { OrbitControls, Stage, useGLTF } from '@react-three/drei';
+import { Component, Suspense, useEffect, useMemo, type ReactNode } from 'react';
+import { Html, OrbitControls, Stage, useGLTF } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
-
-type AnatomyType = 'brain' | 'heart' | 'liver' | 'lungs' | 'kidneys' | 'bone' | 'default';
-
-const ANATOMICAL_PROFILES: Record<AnatomyType, THREE.MeshPhysicalMaterialParameters> = {
-  brain: {
-    color: '#8c6562',
-    roughness: 0.85,
-    metalness: 0,
-    clearcoat: 0.1,
-    clearcoatRoughness: 0.5,
-  },
-  heart: {
-    color: '#7f292d',
-    roughness: 0.52,
-    metalness: 0,
-    clearcoat: 0.6,
-    clearcoatRoughness: 0.24,
-  },
-  liver: {
-    color: '#6f3f35',
-    roughness: 0.48,
-    metalness: 0,
-    clearcoat: 0.8,
-    clearcoatRoughness: 0.18,
-  },
-  lungs: {
-    color: '#d59b9d',
-    roughness: 0.8,
-    metalness: 0,
-    clearcoat: 0.2,
-    clearcoatRoughness: 0.45,
-    transmission: 0.08,
-    thickness: 0.2,
-  },
-  kidneys: {
-    color: '#75433d',
-    roughness: 0.62,
-    metalness: 0,
-    clearcoat: 0.5,
-    clearcoatRoughness: 0.28,
-  },
-  bone: {
-    color: '#e1d5b9',
-    roughness: 0.9,
-    metalness: 0,
-    clearcoat: 0,
-    clearcoatRoughness: 0.5,
-  },
-  default: {
-    color: '#9c756e',
-    roughness: 0.8,
-    metalness: 0,
-    clearcoat: 0.2,
-    clearcoatRoughness: 0.4,
-  },
-};
-
-function getAnatomyType(modelUrl: string): AnatomyType {
-  const fileName = decodeURIComponent(modelUrl.split(/[?#]/, 1)[0].split('/').pop() ?? '').toLowerCase();
-  const organName = fileName.replace(/\.(glb|gltf)$/, '');
-
-  if (organName.includes('brain')) return 'brain';
-  if (organName.includes('heart')) return 'heart';
-  if (organName.includes('liver')) return 'liver';
-  if (organName.includes('lung')) return 'lungs';
-  if (organName.includes('kidney')) return 'kidneys';
-  if (organName.includes('bone')) return 'bone';
-
-  return 'default';
-}
 
 type ModelProps = {
   url: string;
@@ -82,29 +12,91 @@ type ModelProps = {
   highlightColor?: string;
 };
 
+type AnatomyModelErrorBoundaryProps = {
+  modelUrl: string;
+  children: ReactNode;
+};
+
+class AnatomyModelErrorBoundary extends Component<AnatomyModelErrorBoundaryProps, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    if (this.state.failed) {
+      return (
+        <Html center>
+          <div className="max-w-[min(80vw,22rem)] rounded-2xl border border-white/10 bg-[#101827]/95 px-5 py-4 text-center shadow-2xl backdrop-blur-xl">
+            <p role="alert" className="text-xs font-black uppercase tracking-[0.16em] text-[#ffd68d]">3D model unavailable</p>
+            <p className="mt-2 text-xs leading-5 text-white/70">The tutor can continue while this model is unavailable. Check your connection or try again.</p>
+            <button
+              type="button"
+              onClick={() => {
+                useGLTF.clear(this.props.modelUrl);
+                this.setState({ failed: false });
+              }}
+              className="pointer-events-auto mt-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-[10px] font-bold text-white transition hover:bg-white/15"
+            >
+              Retry model
+            </button>
+          </div>
+        </Html>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function Model({ url, onStructureSelect, highlightStructure, highlightColor }: ModelProps) {
-  const { scene } = useGLTF(url);
-  const anatomyType = getAnatomyType(url);
-
-  useEffect(() => {
-    const appliedMaterials: THREE.MeshPhysicalMaterial[] = [];
-    const profile = ANATOMICAL_PROFILES[anatomyType];
-
-    scene.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        const material = new THREE.MeshPhysicalMaterial({
-          ...profile,
-          vertexColors: false,
-        });
-        child.material = material;
-        appliedMaterials.push(material);
-      }
+  const { scene: sourceScene } = useGLTF(url);
+  const scene = useMemo(() => {
+    const clonedScene = sourceScene.clone(true);
+    clonedScene.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      const cloneMaterial = (material: THREE.Material) => {
+        const clonedMaterial = material.clone();
+        clonedMaterial.side = THREE.DoubleSide;
+        clonedMaterial.needsUpdate = true;
+        return clonedMaterial;
+      };
+      child.material = Array.isArray(child.material)
+        ? child.material.map(cloneMaterial)
+        : cloneMaterial(child.material);
     });
 
-    return () => {
-      appliedMaterials.forEach((material) => material.dispose());
-    };
-  }, [anatomyType, scene]);
+    const normalizedScene = new THREE.Group();
+    normalizedScene.name = 'LiveClassMedicalModel';
+    normalizedScene.add(clonedScene);
+    normalizedScene.updateMatrixWorld(true);
+
+    const bounds = new THREE.Box3().setFromObject(clonedScene);
+    const size = bounds.getSize(new THREE.Vector3());
+    const largestDimension = Math.max(size.x, size.y, size.z);
+    if (Number.isFinite(largestDimension) && largestDimension > 0) {
+      const center = bounds.getCenter(new THREE.Vector3());
+      const fitScale = 2.4 / largestDimension;
+      normalizedScene.scale.setScalar(fitScale);
+      normalizedScene.position.copy(center).multiplyScalar(-fitScale);
+      normalizedScene.updateMatrixWorld(true);
+    }
+
+    return normalizedScene;
+  }, [sourceScene]);
+  const originalEmissive = useMemo(() => {
+    const baseline = new Map<THREE.Material, { color: THREE.Color; intensity: number }>();
+    scene.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach((material) => {
+        if (material instanceof THREE.MeshStandardMaterial) {
+          baseline.set(material, { color: material.emissive.clone(), intensity: material.emissiveIntensity });
+        }
+      });
+    });
+    return baseline;
+  }, [scene]);
 
   useEffect(() => {
     const target = highlightStructure?.trim().toLowerCase();
@@ -113,14 +105,22 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor }: M
       const matches = Boolean(target && child.name.toLowerCase().includes(target));
       const materials = Array.isArray(child.material) ? child.material : [child.material];
       materials.forEach((material) => {
-        if (material instanceof THREE.MeshStandardMaterial) {
-          material.emissive.set(matches ? (highlightColor || '#E8A23D') : '#000000');
-          material.emissiveIntensity = matches ? 0.72 : 0;
-          material.needsUpdate = true;
-        }
+        if (!(material instanceof THREE.MeshStandardMaterial)) return;
+        const baseline = originalEmissive.get(material);
+        material.emissive.copy(matches ? new THREE.Color(highlightColor || '#E8A23D') : baseline?.color ?? new THREE.Color('#000000'));
+        material.emissiveIntensity = matches ? 0.68 : baseline?.intensity ?? 0;
+        material.needsUpdate = true;
       });
     });
-  }, [highlightColor, highlightStructure, scene]);
+  }, [highlightColor, highlightStructure, originalEmissive, scene]);
+
+  useEffect(() => () => {
+    scene.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach((material) => material.dispose());
+    });
+  }, [scene]);
 
   return (
     <primitive
@@ -145,12 +145,15 @@ export default function AnatomyViewer({ modelUrl, onStructureSelect, highlightSt
 
   return (
     <div className="h-full w-full overflow-hidden bg-slate-900">
-      <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
-        <Suspense fallback={null}>
-          <Stage adjustCamera={1.2} environment="studio" intensity={0.8}>
-            <Model url={modelUrl} onStructureSelect={onStructureSelect} highlightStructure={highlightStructure} highlightColor={highlightColor} />
-          </Stage>
-        </Suspense>
+      <Canvas camera={{ position: [0, 0, 5], fov: 50 }} dpr={[1, 1.5]}>
+        <color attach="background" args={['#080d16']} />
+        <AnatomyModelErrorBoundary key={modelUrl} modelUrl={modelUrl}>
+          <Suspense fallback={<Html center><div className="rounded-full border border-white/10 bg-[#101827]/90 px-4 py-2 text-xs font-bold text-white/75 shadow-xl backdrop-blur-xl">Preparing 3D medical model…</div></Html>}>
+            <Stage adjustCamera={1.2} environment="studio" intensity={0.8}>
+              <Model url={modelUrl} onStructureSelect={onStructureSelect} highlightStructure={highlightStructure} highlightColor={highlightColor} />
+            </Stage>
+          </Suspense>
+        </AnatomyModelErrorBoundary>
         <OrbitControls
           makeDefault
           enablePan
