@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
-import { isLegacyWordDocument, isSupportedLectureFile, LECTURE_FILE_ACCEPT, normalizeLectureFileName, normalizeLectureMimeType } from '@/lib/curriculum/file-types';
+import JSZip from 'jszip';
+import { isLegacyWordDocument, isSupportedLectureFile, LECTURE_FILE_ACCEPT, normalizeLectureFileName } from '@/lib/curriculum/file-types';
+import type { MaterialProfile } from '@/lib/curriculum/material-profile';
 
 const MAX_FILES = 20;
 const MAX_TOTAL_BYTES = 50 * 1024 * 1024;
@@ -11,6 +13,7 @@ type PreClassSetupProps = {
   files: File[];
   onFilesChange: (files: File[]) => void;
   onUploadedFileUrlsChange?: (urls: string[]) => void;
+  onMaterialProfilesChange?: (profiles: MaterialProfile[]) => void;
   focusText: string;
   onFocusTextChange: (value: string) => void;
 };
@@ -33,44 +36,62 @@ export default function PreClassSetup({
   files,
   onFilesChange,
   onUploadedFileUrlsChange,
+  onMaterialProfilesChange,
   focusText,
   onFocusTextChange,
 }: PreClassSetupProps) {
   const [error, setError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [parsedProfileCount, setParsedProfileCount] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadedUrlsRef = useRef(new Map<string, string>());
   const uploadedPathsRef = useRef(new Map<string, string>());
-  const uploadFolderRef = useRef<string | null>(null);
+  const materialProfilesRef = useRef(new Map<string, MaterialProfile>());
   const totalBytes = files.reduce((total, file) => total + file.size, 0);
 
   const publishUploadedUrls = () => {
     const urls = Array.from(uploadedUrlsRef.current.values());
     onUploadedFileUrlsChange?.(urls);
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lensiq:uploaded-materials', { detail: { urls, paths: Array.from(uploadedPathsRef.current.values()) } }));
+    const profiles = Array.from(materialProfilesRef.current.values());
+    setParsedProfileCount(profiles.length);
+    onMaterialProfilesChange?.(profiles);
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lensiq:uploaded-materials', { detail: { urls, paths: Array.from(uploadedPathsRef.current.values()), profiles } }));
   };
   useEffect(() => {
     const clearMaterials = () => {
       uploadedUrlsRef.current.clear();
       uploadedPathsRef.current.clear();
-      uploadFolderRef.current = null;
+      materialProfilesRef.current.clear();
+      setParsedProfileCount(0);
       onFilesChange([]);
       onUploadedFileUrlsChange?.([]);
+      onMaterialProfilesChange?.([]);
     };
     window.addEventListener('lensiq:clear-uploaded-materials', clearMaterials);
     return () => window.removeEventListener('lensiq:clear-uploaded-materials', clearMaterials);
-  }, [onFilesChange, onUploadedFileUrlsChange]);
+  }, [onFilesChange, onMaterialProfilesChange, onUploadedFileUrlsChange]);
 
   const addFiles = async (incomingFiles: File[]) => {
     setError('');
     const legacyWordFiles = new Set<File>();
+    const detectedExtensions = new Map<File, 'docx' | 'pptx'>();
     const fileKinds = await Promise.all(incomingFiles.map(async (file) => {
-      const isLegacyDoc = isLegacyWordDocument(file.name, file.type) || (
-        !isSupportedLectureFile(file.name, file.type) && await hasLegacyWordSignature(file)
-      );
+      const isLegacyDoc = isLegacyWordDocument(file.name, file.type) || (!isSupportedLectureFile(file.name, file.type) && await hasLegacyWordSignature(file));
+      let accepted = isSupportedLectureFile(file.name, file.type) || isLegacyDoc;
+      if (!accepted && file.size >= 4) {
+        const header = new Uint8Array(await file.slice(0, 4).arrayBuffer());
+        if (header[0] === 0x50 && header[1] === 0x4b) {
+          try {
+            const zip = await JSZip.loadAsync(file);
+            const names = Object.keys(zip.files);
+            if (names.includes('word/document.xml')) { accepted = true; detectedExtensions.set(file, 'docx'); }
+            else if (names.includes('ppt/presentation.xml')) { accepted = true; detectedExtensions.set(file, 'pptx'); }
+          } catch { accepted = false; }
+        }
+      }
       if (isLegacyDoc) legacyWordFiles.add(file);
-      return { file, accepted: isSupportedLectureFile(file.name, file.type) || isLegacyDoc };
+      return { file, accepted };
     }));
     const invalidFiles = fileKinds.filter(({ accepted }) => !accepted).map(({ file }) => file);
     const validFiles = fileKinds.filter(({ accepted }) => accepted).map(({ file }) => file);
@@ -105,42 +126,24 @@ export default function PreClassSetup({
     const uploadedFiles: File[] = [];
     try {
       if (typeof window === 'undefined') throw new Error('File uploads are only available in the browser.');
-      const { createClient } = await import('@/lib/supabase/client');
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Sign in before uploading Live Class material.');
-      const uploadFolder = uploadFolderRef.current ?? `class_${Date.now()}_${window.crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
-      uploadFolderRef.current = uploadFolder;
       for (const [index, file] of newFiles.entries()) {
-        const sourceMimeType = legacyWordFiles.has(file) ? 'application/msword' : file.type;
+        const detectedExtension = detectedExtensions.get(file);
+        const sourceMimeType = legacyWordFiles.has(file)
+          ? 'application/msword'
+          : detectedExtension === 'docx'
+            ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            : detectedExtension === 'pptx'
+              ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+              : file.type;
         const uploadName = normalizeLectureFileName(file.name, sourceMimeType);
-        const safeName = uploadName.replace(/[^a-zA-Z0-9._-]/g, '_');
-        if (legacyWordFiles.has(file)) {
-          const formData = new FormData();
-          formData.append('file', file, uploadName);
-          const response = await fetch('/api/voice/materials', { method: 'POST', body: formData });
-          const result = await response.json().catch(() => ({}));
-          if (!response.ok || !result.signedUrl || !result.path) {
-            throw new Error(result.error || `Unable to extract ${file.name} for Live Class.`);
-          }
-          uploadedUrlsRef.current.set(fileKey(file), result.signedUrl);
-          uploadedPathsRef.current.set(fileKey(file), result.path);
-          uploadedFiles.push(file);
-          setUploadProgress(Math.round(((index + 1) / newFiles.length) * 100));
-          continue;
-        }
-        const filePath = `${user.id}/${uploadFolder}/${safeName}`;
-        const contentType = normalizeLectureMimeType(uploadName, file.type);
-        const { error: uploadError } = await supabase.storage
-          .from('ephemeral_class_materials')
-          .upload(filePath, file, { contentType, upsert: false });
-        if (uploadError) throw new Error(`Unable to upload ${file.name}: ${uploadError.message}`);
-        const { data: signedData, error: signedError } = await supabase.storage
-          .from('ephemeral_class_materials')
-          .createSignedUrl(filePath, 60 * 60);
-        if (signedError || !signedData?.signedUrl) throw new Error(`Unable to authorize ${file.name} for Live Class.`);
-        uploadedUrlsRef.current.set(fileKey(file), signedData.signedUrl);
-        uploadedPathsRef.current.set(fileKey(file), filePath);
+        const formData = new FormData();
+        formData.append('file', file, uploadName);
+        const response = await fetch('/api/voice/materials', { method: 'POST', body: formData });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.signedUrl || !result.path) throw new Error(result.error || `Unable to parse ${file.name} for Live Class.`);
+        uploadedUrlsRef.current.set(fileKey(file), result.signedUrl);
+        uploadedPathsRef.current.set(fileKey(file), result.path);
+        if (result.materialProfile) materialProfilesRef.current.set(fileKey(file), result.materialProfile as MaterialProfile);
         uploadedFiles.push(file);
         setUploadProgress(Math.round(((index + 1) / newFiles.length) * 100));
       }
@@ -200,6 +203,8 @@ export default function PreClassSetup({
       </div>
 
       {error && <p role="alert" className="mt-3 w-full break-words rounded-lg border border-rose-300/20 bg-rose-500/[0.09] px-3 py-2 text-xs font-bold leading-5 text-rose-200">{error}</p>}
+
+      {parsedProfileCount > 0 && <p className="mt-3 rounded-xl border border-emerald-300/15 bg-emerald-400/[0.07] px-3 py-2 text-xs font-semibold leading-5 text-emerald-100">Parsed and ready for teaching. If the uploaded subject differs from the course toggle, LenxiQ follows the material for this class and explains the context switch.</p>}
 
       {files.length > 0 && (
         <ul className="mt-3 w-full space-y-2">
