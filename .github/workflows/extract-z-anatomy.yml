@@ -170,8 +170,8 @@ jobs:
           set -Eeuo pipefail
           mapfile -d '' models < <(find "$OUTPUT_DIR" -type f -name '*.glb' -print0 | sort -z)
           echo "Found ${#models[@]} GLB models before Draco compression"
-          if [ "${#models[@]}" -ne 22 ]; then
-            echo "::error::Expected 22 GLB models (16 anatomy, including the verified HRA kidney, plus 6 schematics), found ${#models[@]}"
+          if [ "${#models[@]}" -ne 21 ]; then
+            echo "::error::Expected 21 GLB models (15 anatomy, excluding skeletal system, plus 6 schematics), found ${#models[@]}"
             find "$OUTPUT_DIR" -type f -printf '%P\n' | sort
             exit 1
           fi
@@ -250,6 +250,17 @@ jobs:
             --header "x-upsert: true" \
             --data-binary "@$OUTPUT_DIR/manifest.json" \
             "${SUPABASE_URL%/}/storage/v1/object/$SUPABASE_BUCKET/manifest.json"
+
+      - name: Remove excluded skeletal placeholder
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            --request DELETE \
+            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            "${SUPABASE_URL%/}/storage/v1/object/$SUPABASE_BUCKET/systems/Skeletal_System.glb"
+          echo "Removed excluded skeletal system asset from $SUPABASE_BUCKET."
 
       - name: Save validated assets as a short-lived workflow artifact
         uses: actions/upload-artifact@v4

@@ -13,7 +13,6 @@ export const LIVE_CLASS_MODEL_ASSETS = {
   liver: `${assetRoot}/organs/Liver.glb`,
   kidneys: `${assetRoot}/organs/Kidneys.glb`,
   integumentarySystem: `${assetRoot}/systems/Integumentary_System.glb`,
-  skeletalSystem: `${assetRoot}/systems/Skeletal_System.glb`,
   muscularSystem: `${assetRoot}/systems/Muscular_System.glb`,
   nervousSystem: `${assetRoot}/systems/Nervous_System.glb`,
   endocrineSystem: `${assetRoot}/systems/Endocrine_System.glb`,
@@ -79,7 +78,6 @@ const MODEL_LABELS: Record<string, string> = {
   [LIVE_CLASS_MODEL_ASSETS.liver]: 'Liver',
   [LIVE_CLASS_MODEL_ASSETS.kidneys]: 'Kidney, Male, Right',
   [LIVE_CLASS_MODEL_ASSETS.integumentarySystem]: 'Integumentary system',
-  [LIVE_CLASS_MODEL_ASSETS.skeletalSystem]: 'Skeletal system',
   [LIVE_CLASS_MODEL_ASSETS.muscularSystem]: 'Muscular system',
   [LIVE_CLASS_MODEL_ASSETS.nervousSystem]: 'Nervous system',
   [LIVE_CLASS_MODEL_ASSETS.endocrineSystem]: 'Endocrine system',
@@ -302,7 +300,6 @@ export function inferLiveClassVisual(speech: string, courseName: string): Visual
 
   const systems: Array<[keyof typeof LIVE_CLASS_MODEL_ASSETS, RegExp]> = [
     ['integumentarySystem', /\b(integument(?:ary)?|skin system|epidermis|dermis|cutaneous|hair follicle|skin appendage)\b/i],
-    ['skeletalSystem', /\b(skeletal system|skeleton|osteology|bone tissue|joint anatomy|axial skeleton|appendicular skeleton)\b/i],
     ['muscularSystem', /\b(muscular system|skeletal muscle|myology|muscle group|muscle anatomy)\b/i],
     ['nervousSystem', /\b(nervous system|spinal cord|peripheral nerve|autonomic nervous system|neuroanatomy)\b/i],
     ['endocrineSystem', /\b(endocrine system|endocrine gland|hormone|pituitary|adrenal gland|thyroid gland|pancreatic islet)\b/i],

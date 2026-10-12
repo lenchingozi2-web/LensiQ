@@ -17,7 +17,6 @@ import bpy
 
 SYSTEMS = {
     "Integumentary_System": ("integument", "skin", "cutaneous"),
-    "Skeletal_System": ("skeletal", "skeleton", "bone", "bones"),
     "Muscular_System": ("muscular", "muscle", "muscles"),
     "Nervous_System": ("nervous", "brain", "spinal cord", "nerve"),
     "Endocrine_System": ("endocrine",),

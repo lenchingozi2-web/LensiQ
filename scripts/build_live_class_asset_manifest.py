@@ -27,7 +27,6 @@ ANATOMY_LICENSE = {
 
 ANATOMY_LABELS = {
     "Integumentary_System": "Integumentary system",
-    "Skeletal_System": "Skeletal system",
     "Muscular_System": "Muscular system",
     "Nervous_System": "Nervous system",
     "Endocrine_System": "Endocrine system",
@@ -103,7 +102,7 @@ PHARMACOLOGY_ASSETS = {
 
 EXPECTED_ANATOMY = [
     *(f"systems/{name}.glb" for name in (
-        "Integumentary_System", "Skeletal_System", "Muscular_System", "Nervous_System",
+        "Integumentary_System", "Muscular_System", "Nervous_System",
         "Endocrine_System", "Cardiovascular_System", "Lymphatic_System", "Respiratory_System",
         "Digestive_System", "Urinary_System", "Reproductive_System",
     )),

@@ -53,8 +53,10 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor }: M
   const { scene: sourceScene } = useGLTF(url);
   const scene = useMemo(() => {
     const clonedScene = sourceScene.clone(true);
+    let meshCount = 0;
     clonedScene.traverse((child) => {
       if (!(child instanceof THREE.Mesh)) return;
+      meshCount += 1;
       const cloneMaterial = (material: THREE.Material) => {
         const clonedMaterial = material.clone();
         clonedMaterial.side = THREE.DoubleSide;
@@ -65,6 +67,7 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor }: M
         ? child.material.map(cloneMaterial)
         : cloneMaterial(child.material);
     });
+    if (meshCount === 0) throw new Error('The medical model contains no renderable geometry.');
 
     const normalizedScene = new THREE.Group();
     normalizedScene.name = 'LiveClassMedicalModel';
