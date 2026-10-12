@@ -61,7 +61,7 @@ function renderAttachments(attachments: TeachingContext['attachments']) {
     const status = attachment.extraction_status || 'unknown';
     const text = attachment.extracted_text?.trim();
     if (!text) {
-      return `${index + 1}. FILE: ${attachment.file_name} (${attachment.mime_type})\n   EXTRACTION STATUS: ${status}\n   No readable text was extracted. Do not pretend to have seen slide content that is not present in the extracted evidence. Explain that image-only or unsupported content may require the learner to paste the relevant text or upload a text-readable PDF/PPTX/DOCX.`;
+      return `${index + 1}. FILE: ${attachment.file_name} (${attachment.mime_type})\n   EXTRACTION STATUS: ${status}\n   No readable text was extracted. Do not pretend to have seen slide content that is not present in the extracted evidence. Explain that image-only or unsupported content may require the learner to paste the relevant text or upload a text-readable PDF/DOC/DOCX/PPTX.`;
     }
     return `${index + 1}. FILE: ${attachment.file_name} (${attachment.mime_type})\n   EXTRACTION STATUS: ${status}\n   EXTRACTED SLIDE/DOCUMENT TEXT:\n${text}`;
   }).join('\n\n');

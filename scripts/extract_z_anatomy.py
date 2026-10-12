@@ -1,8 +1,7 @@
-"""Export system and organ GLBs from the Z-Anatomy Blender template.
+"""Export validated system and organ GLBs from the Z-Anatomy Blender source.
 
-The source is a Blender application-template ZIP. This script deliberately
-matches both collection paths and object names because template releases have
-used both naming schemes.
+The exporter intentionally refuses the small application-template Startup.blend:
+only the named Z-Anatomy source archive contains the anatomy dataset.
 """
 
 from __future__ import annotations
@@ -10,11 +9,11 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import struct
 import sys
 from pathlib import Path
 
 import bpy
-
 
 SYSTEMS = {
     "Integumentary_System": ("integument", "skin", "cutaneous"),
@@ -35,7 +34,6 @@ ORGANS = {
     "Brain": ("brain", "encephalon"),
     "Liver": ("liver", "hepatic"),
     "Lungs": ("lung", "lungs", "pulmonary"),
-    "Kidneys": ("kidney", "kidneys", "renal"),
 }
 
 
@@ -45,16 +43,14 @@ def normalize(value: str) -> str:
 
 def source_blend(source_root: Path) -> Path:
     candidates = sorted(source_root.rglob("*.blend"))
-    if not candidates:
-        raise RuntimeError(f"No .blend file found below {source_root}")
-    if len(candidates) > 1:
-        preferred = [path for path in candidates if "z-anatomy" in path.name.casefold()]
-        candidates = preferred or candidates
-    return candidates[0]
-
-
-def mesh_objects() -> list[bpy.types.Object]:
-    return [obj for obj in bpy.data.objects if obj.type == "MESH"]
+    preferred = [path for path in candidates if "z-anatomy" in path.name.casefold()]
+    if not preferred:
+        names = ", ".join(path.name for path in candidates[:8]) or "none"
+        raise RuntimeError(
+            "Refusing to export the application-template Startup.blend. "
+            f"Expected the full Z-Anatomy source blend under {source_root}; found: {names}"
+        )
+    return preferred[0]
 
 
 def collection_parent_map() -> dict[int, bpy.types.Collection]:
@@ -65,9 +61,8 @@ def collection_parent_map() -> dict[int, bpy.types.Collection]:
     return parent_by_child
 
 
-def searchable_name(obj: bpy.types.Object) -> str:
+def searchable_name(obj: bpy.types.Object, parent_by_child: dict[int, bpy.types.Collection]) -> str:
     names = [obj.name]
-    parent_by_child = collection_parent_map()
     collection = obj.users_collection[0] if obj.users_collection else None
     visited: set[int] = set()
     while collection:
@@ -80,42 +75,90 @@ def searchable_name(obj: bpy.types.Object) -> str:
     return normalize(" ".join(names))
 
 
-def objects_for_keywords(keywords: tuple[str, ...]) -> list[bpy.types.Object]:
+def objects_for_keywords(
+    objects: list[bpy.types.Object],
+    names_by_object: dict[int, str],
+    keywords: tuple[str, ...],
+    label: str,
+) -> list[bpy.types.Object]:
     normalized_keywords = tuple(normalize(keyword) for keyword in keywords)
-    return [
-        obj for obj in mesh_objects()
-        if any(keyword in searchable_name(obj) for keyword in normalized_keywords)
+    matches = [
+        obj for obj in objects
+        if any(keyword in names_by_object[obj.as_pointer()] for keyword in normalized_keywords)
     ]
-
-
-def join_for_export(objects: list[bpy.types.Object], label: str) -> bpy.types.Object:
-    if not objects:
+    if not matches:
         raise RuntimeError(f"No mesh objects matched {label}")
-    copies = []
+    return matches
+
+
+def validate_glb(path: Path) -> dict[str, int]:
+    with path.open("rb") as stream:
+        header = stream.read(12)
+        if len(header) != 12:
+            raise RuntimeError(f"Exported GLB is truncated: {path}")
+        magic, version, declared_length = struct.unpack("<4sII", header)
+        if magic != b"glTF" or version != 2 or declared_length != path.stat().st_size:
+            raise RuntimeError(f"Exported GLB has an invalid GLB 2.0 header: {path}")
+
+        document = None
+        while True:
+            chunk_header = stream.read(8)
+            if not chunk_header:
+                break
+            if len(chunk_header) != 8:
+                raise RuntimeError(f"Exported GLB has a truncated chunk header: {path}")
+            chunk_length, chunk_type = struct.unpack("<II", chunk_header)
+            chunk_data = stream.read(chunk_length)
+            if len(chunk_data) != chunk_length:
+                raise RuntimeError(f"Exported GLB has a truncated chunk: {path}")
+            if chunk_type == 0x4E4F534A:
+                document = json.loads(chunk_data.decode("utf-8").rstrip(" \t\r\n\0"))
+
+    if not document:
+        raise RuntimeError(f"Exported GLB has no JSON chunk: {path}")
+    meshes = document.get("meshes", [])
+    primitives = [primitive for mesh in meshes for primitive in mesh.get("primitives", [])]
+    accessors = document.get("accessors", [])
+    position_accessors = [
+        accessors[primitive["attributes"]["POSITION"]]
+        for primitive in primitives
+        if "POSITION" in primitive.get("attributes", {})
+        and primitive["attributes"]["POSITION"] < len(accessors)
+    ]
+    vertex_count = sum(int(accessor.get("count", 0)) for accessor in position_accessors)
+    if not meshes or not primitives or vertex_count <= 0:
+        raise RuntimeError(
+            f"Refusing empty model {path}: meshes={len(meshes)}, "
+            f"primitives={len(primitives)}, vertices={vertex_count}"
+        )
+    return {
+        "meshes": len(meshes),
+        "nodes": len(document.get("nodes", [])),
+        "primitives": len(primitives),
+        "vertices": vertex_count,
+    }
+
+
+def export(objects: list[bpy.types.Object], output: Path, label: str) -> dict[str, int]:
+    copies: list[bpy.types.Object] = []
     export_collection = bpy.context.scene.collection
     for obj in objects:
         duplicate = obj.copy()
         duplicate.data = obj.data.copy()
+        duplicate.name = obj.name
+        duplicate.parent = None
         duplicate.hide_set(False)
         duplicate.hide_viewport = False
         duplicate.hide_render = False
         export_collection.objects.link(duplicate)
+        duplicate.matrix_world = obj.matrix_world.copy()
         copies.append(duplicate)
+
     bpy.ops.object.select_all(action="DESELECT")
     for obj in copies:
         obj.select_set(True)
     bpy.context.view_layer.objects.active = copies[0]
-    bpy.ops.object.join()
-    joined = bpy.context.view_layer.objects.active
-    joined.name = label
-    return joined
-
-
-def export(objects: list[bpy.types.Object], output: Path, label: str) -> None:
-    joined = join_for_export(objects, label)
-    bpy.ops.object.select_all(action="DESELECT")
-    joined.select_set(True)
-    bpy.context.view_layer.objects.active = joined
+    bpy.context.view_layer.update()
     output.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.export_scene.gltf(
         filepath=str(output),
@@ -123,8 +166,16 @@ def export(objects: list[bpy.types.Object], output: Path, label: str) -> None:
         use_selection=True,
         export_apply=True,
         export_materials="EXPORT",
+        export_draco_mesh_compression_enable=False,
     )
-    bpy.data.objects.remove(joined, do_unlink=True)
+    for duplicate in copies:
+        mesh_data = duplicate.data
+        bpy.data.objects.remove(duplicate, do_unlink=True)
+        if mesh_data.users == 0:
+            bpy.data.meshes.remove(mesh_data)
+    stats = validate_glb(output)
+    print(f"Validated {label} / {output.name}: {output.stat().st_size} bytes, {stats}", flush=True)
+    return stats
 
 
 def parse_args() -> argparse.Namespace:
@@ -139,28 +190,42 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     blend = source_blend(args.source_root)
+    print(f"Opening verified anatomy source: {blend}", flush=True)
     bpy.ops.wm.open_mainfile(filepath=str(blend))
 
-    exported: list[str] = []
-    for label, keywords in SYSTEMS.items():
-        objects = objects_for_keywords(keywords)
-        export(objects, args.output_dir / "systems" / f"{label}.glb", label)
-        exported.append(f"systems/{label}.glb")
-
-    for label, keywords in ORGANS.items():
-        objects = objects_for_keywords(keywords)
-        export(objects, args.output_dir / "organs" / f"{label}.glb", label)
-        exported.append(f"organs/{label}.glb")
+    mesh_objects = [obj for obj in bpy.data.objects if obj.type == "MESH"]
+    parent_by_child = collection_parent_map()
+    names_by_object = {
+        obj.as_pointer(): searchable_name(obj, parent_by_child)
+        for obj in mesh_objects
+    }
+    stats_by_path: dict[str, dict[str, int]] = {}
+    groups = [("systems", SYSTEMS), ("organs", ORGANS)]
+    for folder, group in groups:
+        for label, keywords in group.items():
+            matches = objects_for_keywords(mesh_objects, names_by_object, keywords, label)
+            relative_path = f"{folder}/{label}.glb"
+            stats_by_path[relative_path] = export(
+                matches, args.output_dir / relative_path, label
+            )
 
     manifest = {
         "source": {
             "zenodo_record": args.source_record,
             "doi": f"10.5281/zenodo.{args.source_record}",
-            "license": "CC BY 4.0",
-            "attribution": "BodyParts3D; Z-Anatomy - the libre 3D atlas of anatomy",
+            "record_license": "CC BY 4.0",
+            "embedded_source_license": "CC BY-SA 2.1 Japan",
+            "attribution": (
+                "BodyParts3D (Database Center for Life Science); "
+                "Z-Anatomy / Gauthier Kervyn. Derived GLB exports; see the "
+                "source archive's Licence.txt and Zenodo record."
+            ),
         },
-        "models": exported,
-        "draco_compressed": True,
+        "models": [
+            {"path": path, **stats}
+            for path, stats in sorted(stats_by_path.items())
+        ],
+        "draco_compressed": False,
     }
     (args.output_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
