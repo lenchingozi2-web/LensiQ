@@ -17,7 +17,9 @@ env:
   Z_ANATOMY_ARCHIVE_MD5: "231a7c2f3b118ce250404a968fbd0525"
   OUTPUT_DIR: "${{ github.workspace }}/artifacts/live-class"
   SUPABASE_BUCKET: "medical-models"
-  PROJECT_STORAGE_CAP_BYTES: "250000000"
+  # Supabase currently reports ~462 MB across all project buckets; keep a
+  # 500 MB safety ceiling while retaining the 48 MB per-file guardrail.
+  PROJECT_STORAGE_CAP_BYTES: "500000000"
   MAX_MODEL_FILE_BYTES: "48000000"
 
 jobs:
@@ -182,7 +184,7 @@ jobs:
           set -euo pipefail
           python3 scripts/build_live_class_asset_manifest.py \
             --asset-dir "$OUTPUT_DIR" \
-            --max-total-bytes 250000000 \
+            --max-total-bytes 500000000 \
             --max-file-bytes "$MAX_MODEL_FILE_BYTES"
           du -ah "$OUTPUT_DIR" | sort -h | tail -30
 
