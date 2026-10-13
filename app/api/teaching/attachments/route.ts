@@ -1,25 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
 import { extractLectureText } from '../../../../lib/curriculum/extract-text';
+import { isSupportedLectureFile, normalizeLectureMimeType } from '@/lib/curriculum/file-types';
 
 const STORAGE_BUCKET = 'teaching-attachments';
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_STORAGE_BYTES = 100 * 1024 * 1024;
-const ALLOWED_TYPES = new Set([
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'text/plain',
-]);
-const PARSEABLE_EXTENSIONS = new Set(['pdf', 'pptx', 'docx', 'txt']);
 
 function safeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 160) || 'attachment';
-}
-
-function isSupported(fileName: string, mimeType: string) {
-  const extension = fileName.toLowerCase().split('.').pop() ?? '';
-  return ALLOWED_TYPES.has(mimeType) || PARSEABLE_EXTENSIONS.has(extension);
 }
 
 export async function GET() {
@@ -63,7 +52,8 @@ export async function POST(req: Request) {
 
   if (!conversationId || (!file && !storagePath)) return NextResponse.json({ error: 'A conversation and lecture file are required.' }, { status: 400 });
   if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_FILE_SIZE) return NextResponse.json({ error: 'Lecture files must be between 1 byte and 20 MB.' }, { status: 413 });
-  if (!fileName || !isSupported(fileName, mimeType)) return NextResponse.json({ error: 'Use a PDF, PPTX, DOCX, or plain-text lecture file.' }, { status: 415 });
+  if (!fileName || !isSupportedLectureFile(fileName, mimeType)) return NextResponse.json({ error: 'Use a PDF, DOC, DOCX, PPTX, or plain-text lecture file.' }, { status: 415 });
+  mimeType = normalizeLectureMimeType(fileName, mimeType);
 
   const { data: conversation } = await supabase
     .from('teaching_conversations')

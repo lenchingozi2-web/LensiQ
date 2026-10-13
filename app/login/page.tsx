@@ -1,4 +1,5 @@
 import { revalidatePath } from 'next/cache';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 import { getOrCreateProfile } from '../../lib/profile';
@@ -8,14 +9,14 @@ function safeNextPath(value: string | null | undefined) {
   if (!value?.startsWith('/') || value.startsWith('//')) return '/dashboard';
 
   const pathname = new URL(value, 'http://localhost').pathname;
-  if (pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/')) {
+  if (pathname === '/' || pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/')) {
     return '/dashboard';
   }
 
   return value;
 }
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; message?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; message?: string; error?: string }> }) {
   const params = await searchParams;
   const next = safeNextPath(params.next);
   const supabase = await createClient();
@@ -25,7 +26,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
   const login = async (formData: FormData) => {
     'use server'
-    const email = formData.get('email') as string;
+    const email = String(formData.get('email') ?? '').trim().toLowerCase();
     const password = formData.get('password') as string;
     const nextPath = safeNextPath(formData.get('next') as string | null);
     const supabase = await createClient();
@@ -50,7 +51,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
   const signup = async (formData: FormData) => {
     'use server'
-    const email = formData.get('email') as string;
+    const email = String(formData.get('email') ?? '').trim().toLowerCase();
     const password = formData.get('password') as string;
     const nextPath = safeNextPath(formData.get('next') as string | null);
     const supabase = await createClient(); 
@@ -78,6 +79,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <form className="flex-1 flex flex-col w-full justify-center gap-2 text-slate-800">
         <input type="hidden" name="next" value={next} />
         <h1 className="text-3xl font-bold mb-6 text-center text-[#0B1220]">LenxiQ AI access</h1>
+        {(params.message || params.error) && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-800">{params.error || (params.message === 'Could not authenticate user' ? 'Email or password did not match. Try again, use Google, or reset your password.' : 'Sign-in could not be completed. Please retry, use Google, or reset your password.')}</p>}
         
         <label className="text-sm font-semibold" htmlFor="email">Email Address</label>
         <input 
@@ -96,6 +98,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           placeholder="••••••••" 
           required 
         />
+        <Link href="/forgot-password" className="-mt-5 mb-4 self-end text-sm font-bold text-[#9a5d00] hover:underline">Forgot password?</Link>
         
         <button 
           formAction={login} 

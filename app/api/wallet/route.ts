@@ -11,7 +11,7 @@ export async function GET() {
 
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('role, plan, plan_expires_at, wallet_reset_at, voice_minutes_balance, text_teaching_balance, storage_limit_bytes')
+    .select('role, plan, plan_expires_at, wallet_reset_at, voice_minutes_balance, text_teaching_balance, storage_limit_bytes, free_live_class_minutes_balance, free_live_class_reset_at')
     .eq('id', user.id)
     .single();
   if (error || !profile) return NextResponse.json({ error: 'Unable to load wallet.' }, { status: 500 });
@@ -24,6 +24,7 @@ export async function GET() {
     .from('billing_events')
     .select('id,event_type,units,revenue_amount_ngn,created_at,metadata')
     .eq('user_id', user.id)
+    .neq('event_type', 'topup_payment')
     .order('created_at', { ascending: false })
     .limit(100);
   if (eventsError) return NextResponse.json({ error: 'Unable to load wallet history.' }, { status: 503 });
@@ -38,6 +39,8 @@ export async function GET() {
     isPremium: activePremium && profile.role !== 'admin',
     planExpiresAt: profile.plan_expires_at,
     walletResetAt: profile.wallet_reset_at,
+    freeLiveClassMinutes: Number(profile.free_live_class_minutes_balance ?? 0),
+    freeLiveClassResetAt: profile.free_live_class_reset_at,
     rollover: false,
     voiceMinutes,
     textTeachingCredits: textCredits,

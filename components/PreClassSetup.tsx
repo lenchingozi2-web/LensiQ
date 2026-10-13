@@ -1,22 +1,19 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
+import JSZip from 'jszip';
+import { isLegacyWordDocument, isSupportedLectureFile, LECTURE_FILE_ACCEPT, normalizeLectureFileName } from '@/lib/curriculum/file-types';
+import type { MaterialProfile } from '@/lib/curriculum/material-profile';
 
 const MAX_FILES = 20;
 const MAX_TOTAL_BYTES = 50 * 1024 * 1024;
-const ACCEPTED_EXTENSIONS = ['.pdf', '.docx', '.pptx', '.txt'];
-const ACCEPTED_TYPES = new Set([
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'text/plain',
-]);
 
 type PreClassSetupProps = {
   files: File[];
   onFilesChange: (files: File[]) => void;
   onUploadedFileUrlsChange?: (urls: string[]) => void;
+  onMaterialProfilesChange?: (profiles: MaterialProfile[]) => void;
   focusText: string;
   onFocusTextChange: (value: string) => void;
 };
@@ -25,9 +22,10 @@ function formatMegabytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(bytes === 0 ? 0 : 1)} MB`;
 }
 
-function isAcceptedFile(file: File) {
-  const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-  return ACCEPTED_TYPES.has(file.type) || ACCEPTED_EXTENSIONS.includes(extension);
+async function hasLegacyWordSignature(file: File) {
+  const header = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  const compoundFileSignature = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+  return header.length === compoundFileSignature.length && compoundFileSignature.every((byte, index) => header[index] === byte);
 }
 
 function fileKey(file: File) {
@@ -38,29 +36,68 @@ export default function PreClassSetup({
   files,
   onFilesChange,
   onUploadedFileUrlsChange,
+  onMaterialProfilesChange,
   focusText,
   onFocusTextChange,
 }: PreClassSetupProps) {
   const [error, setError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [parsedProfileCount, setParsedProfileCount] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadedUrlsRef = useRef(new Map<string, string>());
+  const uploadedPathsRef = useRef(new Map<string, string>());
+  const materialProfilesRef = useRef(new Map<string, MaterialProfile>());
   const totalBytes = files.reduce((total, file) => total + file.size, 0);
 
   const publishUploadedUrls = () => {
     const urls = Array.from(uploadedUrlsRef.current.values());
     onUploadedFileUrlsChange?.(urls);
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lensiq:uploaded-materials', { detail: urls }));
+    const profiles = Array.from(materialProfilesRef.current.values());
+    setParsedProfileCount(profiles.length);
+    onMaterialProfilesChange?.(profiles);
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lensiq:uploaded-materials', { detail: { urls, paths: Array.from(uploadedPathsRef.current.values()), profiles } }));
   };
+  useEffect(() => {
+    const clearMaterials = () => {
+      uploadedUrlsRef.current.clear();
+      uploadedPathsRef.current.clear();
+      materialProfilesRef.current.clear();
+      setParsedProfileCount(0);
+      onFilesChange([]);
+      onUploadedFileUrlsChange?.([]);
+      onMaterialProfilesChange?.([]);
+    };
+    window.addEventListener('lensiq:clear-uploaded-materials', clearMaterials);
+    return () => window.removeEventListener('lensiq:clear-uploaded-materials', clearMaterials);
+  }, [onFilesChange, onMaterialProfilesChange, onUploadedFileUrlsChange]);
 
   const addFiles = async (incomingFiles: File[]) => {
     setError('');
-    const invalidFiles = incomingFiles.filter((file) => !isAcceptedFile(file));
-    const validFiles = incomingFiles.filter(isAcceptedFile);
+    const legacyWordFiles = new Set<File>();
+    const detectedExtensions = new Map<File, 'docx' | 'pptx'>();
+    const fileKinds = await Promise.all(incomingFiles.map(async (file) => {
+      const isLegacyDoc = isLegacyWordDocument(file.name, file.type) || (!isSupportedLectureFile(file.name, file.type) && await hasLegacyWordSignature(file));
+      let accepted = isSupportedLectureFile(file.name, file.type) || isLegacyDoc;
+      if (!accepted && file.size >= 4) {
+        const header = new Uint8Array(await file.slice(0, 4).arrayBuffer());
+        if (header[0] === 0x50 && header[1] === 0x4b) {
+          try {
+            const zip = await JSZip.loadAsync(file);
+            const names = Object.keys(zip.files);
+            if (names.includes('word/document.xml')) { accepted = true; detectedExtensions.set(file, 'docx'); }
+            else if (names.includes('ppt/presentation.xml')) { accepted = true; detectedExtensions.set(file, 'pptx'); }
+          } catch { accepted = false; }
+        }
+      }
+      if (isLegacyDoc) legacyWordFiles.add(file);
+      return { file, accepted };
+    }));
+    const invalidFiles = fileKinds.filter(({ accepted }) => !accepted).map(({ file }) => file);
+    const validFiles = fileKinds.filter(({ accepted }) => accepted).map(({ file }) => file);
 
     if (invalidFiles.length > 0) {
-      setError(`Unsupported file${invalidFiles.length === 1 ? '' : 's'}: ${invalidFiles.map((file) => file.name).join(', ')}. Use PDF, DOCX, PPTX, or TXT.`);
+      setError(`Unsupported file${invalidFiles.length === 1 ? '' : 's'}: ${invalidFiles.map((file) => file.name).join(', ')}. Use PDF, DOC, DOCX, PPTX, or TXT.`);
     }
     if (validFiles.length === 0) return;
 
@@ -77,23 +114,39 @@ export default function PreClassSetup({
       setError(`Files not added. The combined file size cannot exceed 50 MB (this would use ${formatMegabytes(nextBytes)}).`);
       return;
     }
+    const oversizedLegacyDoc = newFiles.find((file) => legacyWordFiles.has(file) && file.size > 20 * 1024 * 1024);
+    if (oversizedLegacyDoc) {
+      setError(`${oversizedLegacyDoc.name} is larger than the 20 MB conversion limit for legacy DOC files. Save it as DOCX or PDF and try again.`);
+      return;
+    }
 
     if (newFiles.length === 0) return;
 
     setUploadProgress(0);
     const uploadedFiles: File[] = [];
     try {
+      if (typeof window === 'undefined') throw new Error('File uploads are only available in the browser.');
       for (const [index, file] of newFiles.entries()) {
-        const body = new FormData();
-        body.append('file', file);
-        const response = await fetch('/api/voice/materials', { method: 'POST', body });
+        const detectedExtension = detectedExtensions.get(file);
+        const sourceMimeType = legacyWordFiles.has(file)
+          ? 'application/msword'
+          : detectedExtension === 'docx'
+            ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            : detectedExtension === 'pptx'
+              ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+              : file.type;
+        const uploadName = normalizeLectureFileName(file.name, sourceMimeType);
+        const formData = new FormData();
+        formData.append('file', file, uploadName);
+        const response = await fetch('/api/voice/materials', { method: 'POST', body: formData });
         const result = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(result.error || `Unable to upload ${file.name}.`);
-        uploadedUrlsRef.current.set(fileKey(file), result.extractedText || result.path);
+        if (!response.ok || !result.signedUrl || !result.path) throw new Error(result.error || `Unable to parse ${file.name} for Live Class.`);
+        uploadedUrlsRef.current.set(fileKey(file), result.signedUrl);
+        uploadedPathsRef.current.set(fileKey(file), result.path);
+        if (result.materialProfile) materialProfilesRef.current.set(fileKey(file), result.materialProfile as MaterialProfile);
         uploadedFiles.push(file);
         setUploadProgress(Math.round(((index + 1) / newFiles.length) * 100));
       }
-
       onFilesChange([...files, ...uploadedFiles]);
       publishUploadedUrls();
     } catch (uploadError) {
@@ -112,13 +165,13 @@ export default function PreClassSetup({
   };
 
   return (
-    <section className="w-full rounded-2xl border border-[#E4DFD4] bg-[#F8F6F0] px-4 py-4 sm:px-5 sm:py-5">
+    <section className="w-full rounded-2xl border border-white/10 bg-[#101827]/78 px-4 py-4 shadow-[0_24px_72px_rgba(0,0,0,0.34)] backdrop-blur-2xl sm:px-5 sm:py-5">
       <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#9A5D00]">Pre-Class Setup</p>
-          <h2 className="mt-1 text-base font-black text-[#27231D] sm:text-lg">Bring your study material</h2>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#ffd68d]">Pre-Class Setup</p>
+          <h2 className="mt-1 text-base font-black text-white sm:text-lg">Bring your study material</h2>
         </div>
-        <p className="w-full text-xs font-black text-[#8B8578] sm:w-auto">{files.length}/{MAX_FILES} files · {formatMegabytes(totalBytes)} / 50 MB used</p>
+        <p className="w-full text-xs font-bold text-white/50 sm:w-auto">{files.length}/{MAX_FILES} files · {formatMegabytes(totalBytes)} / 50 MB used</p>
       </div>
 
       <div
@@ -129,17 +182,17 @@ export default function PreClassSetup({
         onDragOver={(event) => { event.preventDefault(); setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
-        className={`mt-4 flex min-h-28 w-full items-center justify-center rounded-xl border-2 border-dashed px-4 py-5 text-center transition ${uploadProgress !== null ? 'cursor-wait border-[#E8A23D] bg-[#FFF8E9]' : isDragging ? 'border-[#E8A23D] bg-[#FFF8E9]' : 'border-[#D9D3C5] bg-white hover:border-[#E8A23D]'}`}
+        className={`mt-4 flex min-h-28 w-full items-center justify-center rounded-xl border-2 border-dashed px-4 py-5 text-center transition ${uploadProgress !== null ? 'cursor-wait border-[#E8A23D] bg-[#E8A23D]/10' : isDragging ? 'border-[#E8A23D] bg-[#E8A23D]/10' : 'border-white/15 bg-[#080D16]/70 hover:border-[#E8A23D]/80 hover:bg-white/[0.035]'}`}
       >
         <div className="w-full">
-          <p className="text-sm font-black text-[#514D45]">{uploadProgress === null ? 'Drop lecture files here or browse' : `Uploading... ${uploadProgress}%`}</p>
-          <p className="mt-1 text-xs font-semibold leading-5 text-[#8B8578]">PDF, DOCX, PPTX, and TXT · 50 MB combined maximum</p>
-          {uploadProgress !== null && <div className="mx-auto mt-3 h-2 w-full max-w-sm overflow-hidden rounded-full bg-[#E4DFD4]" aria-hidden="true"><div className="h-full rounded-full bg-[#E8A23D] transition-[width] duration-300" style={{ width: `${uploadProgress}%` }} /></div>}
+          <p className="text-sm font-black text-white/90">{uploadProgress === null ? 'Drop lecture files here or browse' : `Uploading... ${uploadProgress}%`}</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-white/45">PDF, DOC, DOCX, PPTX, and TXT · 50 MB combined maximum</p>
+          {uploadProgress !== null && <div className="mx-auto mt-3 h-2 w-full max-w-sm overflow-hidden rounded-full bg-white/10" aria-hidden="true"><div className="h-full rounded-full bg-[#E8A23D] transition-[width] duration-300" style={{ width: `${uploadProgress}%` }} /></div>}
         </div>
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.docx,.pptx,.txt,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          accept={LECTURE_FILE_ACCEPT}
           multiple
           className="sr-only"
           onChange={(event) => {
@@ -149,28 +202,30 @@ export default function PreClassSetup({
         />
       </div>
 
-      {error && <p role="alert" className="mt-3 w-full rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold leading-5 text-red-800">{error}</p>}
+      {error && <p role="alert" className="mt-3 w-full break-words rounded-lg border border-rose-300/20 bg-rose-500/[0.09] px-3 py-2 text-xs font-bold leading-5 text-rose-200">{error}</p>}
+
+      {parsedProfileCount > 0 && <p className="mt-3 rounded-xl border border-emerald-300/15 bg-emerald-400/[0.07] px-3 py-2 text-xs font-semibold leading-5 text-emerald-100">Parsed and ready for teaching. If the uploaded subject differs from the course toggle, LenxiQ follows the material for this class and explains the context switch.</p>}
 
       {files.length > 0 && (
         <ul className="mt-3 w-full space-y-2">
           {files.map((file) => (
-            <li key={fileKey(file)} className="flex w-full flex-col gap-2 rounded-lg bg-white px-3 py-3 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-              <span className="min-w-0 truncate font-bold text-[#514D45]">{file.name}</span>
-              <span className="shrink-0 font-semibold text-[#8B8578]">{formatMegabytes(file.size)}</span>
-              <button type="button" disabled={uploadProgress !== null} onClick={() => { uploadedUrlsRef.current.delete(fileKey(file)); onFilesChange(files.filter((item) => item !== file)); publishUploadedUrls(); }} className="min-h-11 shrink-0 self-start px-2 text-left font-black text-[#B44134] hover:underline disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto sm:text-right">Remove</button>
+            <li key={fileKey(file)} className="flex w-full flex-col gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-3 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              <span className="min-w-0 truncate font-bold text-white/80">{file.name}</span>
+              <span className="shrink-0 font-semibold text-white/40">{formatMegabytes(file.size)}</span>
+              <button type="button" disabled={uploadProgress !== null} onClick={() => { uploadedUrlsRef.current.delete(fileKey(file)); onFilesChange(files.filter((item) => item !== file)); publishUploadedUrls(); }} className="min-h-11 shrink-0 self-start px-2 text-left font-black text-rose-300 hover:underline disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto sm:text-right">Remove</button>
             </li>
           ))}
         </ul>
       )}
 
-      <label htmlFor="focus-prompt" className="mt-5 block w-full text-xs font-black uppercase tracking-[0.16em] text-[#9A5D00]">Focus Prompt</label>
+      <label htmlFor="focus-prompt" className="mt-5 block w-full text-xs font-black uppercase tracking-[0.18em] text-[#ffd68d]">Focus Prompt</label>
       <textarea
         id="focus-prompt"
         value={focusText}
         onChange={(event) => onFocusTextChange(event.target.value)}
         placeholder="Focus only on the clinical presentations in these slides"
         rows={3}
-        className="mt-2 min-h-24 w-full resize-y rounded-xl border border-[#D9D3C5] bg-white px-4 py-3 text-sm font-medium leading-6 text-[#27231D] outline-none placeholder:text-[#AAA397] focus:border-[#E8A23D]"
+        className="mt-2 min-h-24 w-full resize-y rounded-xl border border-white/12 bg-[#080D16]/75 px-4 py-3 text-sm font-medium leading-6 text-white/90 outline-none placeholder:text-white/35 focus:border-[#E8A23D] focus:ring-2 focus:ring-[#E8A23D]/20"
       />
     </section>
   );

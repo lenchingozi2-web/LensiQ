@@ -50,6 +50,10 @@ export async function POST(req: Request) {
     remainingVoiceMinutes: charge.remaining_voice_minutes ?? null,
     shouldEnd: Boolean(charge.should_end),
     chargedMinutes: charge.charged_minutes ?? 0,
-    message: charge.should_end ? 'Your voice-minute balance has reached zero. The Live Class has ended gracefully.' : null,
+    message: charge.should_end
+      ? charge.reason === 'free_monthly_exhausted'
+        ? 'Your free Live Class allowance has ended for this month. It refreshes next month.'
+        : 'Your Premium Live Class allowance has ended. Minutes refresh on your next monthly billing date.'
+      : null,
   });
 }

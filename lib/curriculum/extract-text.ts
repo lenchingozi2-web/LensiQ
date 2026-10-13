@@ -1,4 +1,6 @@
 import JSZip from 'jszip';
+import { getLectureFileExtension } from '@/lib/curriculum/file-types';
+
 const MAX_EXTRACTED_CHARACTERS = 180_000;
 
 function decodeXml(value: string) {
@@ -27,30 +29,29 @@ async function extractOfficeXml(buffer: Buffer, extension: string) {
   return clampText(parts.join('\n'));
 }
 
+async function extractLegacyWord(buffer: Buffer) {
+  const { default: WordExtractor } = await import('word-extractor');
+  const document = await new WordExtractor().extract(buffer);
+  return clampText([document.getBody(), document.getFootnotes(), document.getEndnotes()].filter(Boolean).join('\n'));
+}
+
 export async function extractLectureText(file: File) {
-  const extension = file.name.toLowerCase().split('.').pop() ?? '';
+  const extension = getLectureFileExtension(file.name, file.type);
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  if (extension === 'pdf' || file.type === 'application/pdf') {
+  if (extension === 'pdf') {
     const pdfModule = await import('pdf-parse/lib/pdf-parse.js');
     const pdfParse = (pdfModule.default ?? pdfModule) as (input: Buffer) => Promise<{ text: string }>;
     const parsed = await pdfParse(buffer);
     return clampText(parsed.text);
   }
 
-  if (extension === 'docx' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    return extractOfficeXml(buffer, 'docx');
-  }
+  if (extension === 'doc') return extractLegacyWord(buffer);
+  if (extension === 'docx') return extractOfficeXml(buffer, 'docx');
+  if (extension === 'pptx') return extractOfficeXml(buffer, 'pptx');
+  if (extension === 'txt' || file.type.toLowerCase().startsWith('text/')) return clampText(buffer.toString('utf8'));
 
-  if (extension === 'pptx' || file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
-    return extractOfficeXml(buffer, 'pptx');
-  }
-
-  if (file.type.startsWith('text/')) {
-    return clampText(buffer.toString('utf8'));
-  }
-
-  throw new Error('This file type cannot be parsed for question search yet. Use PDF, PPTX, DOCX, or text files.');
+  throw new Error('This file type cannot be parsed yet. Use PDF, DOC, DOCX, PPTX, or plain-text files.');
 }
 
 export function chunkExtractedText(text: string, chunkSize = 4500) {

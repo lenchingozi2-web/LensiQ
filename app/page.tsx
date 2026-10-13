@@ -71,8 +71,8 @@ export default function Home() {
               <Link href="/search" className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/10 p-4 hover:bg-white/15">
                 <span><span className="block text-sm font-black">Search a topic</span><span className="mt-1 block text-xs text-slate-300">Find exact question-bank matches</span></span><span className="text-xl text-[#E8A23D]">→</span>
               </Link>
-              <Link href="/voice" className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/10 p-4 hover:bg-white/15">
-                <span><span className="block text-sm font-black">Speak with the tutor</span><span className="mt-1 block text-xs text-slate-300">Start Voice Tutor</span></span><span className="text-xl text-[#E8A23D]">→</span>
+              <Link href="/voice?mode=class" className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/10 p-4 hover:bg-white/15">
+                <span><span className="block text-sm font-black">Speak with the tutor</span><span className="mt-1 block text-xs text-slate-300">Start Live Class</span></span><span className="text-xl text-[#E8A23D]">→</span>
               </Link>
               <Link href="/exam" className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/10 p-4 hover:bg-white/15">
                 <span><span className="block text-sm font-black">Test yourself</span><span className="mt-1 block text-xs text-slate-300">Run an exam-style session</span></span><span className="text-xl text-[#E8A23D]">→</span>

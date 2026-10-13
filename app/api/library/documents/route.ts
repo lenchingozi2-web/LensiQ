@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { extractLectureText } from '@/lib/curriculum/extract-text';
+import { getLectureFileExtension, normalizeLectureMimeType } from '@/lib/curriculum/file-types';
 
 const STORAGE_BUCKET = 'teaching-attachments';
 const MAX_FILES = 20;
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_STORAGE_BYTES = 100 * 1024 * 1024;
+const SUPPORTED_EXTENSIONS = new Set(['pdf', 'doc', 'docx']);
 
 type UploadedDocument = {
   attachmentId: string;
@@ -16,11 +18,12 @@ type UploadedDocument = {
 };
 
 function safeFileName(fileName: string) {
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 160) || 'lecture.pdf';
+  return fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 160) || 'lecture-material';
 }
 
-function isPdf(file: File) {
-  return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+function getSupportedExtension(file: File) {
+  const extension = getLectureFileExtension(file.name, file.type);
+  return SUPPORTED_EXTENSIONS.has(extension) ? extension : '';
 }
 
 export async function POST(request: Request) {
@@ -37,13 +40,20 @@ export async function POST(request: Request) {
     ? String(formData.get('conversationId')).trim()
     : '';
 
-  if (files.length === 0) return NextResponse.json({ error: 'At least one PDF is required.' }, { status: 400 });
-  if (files.length > MAX_FILES) return NextResponse.json({ error: `A batch can contain at most ${MAX_FILES} PDFs.` }, { status: 413 });
+  if (files.length === 0) return NextResponse.json({ error: 'At least one PDF, DOC, or DOCX document is required.' }, { status: 400 });
+  if (files.length > MAX_FILES) return NextResponse.json({ error: `A batch can contain at most ${MAX_FILES} documents.` }, { status: 413 });
 
-  const invalidFile = files.find((file) => !isPdf(file) || file.size <= 0 || file.size > MAX_FILE_SIZE);
-  if (invalidFile) {
+  const unsupportedFile = files.find((file) => !getSupportedExtension(file));
+  if (unsupportedFile) {
     return NextResponse.json({
-      error: `${invalidFile.name} is invalid. Upload non-empty PDF files up to 20 MB each.`,
+      error: `${unsupportedFile.name} is unsupported. Upload PDF, DOC, or DOCX files.`,
+    }, { status: 415 });
+  }
+
+  const oversizedFile = files.find((file) => file.size <= 0 || file.size > MAX_FILE_SIZE);
+  if (oversizedFile) {
+    return NextResponse.json({
+      error: `${oversizedFile.name} is invalid. Upload non-empty PDF, DOC, or DOCX files up to 20 MB each.`,
     }, { status: 413 });
   }
 
@@ -84,12 +94,13 @@ export async function POST(request: Request) {
   const failures: Array<{ fileName: string; error: string }> = [];
 
   for (const file of files) {
+    const contentType = normalizeLectureMimeType(file.name, file.type);
     const storagePath = `${user.id}/library/${conversationId}/${crypto.randomUUID()}-${safeFileName(file.name)}`;
     try {
       const { error: uploadError } = await supabase.storage
         .from(STORAGE_BUCKET)
-        .upload(storagePath, file, { contentType: 'application/pdf', upsert: false });
-      if (uploadError) throw new Error('Unable to upload the PDF.');
+        .upload(storagePath, file, { contentType, upsert: false });
+      if (uploadError) throw new Error('Unable to upload the document.');
 
       let extractedText: string | null = null;
       let extractionStatus: 'complete' | 'empty' | 'failed' = 'failed';
@@ -97,9 +108,9 @@ export async function POST(request: Request) {
       try {
         extractedText = await extractLectureText(file);
         extractionStatus = extractedText.trim() ? 'complete' : 'empty';
-        if (!extractedText.trim()) extractionError = 'No readable text was found in this PDF.';
+        if (!extractedText.trim()) extractionError = 'No readable text was found in this document.';
       } catch (error) {
-        extractionError = error instanceof Error ? error.message.slice(0, 500) : 'PDF extraction failed.';
+        extractionError = error instanceof Error ? error.message.slice(0, 500) : 'Document extraction failed.';
       }
 
       const { data: attachment, error: metadataError } = await supabase
@@ -109,7 +120,7 @@ export async function POST(request: Request) {
           user_id: user.id,
           file_name: file.name,
           storage_path: storagePath,
-          mime_type: 'application/pdf',
+          mime_type: contentType,
           size_bytes: file.size,
           extraction_status: extractionStatus,
           extracted_text: extractedText,
@@ -118,7 +129,7 @@ export async function POST(request: Request) {
         })
         .select('id')
         .single();
-      if (metadataError || !attachment) throw new Error('Unable to save PDF metadata.');
+      if (metadataError || !attachment) throw new Error('Unable to save document metadata.');
 
       uploaded.push({
         attachmentId: attachment.id,
@@ -143,7 +154,7 @@ export async function POST(request: Request) {
     failures,
     chunking: {
       status: 'pending',
-      message: 'PDFs are stored and extracted. Vector chunking and embedding generation are not started yet.',
+      message: 'Documents are stored and extracted. Vector chunking and embedding generation are not started yet.',
     },
   }, { status: failures.length > 0 ? 207 : 202 });
 }

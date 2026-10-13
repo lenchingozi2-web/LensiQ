@@ -102,7 +102,7 @@ export async function POST(request: Request) {
         const message = error instanceof Error ? error.message : 'The lecture file could not be read.';
         return NextResponse.json({ error: message }, { status: 400 });
       }
-      if (!extractedText.trim()) return NextResponse.json({ error: 'The lecture file was uploaded, but no readable text was found. Try an exported PDF/PPTX/DOCX or type a focused term as well.' }, { status: 422 });
+      if (!extractedText.trim()) return NextResponse.json({ error: 'The lecture file was uploaded, but no readable text was found. Try an exported PDF/DOC/DOCX/PPTX or type a focused term as well.' }, { status: 422 });
     }
 
     const documentTerms = extractedText ? extractHighSignalTerms(extractedText) : '';

@@ -1,29 +1,43 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
 
+function siteOrigin(requestUrl: URL) {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+  if (configured) {
+    try {
+      const parsed = new URL(configured);
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return parsed.origin;
+    } catch {
+      // Fall through to the production default or local request origin.
+    }
+  }
+  return process.env.NODE_ENV === 'production' ? 'https://lenxiq.online' : requestUrl.origin;
+}
+
 function safeNextPath(value: string | null) {
-  return value?.startsWith('/') && !value.startsWith('//') ? value : '/dashboard';
+  if (!value?.startsWith('/') || value.startsWith('//')) return '/dashboard';
+  const pathname = new URL(value, 'http://localhost').pathname;
+  return pathname === '/' || pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/') ? '/dashboard' : value;
 }
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
+  const origin = siteOrigin(requestUrl);
   const next = safeNextPath(requestUrl.searchParams.get('next'));
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      // Keep the provider redirect exactly equal to the Supabase allow-listed callback URL.
-      // The destination is selected after the code exchange by the callback route.
-      redirectTo: `${requestUrl.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
       queryParams: { access_type: 'offline', prompt: 'select_account' },
     },
   });
 
   if (error || !data.url) {
     const message = error?.message?.toLowerCase().includes('provider')
-      ? 'Google sign-in is not enabled yet. Please use email and password or try again later.'
+      ? 'Google sign-in is not enabled for LenxiQ yet. Please use email and password or contact the administrator.'
       : 'Google sign-in could not be started. Please try again.';
-    return NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent(message)}`, requestUrl.origin));
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(message)}&next=${encodeURIComponent(next)}`, origin));
   }
 
   return NextResponse.redirect(data.url);
