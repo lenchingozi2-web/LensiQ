@@ -46,7 +46,6 @@ export default function PreClassSetup({
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadedUrlsRef = useRef(new Map<string, string>());
-  const uploadFolderRef = useRef<string | null>(null);
   const totalBytes = files.reduce((total, file) => total + file.size, 0);
 
   const publishUploadedUrls = () => {
@@ -84,19 +83,13 @@ export default function PreClassSetup({
     setUploadProgress(0);
     const uploadedFiles: File[] = [];
     try {
-      if (typeof window === 'undefined') throw new Error('File uploads are only available in the browser.');
-      const { createClient } = await import('@/lib/supabase/client');
-      const supabase = createClient();
-      const uploadFolder = uploadFolderRef.current ?? `class_${Date.now()}_${window.crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
-      uploadFolderRef.current = uploadFolder;
-
       for (const [index, file] of newFiles.entries()) {
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const filePath = `${uploadFolder}/${safeName}`;
-        const { error: uploadError } = await supabase.storage.from('ephemeral_class_materials').upload(filePath, file);
-        if (uploadError) throw new Error(`Unable to upload ${file.name}: ${uploadError.message}`);
-        const { data } = supabase.storage.from('ephemeral_class_materials').getPublicUrl(filePath);
-        uploadedUrlsRef.current.set(fileKey(file), data.publicUrl);
+        const body = new FormData();
+        body.append('file', file);
+        const response = await fetch('/api/voice/materials', { method: 'POST', body });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Unable to upload ${file.name}.`);
+        uploadedUrlsRef.current.set(fileKey(file), result.extractedText || result.path);
         uploadedFiles.push(file);
         setUploadProgress(Math.round(((index + 1) / newFiles.length) * 100));
       }

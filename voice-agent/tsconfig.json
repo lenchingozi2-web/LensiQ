@@ -5,6 +5,7 @@
     "target": "ES2022",
     "module": "ES2022",
     "moduleResolution": "bundler",
+    "outDir": "./dist",
     "allowJs": false,
     "strict": true,
     "exactOptionalPropertyTypes": true,
@@ -18,13 +19,6 @@
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    // Node strips types at runtime; tsc is used only for type checking.
-    // `allowImportingTsExtensions` permits the explicit `.ts` import
-    // specifiers that Node's native type stripping requires, and
-    // `erasableSyntaxOnly` rejects TS-only syntax (enums, namespaces,
-    // parameter properties) that Node cannot strip without transformation.
-    "noEmit": true,
-    "allowImportingTsExtensions": true,
     "erasableSyntaxOnly": true
   }
 }

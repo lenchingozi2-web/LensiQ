@@ -123,6 +123,14 @@ function VoiceTutorContent() {
   const [voiceActive, setVoiceActive] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
+  useEffect(() => {
+    const handleMaterials = (event: Event) => {
+      const urls = (event as CustomEvent<unknown>).detail;
+      if (Array.isArray(urls)) setUploadedFileUrls(urls.filter((value): value is string => typeof value === 'string'));
+    };
+    window.addEventListener('lensiq:uploaded-materials', handleMaterials);
+    return () => window.removeEventListener('lensiq:uploaded-materials', handleMaterials);
+  }, []);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [replaying, setReplaying] = useState(false);
@@ -557,6 +565,7 @@ function VoiceTutorContent() {
     setStatus(message);
     setAgentAudioSubscribed(false);
     if (activeSessionId) await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: activeSessionId, action: 'end' }) }).catch(() => undefined);
+    await fetch('/api/voice/materials', { method: 'DELETE' }).catch(() => undefined);
     await loadHistory().catch(() => undefined);
     endingRef.current = false;
   }, [courseName, loadHistory, stopRecording, topicFocus]);

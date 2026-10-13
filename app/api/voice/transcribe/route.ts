@@ -22,11 +22,22 @@ export async function POST(request: Request) {
 
   const contentType = audio.type || 'audio/webm';
   const query = new URLSearchParams({
-    model: 'nova-3',
+    model: 'nova-2-medical',
     language: 'en',
     smart_format: 'true',
     punctuate: 'true',
   });
+  for (const term of [
+    'acetylcholinesterase',
+    'pharmacokinetics',
+    'pharmacodynamics',
+    'cytochrome P450',
+    'glomerulonephritis',
+    'immunohistochemistry',
+    'haematopoiesis',
+    'thrombocytopenia',
+    'Mycobacterium tuberculosis',
+  ]) query.append('keywords', `${term}:3`);
 
   const response = await fetch(`https://api.deepgram.com/v1/listen?${query.toString()}`, {
     method: 'POST',

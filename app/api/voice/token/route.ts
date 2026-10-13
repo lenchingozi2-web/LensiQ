@@ -40,6 +40,9 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const courseName = typeof body?.courseName === 'string' && body.courseName.trim() ? body.courseName.trim().slice(0, 120) : 'Live Class';
   const topicFocus = typeof body?.topicFocus === 'string' && body.topicFocus.trim() ? body.topicFocus.trim().slice(0, 300) : '';
+  const documentContext = Array.isArray(body?.fileUrls)
+    ? body.fileUrls.filter((value: unknown): value is string => typeof value === 'string').join('\n').slice(0, 30000)
+    : '';
   const conversationId = typeof body?.conversationId === 'string' && body.conversationId.trim() ? body.conversationId.trim() : null;
   const roomName = `lensiq-voice-${user.id.slice(0, 8)}-${crypto.randomUUID()}`;
 
@@ -89,6 +92,7 @@ export async function POST(req: Request) {
     sessionType: 'live_class',
     contextEndpoint: `${new URL(req.url).origin}/api/voice/context`,
     evidenceSeed,
+    documentContext,
   });
   try {
     const dispatchClient = new AgentDispatchClient(dispatchHost, apiKey, apiSecret);

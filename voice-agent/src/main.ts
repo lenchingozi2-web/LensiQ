@@ -4,7 +4,7 @@ import * as deepgram from '@livekit/agents-plugin-deepgram';
 import * as aiCoustics from '@livekit/plugins-ai-coustics';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
-import { createAgent } from './agent';
+import { createAgent } from './agent.js';
 
 dotenv.config({ path: '.env.local' });
 
