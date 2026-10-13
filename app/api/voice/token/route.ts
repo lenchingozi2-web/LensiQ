@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.', message: 'Sign in to start your Live Class.' }, { status: 401 });
 
-  const rawLivekitUrl = process.env.LIVEKIT_URL;
+  const rawLivekitUrl = process.env.LIVEKIT_SELF_HOSTED_URL || process.env.LIVEKIT_URL;
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
 
