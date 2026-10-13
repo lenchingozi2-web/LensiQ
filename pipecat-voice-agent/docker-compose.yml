@@ -1,0 +1,41 @@
+services:
+  livekit:
+    image: livekit/livekit-server:v1.9.0
+    command: --config /etc/livekit.yaml
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    restart: unless-stopped
+
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.2
+    ports:
+      - "8880:8880"
+    restart: unless-stopped
+
+  pipecat-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      LIVEKIT_URL: ${LIVEKIT_INTERNAL_URL:-http://livekit:7880}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+      LIVEKIT_AGENT_NAME: ${LIVEKIT_AGENT_NAME:-lensiq-voice-tutor}
+      KOKORO_URL: ${KOKORO_URL:-http://kokoro:8880/v1}
+      KOKORO_VOICE: ${KOKORO_VOICE:-af_heart}
+      WHISPER_MODEL: ${WHISPER_MODEL:-small.en}
+      WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
+      WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-local}
+      LLM_MODEL: ${LLM_MODEL:-llama3.1:8b}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - livekit
+      - kokoro
+    restart: unless-stopped

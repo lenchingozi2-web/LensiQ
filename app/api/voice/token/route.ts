@@ -141,13 +141,15 @@ export async function POST(req: Request) {
       ],
     },
   });
-  try {
-    const dispatchClient = new AgentDispatchClient(dispatchHost, apiKey, apiSecret);
-    const agentName = process.env.LIVEKIT_AGENT_NAME?.trim() || 'lensiq-voice-tutor';
-    await dispatchClient.createDispatch(roomName, agentName, { metadata: dispatchMetadata });
-  } catch (dispatchError) {
-    console.error('Live Class agent dispatch failed:', dispatchError);
-    return NextResponse.json({ error: 'The Live Class tutor could not be dispatched. Please try again.' }, { status: 503 });
+  if (process.env.LIVEKIT_DISPATCH_MODE !== 'room-poll') {
+    try {
+      const dispatchClient = new AgentDispatchClient(dispatchHost, apiKey, apiSecret);
+      const agentName = process.env.LIVEKIT_AGENT_NAME?.trim() || 'lensiq-voice-tutor';
+      await dispatchClient.createDispatch(roomName, agentName, { metadata: dispatchMetadata });
+    } catch (dispatchError) {
+      console.error('Live Class agent dispatch failed:', dispatchError);
+      return NextResponse.json({ error: 'The Live Class tutor could not be dispatched. Please try again.' }, { status: 503 });
+    }
   }
   const token = new AccessToken(apiKey, apiSecret, {
     identity: user.id,
