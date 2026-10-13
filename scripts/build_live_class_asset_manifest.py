@@ -74,6 +74,16 @@ SCHEMATIC_ASSETS = {
         "category": "pathology",
         "tags": ["tumour", "tumor", "cancer", "neoplasm", "metastasis", "angiogenesis"],
     },
+    "pathology/Granulomatous_Inflammation.glb": {
+        "title": "Granulomatous inflammation",
+        "category": "pathology",
+        "tags": ["granuloma", "granulomatous inflammation", "epithelioid macrophage", "giant cell", "caseous necrosis"],
+    },
+    "histology/Fatty_Liver.glb": {
+        "title": "Fatty-liver steatosis",
+        "category": "histology",
+        "tags": ["fatty liver", "steatosis", "hepatocyte", "lipid vacuole", "hepatic steatosis"],
+    },
 }
 
 PHARMACOLOGY_ASSETS = {

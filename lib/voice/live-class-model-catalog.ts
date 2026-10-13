@@ -8,6 +8,8 @@ const LIVE_CLASS_MODEL_CATALOG_ENTRIES = [
   { key: 'epithelialDysplasia', modelUrl: LIVE_CLASS_MODEL_ASSETS.epithelialDysplasia, title: 'Epithelial tissue and dysplasia', category: 'histology', topics: ['normal epithelium', 'dysplastic epithelium', 'cellular atypia', 'basement membrane'], source: 'Original LenxiQ educational schematic; CC BY 4.0; simplified, not a diagnostic micrograph.' },
   { key: 'atherosclerosis', modelUrl: LIVE_CLASS_MODEL_ASSETS.atherosclerosis, title: 'Atherosclerosis and arterial plaque', category: 'pathology', topics: ['arterial wall', 'plaque', 'lumen narrowing', 'atherosclerosis'], source: 'Original LenxiQ educational schematic; CC BY 4.0; simplified, not a diagnostic model.' },
   { key: 'tumorMicroenvironment', modelUrl: LIVE_CLASS_MODEL_ASSETS.tumorMicroenvironment, title: 'Tumour microenvironment', category: 'pathology', topics: ['tumour cells', 'stromal cells', 'microvessels', 'angiogenesis'], source: 'Original LenxiQ educational schematic; CC BY 4.0; simplified, not a diagnostic model.' },
+  { key: 'granulomatousInflammation', modelUrl: LIVE_CLASS_MODEL_ASSETS.granulomatousInflammation, title: 'Granulomatous inflammation', category: 'pathology', topics: ['granuloma', 'epithelioid macrophage', 'giant cell', 'caseous necrosis'], source: 'Original LenxiQ educational schematic; CC BY 4.0; simplified, not diagnostic.' },
+  { key: 'fattyLiver', modelUrl: LIVE_CLASS_MODEL_ASSETS.fattyLiver, title: 'Fatty-liver steatosis', category: 'histology', topics: ['fatty liver', 'steatosis', 'hepatocyte', 'lipid vacuole'], source: 'Original LenxiQ educational schematic; CC BY 4.0; simplified, not a diagnostic micrograph.' },
 ] as const;
 
 const Z_ANATOMY_ATTRIBUTION = {
@@ -28,7 +30,7 @@ export const LIVE_CLASS_MODEL_CATALOG = LIVE_CLASS_MODEL_CATALOG_ENTRIES.map((as
   if (asset.key === 'kidneys') {
     return { ...asset, sourceLabel: 'HRA 3D Reference Object Library', license: 'CC BY 4.0', licenseLabel: 'CC BY 4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/' };
   }
-  if (['bloodCellMorphology', 'leukocyteMorphology', 'leukemiaBlastMorphology', 'epithelialDysplasia', 'atherosclerosis', 'tumorMicroenvironment'].includes(asset.key)) {
+  if (['bloodCellMorphology', 'leukocyteMorphology', 'leukemiaBlastMorphology', 'epithelialDysplasia', 'atherosclerosis', 'tumorMicroenvironment', 'granulomatousInflammation', 'fattyLiver'].includes(asset.key)) {
     return { ...asset, sourceLabel: 'Original LenxiQ educational schematic', license: 'CC BY 4.0', licenseLabel: 'CC BY 4.0' };
   }
   return asset;

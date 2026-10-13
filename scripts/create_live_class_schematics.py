@@ -259,6 +259,42 @@ def tumor_microenvironment(root: Path) -> None:
     export_glb(root / "pathology" / "Tumor_Microenvironment.glb")
 
 
+def granulomatous_inflammation(root: Path) -> None:
+    reset_scene()
+    macrophage = material("Macrophage · warm rose", (0.70, 0.34, 0.42), 0.48)
+    nucleus = material("Macrophage nucleus · plum", (0.25, 0.08, 0.30), 0.42)
+    giant_cell = material("Multinucleated giant cell · amber", (0.86, 0.48, 0.18), 0.42)
+    necrosis = material("Central caseous necrosis · ivory", (0.78, 0.68, 0.48), 0.62)
+    add_sphere("Central caseous necrosis · schematic", (0, 0, 0), (0.48, 0.48, 0.28), necrosis, 24)
+    for index in range(12):
+        angle = 2 * math.pi * index / 12
+        radius = 0.78 + 0.08 * (index % 2)
+        pos = (radius * math.cos(angle), radius * math.sin(angle), 0.05 * math.sin(angle * 2))
+        add_sphere(f"Epithelioid macrophage {index + 1}", pos, (0.24, 0.20, 0.18), macrophage, 14)
+        add_sphere(f"Macrophage nucleus {index + 1}", (pos[0], pos[1], pos[2] + 0.15), (0.09, 0.07, 0.06), nucleus, 12)
+    add_sphere("Multinucleated giant cell", (0, 0.86, 0.32), (0.42, 0.30, 0.22), giant_cell, 18)
+    for index in range(6):
+        angle = 2 * math.pi * index / 6
+        add_sphere(f"Giant-cell peripheral nucleus {index + 1}", (0.22 * math.cos(angle), 0.86 + 0.16 * math.sin(angle), 0.47), (0.06, 0.05, 0.05), nucleus, 10)
+    export_glb(root / "pathology" / "Granulomatous_Inflammation.glb")
+
+
+def fatty_liver(root: Path) -> None:
+    reset_scene()
+    hepatocyte = material("Hepatocyte · muted coral", (0.74, 0.36, 0.32), 0.50)
+    nucleus = material("Hepatocyte nucleus · plum", (0.24, 0.09, 0.28), 0.44)
+    lipid = material("Lipid vacuole · pale gold", (0.96, 0.78, 0.28), 0.30)
+    for row in range(3):
+        for col in range(4):
+            x = (col - 1.5) * 0.72
+            y = (row - 1) * 0.72
+            add_sphere(f"Steatotic hepatocyte {row + 1}-{col + 1}", (x, y, 0), (0.36, 0.31, 0.28), hepatocyte, 16)
+            add_sphere(f"Hepatocyte nucleus {row + 1}-{col + 1}", (x - 0.10, y, 0.24), (0.08, 0.07, 0.06), nucleus, 10)
+            for vacuole in range(2 + ((row + col) % 2)):
+                add_sphere(f"Lipid vacuole {row + 1}-{col + 1}-{vacuole + 1}", (x + 0.10 * (vacuole - 1), y + 0.08 * vacuole, 0.22), (0.10, 0.10, 0.08), lipid, 10)
+    export_glb(root / "histology" / "Fatty_Liver.glb")
+
+
 def main() -> None:
     separator = sys.argv.index("--") if "--" in sys.argv else len(sys.argv)
     parser = argparse.ArgumentParser()
@@ -271,6 +307,8 @@ def main() -> None:
     epithelial_dysplasia(args.output_dir)
     atherosclerosis(args.output_dir)
     tumor_microenvironment(args.output_dir)
+    granulomatous_inflammation(args.output_dir)
+    fatty_liver(args.output_dir)
 
 
 if __name__ == "__main__":

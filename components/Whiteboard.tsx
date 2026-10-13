@@ -64,11 +64,11 @@ export default function Whiteboard({ topic, markdown, onConceptSelect }: Whitebo
               {step}
             </ReactMarkdown>
           </article>
-          <p className="mt-10 max-w-2xl text-sm font-semibold leading-6 text-white/45 sm:text-base">This board advances with the tutor. Tap a progress marker to revisit a point or interrupt the tutor to ask for a deeper explanation.</p>
+          <p className="mt-10 max-w-2xl text-sm font-semibold leading-6 text-white/45 sm:text-base">This board advances automatically with the tutor’s teaching. Interrupt at any time to ask for a deeper explanation.</p>
         </div>
 
-        {steps.length > 1 && <div className="absolute bottom-[28dvh] left-6 flex max-w-[calc(100%-3rem)] gap-2 overflow-x-auto sm:bottom-[23dvh] sm:left-12 lg:left-[10vw]">
-          {steps.map((item, index) => <button key={`${index}-${item.slice(0, 18)}`} type="button" onClick={() => { setActiveStep(index); setSlideKey((value) => value + 1); onConceptSelect?.(item, index); }} className={`h-2 rounded-full transition-all ${index === activeIndex ? 'w-16 bg-[#e8a23d] shadow-[0_0_18px_rgba(232,162,61,.8)]' : 'w-6 bg-white/25 hover:bg-white/50'}`} aria-label={`Show concept point ${index + 1}`} aria-pressed={index === activeIndex} />)}
+        {steps.length > 1 && <div className="absolute bottom-[28dvh] left-6 flex max-w-[calc(100%-3rem)] gap-2 overflow-x-auto sm:bottom-[23dvh] sm:left-12 lg:left-[10vw]" aria-label="Automatic lesson progress">
+          {steps.map((item, index) => <span key={`${index}-${item.slice(0, 18)}`} className={`h-2 rounded-full transition-all ${index === activeIndex ? 'w-16 bg-[#e8a23d] shadow-[0_0_18px_rgba(232,162,61,.8)]' : 'w-6 bg-white/25'}`} aria-hidden="true" />)}
         </div>}
       </div>
     </section>

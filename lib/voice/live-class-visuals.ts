@@ -14,6 +14,8 @@ export const LIVE_CLASS_MODEL_ASSETS = {
   epithelialDysplasia: `${assetRoot}/histology/Epithelial_Dysplasia.glb`,
   atherosclerosis: `${assetRoot}/pathology/Atherosclerosis.glb`,
   tumorMicroenvironment: `${assetRoot}/pathology/Tumor_Microenvironment.glb`,
+  granulomatousInflammation: `${assetRoot}/pathology/Granulomatous_Inflammation.glb`,
+  fattyLiver: `${assetRoot}/histology/Fatty_Liver.glb`,
 } as const;
 
 export type MoleculeAsset = {
@@ -65,6 +67,8 @@ const MODEL_LABELS: Record<string, string> = {
   [LIVE_CLASS_MODEL_ASSETS.epithelialDysplasia]: 'Epithelial dysplasia · schematic',
   [LIVE_CLASS_MODEL_ASSETS.atherosclerosis]: 'Atherosclerosis · schematic',
   [LIVE_CLASS_MODEL_ASSETS.tumorMicroenvironment]: 'Tumour microenvironment · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.granulomatousInflammation]: 'Granulomatous inflammation · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.fattyLiver]: 'Fatty-liver steatosis · schematic',
 };
 
 export function getLiveClassModelLabel(modelUrl: string) {
@@ -164,6 +168,13 @@ const FILLER_ONLY_UTTERANCES = new Set([
   'i can hear you', 'can you repeat that', "let's move on", 'good one', 'very good', 'you know',
   'uh', 'um', 'erm', 'hmm', 'mm', 'mm hmm', 'uh huh', 'oh', 'ah', 'well',
 ]);
+const NON_TEACHING_UTTERANCE_PATTERNS = [
+  /^(?:i(?:'m| am)\s+)?listening(?:\s+to\s+you)?[.!\s]*$/i,
+  /^(?:no problem|sure thing|okay|ok|alright|all right),?\s+(?:i(?:'ll| will)|let(?:'s| us))\s+(?:keep|move|continue|go)\b.*$/i,
+  /^(?:i(?:'m| am)\s+)?ready\s+to\s+(?:listen|help|continue)\b.*$/i,
+  /^(?:let(?:'s| us)|we(?:'ll| will))\s+(?:move|continue|go)\s+(?:on|forward)\b.*$/i,
+  /^(?:give me|hold on|just)\s+(?:a|one)\s+(?:moment|second)\b.*$/i,
+];
 
 const NONCONCEPT_SHORT_WORDS = new Set([
   'a', 'an', 'the', 'i', 'you', 'we', 'they', 'he', 'she', 'it', 'this', 'that', 'these', 'those',
@@ -178,7 +189,7 @@ const NONCONCEPT_SHORT_WORDS = new Set([
 export function shouldApplyTutorTranscriptVisual(speech: string, visual: VisualContext) {
   const text = normalizeSpeech(speech);
   const normalized = text.toLowerCase().replace(/[’]/g, "'").replace(/[.!?,;:]+/g, '').replace(/\s+/g, ' ').trim();
-  if (!normalized || FILLER_ONLY_UTTERANCES.has(normalized)) return false;
+  if (!normalized || FILLER_ONLY_UTTERANCES.has(normalized) || NON_TEACHING_UTTERANCE_PATTERNS.some((pattern) => pattern.test(text))) return false;
   const words = normalized.match(/[a-z0-9]+(?:['-][a-z0-9]+)*/g) ?? [];
   if (visual.type !== 'whiteboard' || SPECIFIC_WHITEBOARD_TOPICS.test(visual.topic)) return true;
   const hasShortConcept = text.length >= 4 && words.length <= 4 && words.some((word) => !NONCONCEPT_SHORT_WORDS.has(word));
@@ -255,6 +266,12 @@ export function inferLiveClassVisual(speech: string, courseName: string): Visual
   }
   if (/\b(tumou?r|carcinoma|neoplasm|metastasis|angiogenesis|tumou?r microenvironment)\b/i.test(text)) {
     return modelContext('tumorMicroenvironment');
+  }
+  if (/\b(granuloma|granulomatous inflammation|epithelioid macrophage|giant cell|caseous necrosis)\b/i.test(text)) {
+    return modelContext('granulomatousInflammation');
+  }
+  if (/\b(fatty liver|steatosis|steatotic|hepatic steatosis|lipid vacuole)\b/i.test(text)) {
+    return modelContext('fattyLiver');
   }
 
   const specificOrgans: Array<{ key: keyof typeof LIVE_CLASS_MODEL_ASSETS; pattern: RegExp; structure?: RegExp }> = [

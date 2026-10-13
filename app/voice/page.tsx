@@ -142,12 +142,14 @@ function VoiceTutorContent() {
   const uploadedMaterialPathsRef = useRef<string[]>([]);
   const visualContextRef = useRef<VisualContext>(visualContext);
   const explicitVisualThisTurnRef = useRef(false);
+  const visualRevisionRef = useRef(0);
   const pendingHighlightRef = useRef<{ structureId: string; color?: string } | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
   const ambience = useMemo(() => SOUNDSCAPES.find((item) => item.id === ambienceId) ?? SOUNDSCAPES[0], [ambienceId]);
 
   const updateVisualContext = (next: VisualContext) => {
     visualContextRef.current = next;
+    visualRevisionRef.current += 1;
     setVisualContext(next);
   };
 
@@ -173,7 +175,7 @@ function VoiceTutorContent() {
   useEffect(() => {
     if (!connected || agentAudioSubscribed) return;
     const timer = window.setTimeout(() => {
-      setStatus('Your room and microphone are connected, but the tutor has not published audio yet. Try enabling tutor audio; if this continues, the hosted LiveKit agent needs attention.');
+      setStatus('Your room and microphone are connected, but the tutor has not published audio yet. Try enabling tutor audio; if this continues, the self-hosted Pipecat agent may need attention.');
       setError('No tutor audio has arrived yet. Your Live Class is still open; you can retry audio or end and start a new class.');
     }, 22000);
     return () => window.clearTimeout(timer);
@@ -673,7 +675,24 @@ function VoiceTutorContent() {
       room.on(RoomEvent.MediaDevicesError, (mediaError) => { setMicState('error'); setError(friendlyError(mediaError)); });
       room.on(RoomEvent.AudioPlaybackStatusChanged, (playing: boolean) => { if (agentAudioSubscribedRef.current) setAudioState(playing && !tutorMutedRef.current ? 'playing' : 'blocked'); });
       room.on(RoomEvent.Reconnecting, () => { runtimeStateBeforeReconnectRef.current = runtimeStateRef.current; setRuntimeState('PAUSED'); setStatus('Connection interrupted. Reconnecting your study room…'); });
-      room.on(RoomEvent.Reconnected, () => { const nextState = runtimeStateBeforeReconnectRef.current === 'PAUSED' ? 'LISTENING' : runtimeStateBeforeReconnectRef.current; setRuntimeState(nextState); setStatus(nextState === 'TEACHING' ? 'Study room reconnected. LenxiQ AI can continue your lesson.' : 'Study room reconnected. Your lesson context is preserved.'); });
+      room.on(RoomEvent.Reconnected, () => {
+        const nextState = runtimeStateBeforeReconnectRef.current === 'PAUSED' ? 'LISTENING' : runtimeStateBeforeReconnectRef.current;
+        const restoredVisual = visualContextRef.current;
+        setVisualContext({ ...restoredVisual });
+        setRuntimeState(nextState);
+        setStatus(nextState === 'TEACHING' ? 'Study room reconnected. LenxiQ AI can continue your lesson.' : 'Study room reconnected. Your lesson visual is synchronized.');
+        clientStage('LIVEKIT_VISUAL_STATE_RESYNCED', { revision: visualRevisionRef.current, type: restoredVisual.type });
+        void room.startAudio().catch(() => undefined);
+        for (const participant of room.remoteParticipants.values()) {
+          for (const publication of participant.trackPublications.values()) {
+            if (publication.track?.kind === 'audio') {
+              agentAudioSubscribedRef.current = true;
+              setAgentAudioSubscribed(true);
+              attachAudioTrack(publication.track);
+            }
+          }
+        }
+      });
       room.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
         try {
           const data = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; structureId?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
@@ -731,6 +750,8 @@ function VoiceTutorContent() {
             return;
           }
           if (data.type === 'show_concept_card' || data.type === 'show_whiteboard') {
+            const boardText = [data.title, data.topic, data.markdown].filter(Boolean).join(' ');
+            if (!boardText || !shouldApplyTutorTranscriptVisual(boardText, { type: 'whiteboard', topic: data.title || data.topic || courseName, markdown: data.markdown })) return;
             explicitVisualThisTurnRef.current = true;
             pendingHighlightRef.current = null;
             setSelectedStructure('');
