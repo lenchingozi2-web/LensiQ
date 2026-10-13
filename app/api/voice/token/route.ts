@@ -23,7 +23,8 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.', message: 'Sign in to start your Live Class.' }, { status: 401 });
 
-  const rawLivekitUrl = process.env.LIVEKIT_SELF_HOSTED_URL || process.env.LIVEKIT_URL;
+  const rawLivekitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || process.env.LIVEKIT_SELF_HOSTED_URL || process.env.LIVEKIT_URL;
+  const internalLivekitUrl = process.env.LIVEKIT_INTERNAL_URL?.trim();
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
 
@@ -111,7 +112,7 @@ export async function POST(req: Request) {
 
   const isUnlimited = Boolean(quota.is_unlimited);
   const maxDurationSeconds = isUnlimited ? 86400 : Math.max(60, Number(quota.max_duration_seconds ?? 1800));
-  const dispatchHost = livekitUrl.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:');
+  const dispatchHost = (internalLivekitUrl || livekitUrl).replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:').replace(/\/$/, '');
   const dispatchMetadata = JSON.stringify({
     userId: user.id,
     courseName,
