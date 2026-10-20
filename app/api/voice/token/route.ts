@@ -85,17 +85,17 @@ export async function POST(req: Request) {
       ? 'Your free Live Class allowance is used for this month. It refreshes next month, or upgrade to Hybrid Premium for 6 hours each billing month.'
       : quota.reason === 'free_monthly_exhausted'
         ? 'Your free Live Class allowance is used for this month. It refreshes next month, or upgrade to Hybrid Premium for 6 hours each billing month.'
-      : quota.reason === 'voice_balance_empty'
-        ? 'Your Premium Live Class allowance is used. Minutes refresh on your next monthly billing date; additional minute purchases are not available.'
-        : quota.reason === 'active_session'
-          ? 'You already have an active Live Class. End it before starting another one.'
-          : quota.reason === 'free_trial_used'
-            ? 'Your Live Class quota is still being updated. Please try again shortly.'
-            : quota.reason === 'profile_missing'
-              ? 'Your account is still being set up. Refresh the page and try again.'
-              : quota.reason === 'not_authenticated'
-                ? 'Your sign-in session expired. Sign in again and try again.'
-                : `Live Class could not be started (${quota.reason || 'unknown backend reason'}). Please try again.`;
+        : quota.reason === 'voice_balance_empty'
+          ? 'Your Premium Live Class allowance is used. Minutes refresh on your next monthly billing date; additional minute purchases are not available.'
+          : quota.reason === 'active_session'
+            ? 'You already have an active Live Class. End it before starting another one.'
+            : quota.reason === 'free_trial_used'
+              ? 'Your Live Class quota is still being updated. Please try again shortly.'
+              : quota.reason === 'profile_missing'
+                ? 'Your account is still being set up. Refresh the page and try again.'
+                : quota.reason === 'not_authenticated'
+                  ? 'Your sign-in session expired. Sign in again and try again.'
+                  : `Live Class could not be started (${quota.reason || 'unknown backend reason'}). Please try again.`;
     return NextResponse.json({
       error: 'live_class_limit',
       message: limitMessage,
@@ -141,6 +141,7 @@ export async function POST(req: Request) {
       ],
     },
   });
+  
   if (process.env.LIVEKIT_DISPATCH_MODE !== 'room-poll') {
     try {
       const dispatchClient = new AgentDispatchClient(dispatchHost, apiKey, apiSecret);
@@ -151,10 +152,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'The Live Class tutor could not be dispatched. Please try again.' }, { status: 503 });
     }
   }
+  
   const token = new AccessToken(apiKey, apiSecret, {
     identity: user.id,
     name: user.email ?? 'LenxiQ AI learner',
-    metadata: dispatchMetadata,
+    metadata: JSON.stringify({}), // <-- THIS IS THE FIX (keeps token tiny to avoid 414 error)
     ttl: isUnlimited ? '24h' : `${maxDurationSeconds}s`,
   });
 

@@ -21,7 +21,9 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      LIVEKIT_URL: ${LIVEKIT_INTERNAL_URL:-http://livekit:7880}
+      # Use the published host endpoint in Codespaces; the bridge route to the
+      # LiveKit service can time out even when the published port is healthy.
+      LIVEKIT_URL: ${LIVEKIT_AGENT_URL:-http://host.docker.internal:7880}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
       LIVEKIT_AGENT_NAME: ${LIVEKIT_AGENT_NAME:-lensiq-voice-tutor}

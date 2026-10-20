@@ -23,6 +23,8 @@ The browser uses the public WebSocket URL. The Next.js token route uses the inte
 
 Set `LIVEKIT_DISPATCH_MODE=room-poll` in the colocated Next.js environment. In this mode the API only mints the learner token and the Pipecat worker polls LiveKit's internal RoomService, which avoids the Codespaces public Twirp proxy entirely.
 
+In Codespaces, set `LIVEKIT_AGENT_URL=http://host.docker.internal:7880` if the worker cannot reach the Compose service name directly. The LiveKit port is published on the host, and `host.docker.internal` is provided by Compose for this route.
+
 ## Model endpoint
 
 The worker defaults to a local OpenAI-compatible LLM endpoint at `host.docker.internal:11434`. Set `LLM_BASE_URL`, `LLM_MODEL`, and `LLM_API_KEY` for the model server available on the host. Kokoro and Whisper remain local.
