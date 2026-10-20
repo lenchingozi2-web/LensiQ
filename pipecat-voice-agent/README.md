@@ -2,6 +2,16 @@
 
 This stack keeps voice processing local: LiveKit server, Pipecat worker, faster-Whisper STT, and Kokoro TTS. It does not use Deepgram or Cartesia.
 
+## Modal deployment
+
+`agent_modal.py` deploys the same Pipecat pipeline to Modal for LiveKit Cloud. It uses `modal.App("lenxiq-ai-voice")`, pulls `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` from the existing Modal Secret named `livekit-credentials`, and schedules a lightweight room poller every 10 seconds. Each active room gets a separate worker with 2 vCPU, 4 GB RAM, a 30-second idle scale-down window, and a 30-minute maximum lifetime.
+
+```bash
+modal deploy agent_modal.py
+```
+
+Keep `LIVEKIT_DISPATCH_MODE=room-poll` in the Next.js environment. The frontend creates the room and token; the Modal poller discovers that same `lensiq-voice-*` room through LiveKit Cloud and joins it as `lensiq-voice-tutor`.
+
 ## Run locally
 
 1. Copy the parent project values into a local `.env` file; never commit secrets.
