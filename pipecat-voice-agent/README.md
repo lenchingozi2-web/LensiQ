@@ -25,6 +25,8 @@ LIVEKIT_AGENT_NAME=lensiq-voice-tutor
 
 Use the exact `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` values from the Modal `livekit-credentials` secret. Do not use the old `*.app.github.dev` URL, and do not set `LIVEKIT_INTERNAL_URL` for the Modal room-poll deployment.
 
+The Modal worker also needs an OpenAI-compatible LLM endpoint because Pipecat must generate the tutor response before Kokoro can speak it. Add `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` to the Modal function environment or to the referenced Modal secret. Do not use the local Docker default `host.docker.internal:11434` in Modal. Kokoro itself is local and free; it is initialized directly through `kokoro-onnx`.
+
 ## Run locally
 
 1. Copy the parent project values into a local `.env` file; never commit secrets.

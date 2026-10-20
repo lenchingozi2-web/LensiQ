@@ -64,15 +64,27 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         device=os.getenv("WHISPER_DEVICE", "cpu"),
         compute_type=os.getenv("WHISPER_COMPUTE_TYPE", "int8"),
     )
+    # KokoroTTSService embeds kokoro-onnx and downloads its model files into
+    # the Modal image cache. It is not an HTTP/OpenAI-compatible service.
     tts = KokoroTTSService(
-        base_url=os.getenv("KOKORO_URL", "http://kokoro:8880/v1"),
-        voice=os.getenv("KOKORO_VOICE", "af_heart"),
-        model=os.getenv("KOKORO_MODEL", "kokoro"),
+        settings=KokoroTTSService.Settings(
+            voice=os.getenv("KOKORO_VOICE", "af_heart"),
+        ),
+        model_path=os.getenv("KOKORO_MODEL_PATH") or None,
+        voices_path=os.getenv("KOKORO_VOICES_PATH") or None,
     )
+    llm_base_url = os.getenv("LLM_BASE_URL", "").strip()
+    llm_api_key = os.getenv("LLM_API_KEY", "").strip()
+    llm_model = os.getenv("LLM_MODEL", "").strip()
+    if not llm_base_url or not llm_api_key or not llm_model:
+        raise RuntimeError(
+            "Modal voice worker needs LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL "
+            "in its Modal secret/environment; host.docker.internal is local-only."
+        )
     llm = OpenAILLMService(
-        api_key=os.getenv("LLM_API_KEY", "local"),
-        base_url=os.getenv("LLM_BASE_URL", "http://host.docker.internal:11434/v1"),
-        model=os.getenv("LLM_MODEL", "llama3.1:8b"),
+        api_key=llm_api_key,
+        base_url=llm_base_url,
+        model=llm_model,
     )
     context = OpenAILLMContext(messages=[{"role": "system", "content": _system_prompt(room_name)}])
     user_aggregator, assistant_aggregator = llm.create_context_aggregator(context).pair()
