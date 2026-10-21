@@ -28,7 +28,7 @@ HERE = Path(__file__).resolve().parent
 
 voice_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install("ca-certificates", "ffmpeg", "libgl1", "libsndfile1")
+    .apt_install("ca-certificates", "espeak-ng", "ffmpeg", "libgl1", "libsndfile1")
     .pip_install(
         "pipecat-ai[livekit,openai,whisper,kokoro]==0.0.108",
         "kokoro-onnx>=0.4.0,<1",

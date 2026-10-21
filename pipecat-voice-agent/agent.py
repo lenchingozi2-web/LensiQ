@@ -13,7 +13,7 @@ import os
 from typing import Any
 
 from livekit import api
-from pipecat.frames.frames import LLMMessagesFrame
+from pipecat.frames.frames import TTSSpeakFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -93,7 +93,14 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
 
     @transport.event_handler("on_first_participant_joined")
     async def on_first_participant_joined(_transport: LiveKitTransport, _participant_id: str):
-        await task.queue_frames([LLMMessagesFrame([{"role": "user", "content": "Greet the learner and ask what medical concept they want to master."}])])
+        # Prove the transport/TTS path immediately. This avoids making the
+        # first audible response depend on an LLM round trip completing.
+        await asyncio.sleep(1)
+        await task.queue_frame(
+            TTSSpeakFrame(
+                "Hello, I am your LenxiQ medical tutor. Tell me which concept you would like to master."
+            )
+        )
 
     logger.info("Joining Live Class room %s", room_name)
     await PipelineRunner().run(task)
