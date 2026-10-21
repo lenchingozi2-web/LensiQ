@@ -92,6 +92,8 @@ def run_voice_room(room_name: str, room_metadata: str = "") -> None:
 def poll_livekit_rooms() -> None:
     """Find active learner rooms and fan each one out to a short-lived worker."""
     import asyncio
+    import json
+    import time
 
     from livekit import api
 
@@ -112,7 +114,27 @@ def poll_livekit_rooms() -> None:
                 )
                 if any(p.identity.startswith(AGENT_NAME) for p in participants.participants):
                     continue
-                run_voice_room.spawn(room.name, room.metadata or "")
+                # A worker can take several seconds to boot Whisper/Kokoro. Claim the
+                # room before spawning so the next 10-second poll cannot launch a
+                # second worker with the same LiveKit identity. Expire a stale claim
+                # after two minutes so a genuinely failed worker can be retried.
+                try:
+                    metadata = json.loads(room.metadata or "{}")
+                except json.JSONDecodeError:
+                    metadata = {}
+                claimed_at = float(metadata.get("agentLaunchRequestedAt", 0) or 0)
+                if time.time() - claimed_at < 120:
+                    continue
+                metadata["agentLaunchRequestedAt"] = time.time()
+                metadata["agentLaunchRequestedBy"] = AGENT_NAME
+                claimed_metadata = json.dumps(metadata, separators=(",", ":"))
+                await api_client.room.update_room_metadata(
+                    api.UpdateRoomMetadataRequest(
+                        room=room.name,
+                        metadata=claimed_metadata,
+                    )
+                )
+                await run_voice_room.spawn.aio(room.name, claimed_metadata)
         finally:
             await api_client.aclose()
 
