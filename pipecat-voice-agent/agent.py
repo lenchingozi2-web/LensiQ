@@ -87,7 +87,9 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         model=llm_model,
     )
     context = OpenAILLMContext(messages=[{"role": "system", "content": _system_prompt(room_name)}])
-    user_aggregator, assistant_aggregator = llm.create_context_aggregator(context).pair()
+    context_aggregators = llm.create_context_aggregator(context)
+    user_aggregator = context_aggregators.user()
+    assistant_aggregator = context_aggregators.assistant()
     pipeline = Pipeline([transport.input(), stt, user_aggregator, llm, tts, transport.output(), assistant_aggregator])
     task = PipelineTask(pipeline, params=PipelineParams(allow_interruptions=True, enable_metrics=True))
 
