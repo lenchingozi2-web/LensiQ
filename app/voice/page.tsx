@@ -532,7 +532,7 @@ function VoiceTutorContent() {
       setError('');
       setAudioState(tutorMutedRef.current ? 'ready' : 'playing');
       if (!sessionStartedAtRef.current) {
-        sessionStartedAtRef.current = Date.now();
+        sessionStartedAtRef.current = 1;
         setLiveStarted(true);
         setRuntimeState('WAITING_FOR_TOPIC');
         setStatus('Your tutor is here. Ask a question or tell the tutor what you want to master.');
@@ -947,7 +947,14 @@ function VoiceTutorContent() {
     try {
       await playTutorAudioElements();
       setAudioState(agentAudioSubscribedRef.current ? 'playing' : 'waiting');
-      setStatus(agentAudioSubscribedRef.current ? 'Tutor audio is live again.' : 'Tutor audio is enabled; your tutor is joining the room.');
+      const firstAudio = agentAudioSubscribedRef.current && !sessionStartedAtRef.current;
+      if (firstAudio) {
+        sessionStartedAtRef.current = 1;
+        setLiveStarted(true);
+        setRuntimeState('WAITING_FOR_TOPIC');
+        setStatus('Your tutor is here. Ask a question or tell the tutor what you want to master.');
+      }
+      if (!firstAudio) setStatus(agentAudioSubscribedRef.current ? 'Tutor audio is live again.' : 'Tutor audio is enabled; your tutor is joining the room.');
     } catch {
       setAudioState('blocked');
       setRuntimeState('ERROR');
