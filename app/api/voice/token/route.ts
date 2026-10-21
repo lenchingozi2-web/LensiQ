@@ -140,6 +140,7 @@ export async function POST(req: Request) {
   let livekitUrl: string | null = null;
   let dispatchHost: string | null = null;
   let lastLivekitError: unknown = null;
+  const handshakeDiagnostics: Array<{ host: string; status?: number; code?: string; message?: string }> = [];
   for (const candidateUrl of livekitUrls) {
     const candidateHost = internalHost || candidateUrl.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:').replace(/\/$/, '');
     try {
@@ -150,6 +151,13 @@ export async function POST(req: Request) {
       break;
     } catch (livekitError) {
       lastLivekitError = livekitError;
+      const errorRecord = livekitError as { status?: number; code?: string; message?: string };
+      handshakeDiagnostics.push({
+        host: new URL(candidateHost).host,
+        ...(typeof errorRecord.status === 'number' ? { status: errorRecord.status } : {}),
+        ...(typeof errorRecord.code === 'string' ? { code: errorRecord.code } : {}),
+        ...(typeof errorRecord.message === 'string' ? { message: errorRecord.message.slice(0, 120) } : {}),
+      });
     }
   }
   if (!livekitUrl || !dispatchHost) {
@@ -157,6 +165,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       error: 'livekit_credentials_rejected',
       message: 'The configured LiveKit API credentials were rejected by every configured LiveKit project. Update Vercel and Modal to use the same LiveKit Cloud credentials.',
+      diagnostics: handshakeDiagnostics,
     }, { status: 503 });
   }
   const dispatchMetadata = JSON.stringify({
