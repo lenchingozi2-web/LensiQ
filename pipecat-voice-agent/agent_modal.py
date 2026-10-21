@@ -62,7 +62,10 @@ def _api_url(value: str) -> str:
     cpu=2.0,
     memory=4096,
     timeout=60 * 30,
-    scaledown_window=30,
+    # Keep a warm container with Whisper/Kokoro loaded for the premium
+    # experience; otherwise the first greeting waits for a full cold start.
+    scaledown_window=300,
+    min_containers=1,
     max_containers=20,
 )
 def run_voice_room(room_name: str, room_metadata: str = "") -> None:
@@ -90,7 +93,7 @@ def run_voice_room(room_name: str, room_metadata: str = "") -> None:
     cpu=0.25,
     memory=512,
     timeout=45,
-    schedule=modal.Period(seconds=10),
+    schedule=modal.Period(seconds=5),
     scaledown_window=30,
 )
 def poll_livekit_rooms() -> None:
