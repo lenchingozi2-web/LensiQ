@@ -8,6 +8,7 @@ public Codespaces Twirp proxy for dispatch.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 from typing import Any
@@ -39,7 +40,26 @@ def _room_ws_url(value: str) -> str:
     return value.replace("https://", "wss://").replace("http://", "ws://")
 
 
-def _system_prompt(room_name: str) -> str:
+def _system_prompt(room_name: str, room_metadata: str | None = None) -> str:
+    metadata_context = ""
+    if room_metadata:
+        try:
+            metadata = json.loads(room_metadata)
+            if isinstance(metadata, dict):
+                context_parts = []
+                for label, key in (
+                    ("course", "courseName"),
+                    ("topic focus", "topicFocus"),
+                    ("learner focus", "focusText"),
+                    ("material context", "materialContext"),
+                ):
+                    value = metadata.get(key)
+                    if value:
+                        context_parts.append(f"{label}: {json.dumps(value, ensure_ascii=False)}")
+                if context_parts:
+                    metadata_context = " Use this class context as the primary teaching context: " + "; ".join(context_parts) + "."
+        except (TypeError, ValueError, json.JSONDecodeError):
+            logger.warning("Ignoring malformed Live Class metadata for room %s", room_name)
     return (
         "You are LenxiQ AI Tutor, a concise and warm medical teacher. "
         f"You are teaching in room {room_name}. Speak naturally, pause for interruption, "
@@ -48,6 +68,7 @@ def _system_prompt(room_name: str) -> str:
         "explaining the concept. Use a whiteboard for mechanisms and an approved model for "
         "pathology, histology, cytology, anatomy, or pharmacology structures. This is education, "
         "not clinical decision support."
+        + metadata_context
     )
 
 
@@ -74,13 +95,22 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         voices_path=os.getenv("KOKORO_VOICES_PATH") or None,
     )
     openai_api_key = os.getenv("OPENAI_API_KEY", "").strip()
-    llm_base_url = os.getenv("LLM_BASE_URL", "").strip() or ("https://api.openai.com/v1" if openai_api_key else "")
-    llm_api_key = os.getenv("LLM_API_KEY", "").strip() or openai_api_key
-    llm_model = os.getenv("LLM_MODEL", "").strip() or ("gpt-4o-mini" if openai_api_key else "")
+    deepseek_api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+    llm_api_key = os.getenv("LLM_API_KEY", "").strip() or openai_api_key or deepseek_api_key
+    llm_base_url = os.getenv("LLM_BASE_URL", "").strip()
+    if not llm_base_url and openai_api_key:
+        llm_base_url = "https://api.openai.com/v1"
+    if not llm_base_url and deepseek_api_key:
+        llm_base_url = "https://api.deepseek.com/v1"
+    llm_model = os.getenv("LLM_MODEL", "").strip()
+    if not llm_model and openai_api_key:
+        llm_model = "gpt-4o-mini"
+    if not llm_model and deepseek_api_key:
+        llm_model = "deepseek-chat"
     missing_llm_settings = [
         name for name, value in (
             ("LLM_BASE_URL", llm_base_url),
-            ("LLM_API_KEY or OPENAI_API_KEY", llm_api_key),
+            ("LLM_API_KEY, OPENAI_API_KEY, or DEEPSEEK_API_KEY", llm_api_key),
             ("LLM_MODEL", llm_model),
         ) if not value
     ]
@@ -96,7 +126,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         base_url=llm_base_url,
         model=llm_model,
     )
-    context = OpenAILLMContext(messages=[{"role": "system", "content": _system_prompt(room_name)}])
+    context = OpenAILLMContext(messages=[{"role": "system", "content": _system_prompt(room_name, room_metadata)}])
     context_aggregators = llm.create_context_aggregator(context)
     user_aggregator = context_aggregators.user()
     assistant_aggregator = context_aggregators.assistant()
