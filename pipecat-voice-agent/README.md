@@ -4,7 +4,7 @@ This stack keeps voice processing local: LiveKit server, Pipecat worker, faster-
 
 ## Modal deployment
 
-`agent_modal.py` deploys the same Pipecat pipeline to Modal for LiveKit Cloud. It uses `modal.App("lenxiq-ai-voice")`, pulls `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` from the existing Modal Secret named `livekit-credentials`, and schedules a lightweight room poller every 10 seconds. Each active room gets a separate worker with 2 vCPU, 4 GB RAM, a 30-second idle scale-down window, and a 30-minute maximum lifetime.
+`agent_modal.py` deploys the same Pipecat pipeline to Modal for LiveKit Cloud. It uses `modal.App("lenxiq-ai-voice")`, pulls the LiveKit credentials and the OpenAI-compatible LLM contract (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`) from the existing Modal Secret named `livekit-credentials`, and schedules a lightweight room poller every 10 seconds. Each active room gets a separate worker with 2 vCPU, 4 GB RAM, a 30-second idle scale-down window, and a 30-minute maximum lifetime.
 
 ```bash
 modal deploy agent_modal.py
@@ -25,7 +25,7 @@ LIVEKIT_AGENT_NAME=lensiq-voice-tutor
 
 Use the exact `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` values from the Modal `livekit-credentials` secret. Do not use the old `*.app.github.dev` URL, and do not set `LIVEKIT_INTERNAL_URL` for the Modal room-poll deployment.
 
-The Modal worker also needs an OpenAI-compatible LLM endpoint because Pipecat must generate the tutor response before Kokoro can speak it. Add `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` to the Modal function environment or to the referenced Modal secret. Do not use the local Docker default `host.docker.internal:11434` in Modal. Kokoro itself is local and free; it is initialized directly through `kokoro-onnx`.
+The Modal worker also needs an OpenAI-compatible LLM endpoint because Pipecat must generate the tutor response before Kokoro can speak it. The referenced `livekit-credentials` secret must include `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` (or `OPENAI_API_KEY`, which enables the standard OpenAI defaults). Do not use the local Docker default `host.docker.internal:11434` in Modal. Kokoro itself is local and free; it is initialized directly through `kokoro-onnx`.
 
 ## Run locally
 

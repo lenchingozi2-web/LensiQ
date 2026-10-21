@@ -9,8 +9,11 @@ Deploy:
     modal deploy pipecat-voice-agent/agent_modal.py
 
 The Modal Secret named ``livekit-credentials`` must contain LIVEKIT_URL,
-LIVEKIT_API_KEY, and LIVEKIT_API_SECRET. LIVEKIT_URL may be wss:// or https://;
-this module normalizes it for the LiveKit server API and WebRTC transport.
+LIVEKIT_API_KEY, LIVEKIT_API_SECRET, and an OpenAI-compatible model contract:
+LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL. As a convenience, OPENAI_API_KEY
+can replace LLM_API_KEY and supplies the standard OpenAI endpoint/model defaults.
+LIVEKIT_URL may be wss:// or https://; this module normalizes it for the
+LiveKit server API and WebRTC transport.
 """
 from __future__ import annotations
 

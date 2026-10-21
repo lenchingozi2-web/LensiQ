@@ -73,13 +73,23 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         model_path=os.getenv("KOKORO_MODEL_PATH") or None,
         voices_path=os.getenv("KOKORO_VOICES_PATH") or None,
     )
-    llm_base_url = os.getenv("LLM_BASE_URL", "").strip()
-    llm_api_key = os.getenv("LLM_API_KEY", "").strip()
-    llm_model = os.getenv("LLM_MODEL", "").strip()
-    if not llm_base_url or not llm_api_key or not llm_model:
+    openai_api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    llm_base_url = os.getenv("LLM_BASE_URL", "").strip() or ("https://api.openai.com/v1" if openai_api_key else "")
+    llm_api_key = os.getenv("LLM_API_KEY", "").strip() or openai_api_key
+    llm_model = os.getenv("LLM_MODEL", "").strip() or ("gpt-4o-mini" if openai_api_key else "")
+    missing_llm_settings = [
+        name for name, value in (
+            ("LLM_BASE_URL", llm_base_url),
+            ("LLM_API_KEY or OPENAI_API_KEY", llm_api_key),
+            ("LLM_MODEL", llm_model),
+        ) if not value
+    ]
+    if missing_llm_settings:
         raise RuntimeError(
-            "Modal voice worker needs LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL "
-            "in its Modal secret/environment; host.docker.internal is local-only."
+            "Voice worker is missing LLM settings: "
+            + ", ".join(missing_llm_settings)
+            + ". Add them to the Modal livekit-credentials secret; "
+            "host.docker.internal is local-only."
         )
     llm = OpenAILLMService(
         api_key=llm_api_key,

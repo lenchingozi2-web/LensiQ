@@ -11,7 +11,7 @@ function siteOrigin(requestUrl: URL) {
       // Fall through to the production default or local request origin.
     }
   }
-  return process.env.NODE_ENV === 'production' ? 'https://lenxiq.online' : requestUrl.origin;
+  return process.env.NODE_ENV === 'production' ? 'https://www.lenxiq.online' : requestUrl.origin;
 }
 
 function safeNextPath(value: string | null) {

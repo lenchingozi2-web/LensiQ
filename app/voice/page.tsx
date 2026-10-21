@@ -133,6 +133,7 @@ function VoiceTutorContent() {
   const messagesRef = useRef<Message[]>([]);
   const transcriptIdsRef = useRef(new Set<string>());
   const audioContainerRef = useRef<HTMLDivElement>(null);
+  const audioElementsRef = useRef(new Map<string, HTMLAudioElement>());
   const ambienceAudioRef = useRef<HTMLAudioElement>(null);
   const ambienceGraphRef = useRef<AmbienceGraph | null>(null);
   const playbackContextRef = useRef<AudioContext | null>(null);
@@ -386,14 +387,19 @@ function VoiceTutorContent() {
   };
 
   useEffect(() => () => {
+    audioElementsRef.current.forEach((element) => {
+      element.pause();
+      element.remove();
+    });
+    audioElementsRef.current.clear();
     roomRef.current?.disconnect();
     stopMicMonitor();
     ambienceAudioRef.current?.pause();
     void ambienceGraphRef.current?.context.close().catch(() => undefined);
     ambienceGraphRef.current = null;
     void playbackContextRef.current?.close().catch(() => undefined);
-    if (recordingDownloadUrl) URL.revokeObjectURL(recordingDownloadUrl);
-  }, [recordingDownloadUrl]);
+    if (recordingDownloadUrlRef.current) URL.revokeObjectURL(recordingDownloadUrlRef.current);
+  }, []);
 
   useEffect(() => {
     const gain = ambienceGraphRef.current?.gain;
@@ -486,8 +492,27 @@ function VoiceTutorContent() {
     })();
   };
 
+  const tutorTrackKey = (track: LiveKitTrack) => track.sid ?? track.mediaStreamTrack.id;
+
+  const playTutorAudioElements = async () => {
+    const room = roomRef.current;
+    if (room && !room.canPlaybackAudio) await room.startAudio();
+    await playbackContextRef.current?.resume();
+    await Promise.all(Array.from(audioElementsRef.current.values()).map(async (element) => {
+      element.muted = tutorMutedRef.current;
+      element.volume = tutorMutedRef.current ? 0 : 1;
+      await element.play();
+    }));
+  };
+
   const attachAudioTrack = (track: LiveKitTrack) => {
     if (track.kind !== 'audio') return;
+    const key = tutorTrackKey(track);
+    const existingElement = audioElementsRef.current.get(key);
+    if (existingElement?.isConnected) {
+      void existingElement.play().catch(() => undefined);
+      return;
+    }
     startTutorPcmProbe(track);
     addRecordingTrack(track);
     const element = track.attach();
@@ -499,13 +524,21 @@ function VoiceTutorContent() {
     element.setAttribute('playsinline', 'true');
     element.setAttribute('aria-hidden', 'true');
     audioContainerRef.current?.appendChild(element);
+    audioElementsRef.current.set(key, element);
     void element.play().then(() => {
       element.muted = tutorMutedRef.current;
       element.volume = tutorMutedRef.current ? 0 : 1;
       clientStage('AGENT_AUDIO_PLAYBACK_STARTED');
       setError('');
       setAudioState(tutorMutedRef.current ? 'ready' : 'playing');
-    }).catch((playbackError) => { clientStage('AGENT_AUDIO_PLAYBACK_BLOCKED', { error: String(playbackError) }); setAudioState('blocked'); setRuntimeState('ERROR'); setStatus('Your tutor audio is not connected yet. Tap Enable tutor audio to reconnect it.'); });
+    }).catch((playbackError) => {
+      // The remote track can arrive after the original button gesture on
+      // mobile browsers. Keep the room healthy and let the explicit audio
+      // button retry playback in a user gesture.
+      clientStage('AGENT_AUDIO_PLAYBACK_BLOCKED', { error: String(playbackError) });
+      setAudioState('blocked');
+      setStatus('Your tutor is connected, but your browser blocked playback. Tap Enable tutor audio to hear the lesson.');
+    });
   };
 
   const requestMicrophone = async (): Promise<MediaStreamTrack | null> => {
@@ -578,6 +611,11 @@ function VoiceTutorContent() {
     const activeConversationId = conversationIdRef.current;
     const durationSeconds = sessionStartedAtRef.current ? Math.max(1, elapsedSecondsRef.current) : 0;
     stopMicMonitor();
+    audioElementsRef.current.forEach((element) => {
+      element.pause();
+      element.remove();
+    });
+    audioElementsRef.current.clear();
     roomRef.current?.disconnect();
     roomRef.current = null;
     const recordingBlob = await stopRecording();
@@ -611,7 +649,9 @@ function VoiceTutorContent() {
     setRemainingSeconds(null);
     setRuntimeState('ENDED');
     setStatus(message);
+    setAudioState('waiting');
     setAgentAudioSubscribed(false);
+    agentAudioSubscribedRef.current = false;
     if (activeSessionId) await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: activeSessionId, action: 'end' }) }).catch(() => undefined);
     await fetch('/api/voice/materials', { method: 'DELETE' }).catch(() => undefined);
     await loadHistory().catch(() => undefined);
@@ -677,8 +717,23 @@ function VoiceTutorContent() {
       messagesRef.current = [];
       transcriptIdsRef.current.clear();
       setReplaying(false);
-      room.on(RoomEvent.TrackSubscribed, (track) => { agentAudioSubscribedRef.current = true; setAgentAudioSubscribed(true); attachAudioTrack(track); });
-      room.on(RoomEvent.TrackUnsubscribed, (track) => { track.detach(); agentAudioSubscribedRef.current = false; setAgentAudioSubscribed(false); setAudioState('waiting'); });
+      room.on(RoomEvent.TrackSubscribed, (track) => {
+        if (track.kind !== 'audio') return;
+        agentAudioSubscribedRef.current = true;
+        setAgentAudioSubscribed(true);
+        attachAudioTrack(track);
+      });
+      room.on(RoomEvent.TrackUnsubscribed, (track) => {
+        if (track.kind !== 'audio') return;
+        const key = tutorTrackKey(track);
+        audioElementsRef.current.get(key)?.remove();
+        audioElementsRef.current.delete(key);
+        track.detach();
+        const hasAudio = Array.from(room.remoteParticipants.values()).some((participant) => Array.from(participant.audioTrackPublications.values()).some((publication) => Boolean(publication.track)));
+        agentAudioSubscribedRef.current = hasAudio;
+        setAgentAudioSubscribed(hasAudio);
+        if (!hasAudio) setAudioState('waiting');
+      });
       room.on(RoomEvent.LocalTrackPublished, (publication) => { if (publication.source === Track.Source.Microphone) { setMicState('live'); clientStage('MIC_TRACK_PUBLISHED_EVENT'); setStatus('Microphone ready. Speak naturally; the tutor will yield when you interrupt.'); } });
       room.on(RoomEvent.LocalAudioSilenceDetected, () => { setMicState('silent'); clientStage('MIC_INPUT_SILENCE_DETECTED'); });
       room.on(RoomEvent.MediaDevicesError, (mediaError) => { setMicState('error'); setError(friendlyError(mediaError)); });
@@ -691,7 +746,7 @@ function VoiceTutorContent() {
         setRuntimeState(nextState);
         setStatus(nextState === 'TEACHING' ? 'Study room reconnected. LenxiQ AI can continue your lesson.' : 'Study room reconnected. Your lesson visual is synchronized.');
         clientStage('LIVEKIT_VISUAL_STATE_RESYNCED', { revision: visualRevisionRef.current, type: restoredVisual.type });
-        void room.startAudio().catch(() => undefined);
+        void playTutorAudioElements().catch(() => undefined);
         for (const participant of room.remoteParticipants.values()) {
           for (const publication of participant.trackPublications.values()) {
             if (publication.track?.kind === 'audio') {
@@ -811,6 +866,7 @@ function VoiceTutorContent() {
       room.on(RoomEvent.Disconnected, () => { if (!endingRef.current) void endSession(); });
       const livekitUrl = String(tokenData.url || '').trim();
       await room.connect(livekitUrl, tokenData.token);
+      roomRef.current = room;
       clientStage('LIVEKIT_ROOM_CONNECTED', { roomName: tokenData.roomName });
       await room.startAudio().catch((playbackError) => { clientStage('AGENT_AUDIO_PLAYBACK_BLOCKED', { error: String(playbackError) }); setAudioState('blocked'); });
       for (const participant of room.remoteParticipants.values()) {
@@ -822,11 +878,7 @@ function VoiceTutorContent() {
           }
         }
       }
-      audioContainerRef.current?.querySelectorAll('audio').forEach((element) => {
-        element.muted = tutorMutedRef.current;
-        element.volume = tutorMutedRef.current ? 0 : 1;
-        void element.play().catch(() => undefined);
-      });
+      void playTutorAudioElements().catch(() => undefined);
       const microphonePublication = await room.localParticipant.publishTrack(microphoneTrack, { source: Track.Source.Microphone, dtx: false, red: true });
       if (!microphonePublication?.track) throw new Error('Live Class could not publish the microphone track.');
       clientStage('MIC_TRACK_PUBLISHED', { trackId: microphonePublication.trackSid, enabled: microphoneTrack.enabled, readyState: microphoneTrack.readyState });
@@ -834,12 +886,11 @@ function VoiceTutorContent() {
       sessionStartedAtRef.current = 1;
       elapsedSecondsRef.current = 0;
       setElapsedSeconds(0);
-      roomRef.current = room;
       try { await startRecording(microphonePublication.track); } catch { setAmbienceNotice('Live Class is active, but this browser cannot record the session locally.'); }
       setConnected(true);
       setMicMuted(false);
       setRuntimeState('INITIALIZING');
-      setAudioState(room.canPlaybackAudio ? 'ready' : 'blocked');
+      setAudioState(room.canPlaybackAudio ? (agentAudioSubscribedRef.current ? 'playing' : 'ready') : agentAudioSubscribedRef.current ? 'blocked' : 'waiting');
       const openingMessage: Message = { role: 'assistant', content: topicFocus ? `Live Class opened for ${topicFocus}. Speak naturally; LenxiQ AI will teach aloud and you can interrupt at any time.` : `Live Class opened. Tell LenxiQ AI what you want to understand, and the tutor will teach aloud.` };
       setMessages([openingMessage]);
       messagesRef.current = [openingMessage];
@@ -885,8 +936,7 @@ function VoiceTutorContent() {
       return;
     }
     try {
-      await roomRef.current?.startAudio();
-      await Promise.all(elements.map((element) => element.play()));
+      await playTutorAudioElements();
       setAudioState(agentAudioSubscribedRef.current ? 'playing' : 'waiting');
       setStatus(agentAudioSubscribedRef.current ? 'Tutor audio is live again.' : 'Tutor audio is enabled; your tutor is joining the room.');
     } catch {
