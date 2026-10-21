@@ -27,7 +27,13 @@ export async function POST(req: Request) {
   // worker polls. Never fall back to an old NEXT_PUBLIC_* Codespaces URL in
   // production; a missing Cloud URL must produce a clear configuration error.
   const rawLivekitUrl = process.env.LIVEKIT_PUBLIC_URL || process.env.LIVEKIT_URL;
-  const internalLivekitUrl = process.env.LIVEKIT_INTERNAL_URL?.trim();
+  // LIVEKIT_INTERNAL_URL is only for a Next.js server sharing a host with a
+  // self-hosted LiveKit container. Vercel cannot reach Codespaces/localhost;
+  // using that legacy value in production makes token generation fail even
+  // when the public LiveKit Cloud URL and credentials are correct.
+  const internalLivekitUrl = process.env.VERCEL
+    ? undefined
+    : process.env.LIVEKIT_INTERNAL_URL?.trim();
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
 
