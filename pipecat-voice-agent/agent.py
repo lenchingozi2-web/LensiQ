@@ -14,7 +14,7 @@ import os
 from typing import Any
 
 from livekit import api
-from pipecat.frames.frames import InputTextRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
+from pipecat.frames.frames import ErrorFrame, InputTextRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -92,7 +92,7 @@ class LiveClassDataBridge(FrameProcessor):
         await super().process_frame(frame, direction)
         if isinstance(frame, TranscriptionFrame) and frame.text.strip():
             await self.publish({"type": "live_class_transcript", "role": self.role, "content": frame.text.strip(), "final": True})
-            await self.publish({"type": "live_class_state", "state": "LISTENING"})
+            await self.publish({"type": "live_class_state", "state": "THINKING"})
         elif isinstance(frame, TextFrame) and frame.text.strip():
             await self.publish({"type": "live_class_transcript", "role": self.role, "content": frame.text.strip(), "final": True})
             await self.publish({"type": "live_class_state", "state": "TEACHING"})
@@ -173,6 +173,14 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         assistant_bridge, tts, transport.output(), assistant_aggregator,
     ])
     task = PipelineTask(pipeline, params=PipelineParams(allow_interruptions=True, enable_metrics=True))
+
+    @task.event_handler("on_pipeline_error")
+    async def on_pipeline_error(_task: PipelineTask, frame: ErrorFrame):
+        message = str(frame.error or "The tutor could not complete that response.")
+        if "402" in message or "Insufficient Balance" in message:
+            message = "The tutor service is temporarily unavailable. Please try again in a moment."
+        logger.error("Live Class pipeline error: %s", frame.error)
+        await assistant_bridge.publish({"type": "live_class_state", "state": "ERROR", "message": message})
 
     @transport.event_handler("on_data_received")
     async def on_data_received(_transport: LiveKitTransport, payload: bytes, _participant_id: str):

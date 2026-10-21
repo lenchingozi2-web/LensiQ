@@ -44,6 +44,7 @@ voice_image = (
 
 app = modal.App(APP_NAME)
 livekit_credentials = modal.Secret.from_name("livekit-credentials")
+llm_fallback = modal.Secret.from_name("lensiq-llm-fallback")
 
 
 def _api_url(value: str) -> str:
@@ -58,7 +59,7 @@ def _api_url(value: str) -> str:
 
 @app.function(
     image=voice_image,
-    secrets=[livekit_credentials],
+    secrets=[livekit_credentials, llm_fallback],
     cpu=2.0,
     memory=4096,
     timeout=60 * 30,
@@ -89,7 +90,7 @@ def run_voice_room(room_name: str, room_metadata: str = "") -> None:
 
 @app.function(
     image=voice_image,
-    secrets=[livekit_credentials],
+    secrets=[livekit_credentials, llm_fallback],
     cpu=0.25,
     memory=512,
     timeout=45,
@@ -116,9 +117,15 @@ def poll_livekit_rooms() -> None:
             for room in response.rooms:
                 if not room.name.startswith(ROOM_PREFIX):
                     continue
-                participants = await api_client.room.list_participants(
-                    api.ListParticipantsRequest(room=room.name)
-                )
+                try:
+                    participants = await api_client.room.list_participants(
+                        api.ListParticipantsRequest(room=room.name)
+                    )
+                except Exception as error:
+                    # A room may close between list_rooms and this call.
+                    if "does not exist" in str(error).lower() or "not_found" in str(error).lower():
+                        continue
+                    raise
                 if any(p.identity.startswith(AGENT_NAME) for p in participants.participants):
                     continue
                 # A worker can take several seconds to boot Whisper/Kokoro. Claim the
