@@ -12,7 +12,7 @@ modal deploy agent_modal.py
 
 Keep `LIVEKIT_DISPATCH_MODE=room-poll` in the Next.js environment. The frontend creates the room and token; the Modal poller discovers that same `lensiq-voice-*` room through LiveKit Cloud and joins it as `lensiq-voice-tutor`.
 
-For a Codespace Next.js process, add these variables to the app's `.env.local` and restart `pnpm dev`:
+For a Codespace Next.js process, add these variables to the repository-root `.env.local` (`/workspaces/LensiQ/.env.local`), not `pipecat-voice-agent/.env.local`, and restart the Next.js process:
 
 ```dotenv
 LIVEKIT_PUBLIC_URL=wss://YOUR_LIVEKIT_PROJECT.livekit.cloud
