@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 import { getOrCreateProfile } from '../../lib/profile';
-import { issueActiveSession } from '../../lib/auth/active-session';
 
 function safeNextPath(value: string | null | undefined) {
   if (!value?.startsWith('/') || value.startsWith('//')) return '/dashboard';
@@ -39,12 +38,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     if (error || !data.user) {
       redirect(`/login?message=Could not authenticate user&next=${encodeURIComponent(nextPath)}`);
     }
-    
+
     // Ensure an Auth user without a public profile is repaired before protected access.
     const { error: profileError } = await getOrCreateProfile(supabase, data.user);
     if (profileError) redirect('/login?message=Your account could not be initialized');
-    const { error: activeSessionError } = await issueActiveSession(supabase, data.user.id);
-    if (activeSessionError) redirect('/login?message=Your account session could not be secured');
     revalidatePath('/');
     redirect(nextPath);
   }
@@ -54,7 +51,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     const email = String(formData.get('email') ?? '').trim().toLowerCase();
     const password = formData.get('password') as string;
     const nextPath = safeNextPath(formData.get('next') as string | null);
-    const supabase = await createClient(); 
+    const supabase = await createClient();
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -64,12 +61,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     if (error || !data.user) {
       redirect(`/login?message=Could not sign up&next=${encodeURIComponent(nextPath)}`);
     }
-    
+
     // Ensure an Auth user without a public profile is repaired before protected access.
     const { error: profileError } = await getOrCreateProfile(supabase, data.user);
     if (profileError) redirect('/login?message=Your account could not be initialized');
-    const { error: activeSessionError } = await issueActiveSession(supabase, data.user.id);
-    if (activeSessionError) redirect('/login?message=Your account session could not be secured');
     revalidatePath('/');
     redirect(nextPath);
   }
@@ -80,34 +75,34 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <input type="hidden" name="next" value={next} />
         <h1 className="text-3xl font-bold mb-6 text-center text-[#0B1220]">LenxiQ AI access</h1>
         {(params.message || params.error) && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-800">{params.error || (params.message === 'Could not authenticate user' ? 'Email or password did not match. Try again, use Google, or reset your password.' : 'Sign-in could not be completed. Please retry, use Google, or reset your password.')}</p>}
-        
+
         <label className="text-sm font-semibold" htmlFor="email">Email Address</label>
-        <input 
-          className="rounded-md px-4 py-2 bg-slate-50 border mb-4 text-slate-800" 
-          name="email" 
+        <input
+          className="rounded-md px-4 py-2 bg-slate-50 border mb-4 text-slate-800"
+          name="email"
           type="email"
-          placeholder="doctor@example.com" 
-          required 
+          placeholder="doctor@example.com"
+          required
         />
-        
+
         <label className="text-sm font-semibold" htmlFor="password">Password</label>
-        <input 
-          className="rounded-md px-4 py-2 bg-slate-50 border mb-8 text-slate-800" 
-          type="password" 
-          name="password" 
-          placeholder="••••••••" 
-          required 
+        <input
+          className="rounded-md px-4 py-2 bg-slate-50 border mb-8 text-slate-800"
+          type="password"
+          name="password"
+          placeholder="••••••••"
+          required
         />
         <Link href="/forgot-password" className="-mt-5 mb-4 self-end text-sm font-bold text-[#9a5d00] hover:underline">Forgot password?</Link>
-        
-        <button 
-          formAction={login} 
+
+        <button
+          formAction={login}
           className="bg-[#0B1220] text-white rounded-md px-4 py-2 mb-2 font-semibold shadow hover:bg-slate-800"
         >
           Sign In
         </button>
-        <button 
-          formAction={signup} 
+        <button
+          formAction={signup}
           className="border border-[#0B1220] text-[#0B1220] rounded-md px-4 py-2 mb-2 font-semibold hover:bg-slate-50"
         >
           Create Account

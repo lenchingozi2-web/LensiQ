@@ -1,7 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const activeSessionCookie = 'session_token';
 const sessionCheckTimeoutMs = 5000;
 
 function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit) {
@@ -12,18 +11,6 @@ function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit) {
     ...init,
     signal: init?.signal ?? controller.signal,
   }).finally(() => clearTimeout(timeoutId));
-}
-
-function sessionReplacedResponse(request: NextRequest) {
-  const response = NextResponse.redirect(new URL('/login?reason=session_replaced', request.url));
-
-  for (const cookie of request.cookies.getAll()) {
-    if (cookie.name === activeSessionCookie || cookie.name.startsWith('sb-')) {
-      response.cookies.delete(cookie.name);
-    }
-  }
-
-  return response;
 }
 
 export async function middleware(request: NextRequest) {
@@ -77,26 +64,7 @@ export async function middleware(request: NextRequest) {
 
     // This refreshes an expiring Supabase session and writes rotated cookies
     // through the response without treating a transient error as a logout.
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (!authError && user) {
-      const activeToken = request.cookies.get(activeSessionCookie)?.value;
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('session_token')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        // A temporary database failure must not kick out a valid Supabase user.
-        console.error('[Middleware] Active-session lookup failed:', profileError.message);
-      } else if (activeToken && profile?.session_token && profile.session_token !== activeToken) {
-        return sessionReplacedResponse(request);
-      }
-    }
+    await supabase.auth.getUser();
   } catch (error) {
     // Fail open for transient network/service failures. Protected server pages
     // still enforce authentication when they can verify the request.

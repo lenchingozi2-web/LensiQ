@@ -284,8 +284,8 @@ function VoiceTutorContent() {
   const createConversation = async () => {
     const title = topicFocus ? `Live Class · ${topicFocus}` : `Live Class · ${courseName}`;
     const response = await fetch('/api/teaching/conversations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseName, title, sessionType: 'live_class' }) });
-    if (!response.ok) throw new Error('Unable to create the Live Class history.');
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Unable to create the Live Class history. Please sign in again and retry.');
     setConversationId(data.conversation.id);
     conversationIdRef.current = data.conversation.id;
     setConversations((previous) => [data.conversation, ...previous]);
