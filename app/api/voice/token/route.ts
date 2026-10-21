@@ -41,10 +41,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Voice tutoring is not configured yet. Please check the LiveKit server settings.' }, { status: 503 });
   }
 
-  let livekitUrl: string;
-  try {
-    livekitUrl = normalizeLiveKitUrl(rawLivekitUrl);
-  } catch {
+  const rawLivekitUrls = Array.from(new Set([
+    rawLivekitUrl,
+    process.env.LIVEKIT_URL,
+    process.env.LIVEKIT_SELF_HOSTED_URL,
+  ].filter((value): value is string => Boolean(value?.trim()))));
+  const livekitUrls: string[] = [];
+  for (const candidate of rawLivekitUrls) {
+    try {
+      const normalized = normalizeLiveKitUrl(candidate);
+      if (!livekitUrls.includes(normalized)) livekitUrls.push(normalized);
+    } catch {
+      // Ignore legacy/invalid fallback values and try the next configured URL.
+    }
+  }
+  if (!livekitUrls.length) {
     return NextResponse.json({ error: 'The LiveKit server URL is invalid. It must be a LiveKit ws:// or wss:// endpoint.' }, { status: 503 });
   }
 
@@ -121,19 +132,31 @@ export async function POST(req: Request) {
 
   const isUnlimited = Boolean(quota.is_unlimited);
   const maxDurationSeconds = isUnlimited ? 86400 : Math.max(60, Number(quota.max_duration_seconds ?? 1800));
-  const dispatchHost = (internalLivekitUrl || livekitUrl).replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:').replace(/\/$/, '');
+  const internalHost = internalLivekitUrl?.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:').replace(/\/$/, '');
   // Validate the exact Cloud project/key pairing before minting a browser
   // token. A token can be signed locally with any key, but the browser then
   // fails later with the unhelpful generic "voice server" message when the
   // key belongs to a different LiveKit project.
-  try {
-    const roomService = new RoomServiceClient(dispatchHost, apiKey, apiSecret);
-    await roomService.listRooms();
-  } catch (livekitError) {
-    console.error('LiveKit credential handshake failed:', livekitError);
+  let livekitUrl: string | null = null;
+  let dispatchHost: string | null = null;
+  let lastLivekitError: unknown = null;
+  for (const candidateUrl of livekitUrls) {
+    const candidateHost = internalHost || candidateUrl.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:').replace(/\/$/, '');
+    try {
+      const roomService = new RoomServiceClient(candidateHost, apiKey, apiSecret);
+      await roomService.listRooms();
+      livekitUrl = candidateUrl;
+      dispatchHost = candidateHost;
+      break;
+    } catch (livekitError) {
+      lastLivekitError = livekitError;
+    }
+  }
+  if (!livekitUrl || !dispatchHost) {
+    console.error('LiveKit credential handshake failed for configured URLs:', lastLivekitError);
     return NextResponse.json({
       error: 'livekit_credentials_rejected',
-      message: 'The LiveKit URL and API credentials belong to different projects. Update the Next.js and Modal LiveKit settings to use the same Cloud project.',
+      message: 'The configured LiveKit API credentials were rejected by every configured LiveKit project. Update Vercel and Modal to use the same LiveKit Cloud credentials.',
     }, { status: 503 });
   }
   const dispatchMetadata = JSON.stringify({
