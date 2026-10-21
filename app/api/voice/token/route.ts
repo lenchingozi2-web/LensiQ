@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { AccessToken, AgentDispatchClient } from 'livekit-server-sdk';
+import { AccessToken, AgentDispatchClient, RoomServiceClient } from 'livekit-server-sdk';
 import { createClient } from '../../../../lib/supabase/server';
 import { LIVE_CLASS_MODEL_ASSETS, LIVE_CLASS_MOLECULE_ASSETS } from '@/lib/voice/live-class-visuals';
 import { LIVE_CLASS_MODEL_CATALOG, LIVE_CLASS_MOLECULE_CATALOG } from '@/lib/voice/live-class-model-catalog';
@@ -116,6 +116,20 @@ export async function POST(req: Request) {
   const isUnlimited = Boolean(quota.is_unlimited);
   const maxDurationSeconds = isUnlimited ? 86400 : Math.max(60, Number(quota.max_duration_seconds ?? 1800));
   const dispatchHost = (internalLivekitUrl || livekitUrl).replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:').replace(/\/$/, '');
+  // Validate the exact Cloud project/key pairing before minting a browser
+  // token. A token can be signed locally with any key, but the browser then
+  // fails later with the unhelpful generic "voice server" message when the
+  // key belongs to a different LiveKit project.
+  try {
+    const roomService = new RoomServiceClient(dispatchHost, apiKey, apiSecret);
+    await roomService.listRooms();
+  } catch (livekitError) {
+    console.error('LiveKit credential handshake failed:', livekitError);
+    return NextResponse.json({
+      error: 'livekit_credentials_rejected',
+      message: 'The LiveKit URL and API credentials belong to different projects. Update the Next.js and Modal LiveKit settings to use the same Cloud project.',
+    }, { status: 503 });
+  }
   const dispatchMetadata = JSON.stringify({
     userId: user.id,
     courseName,
