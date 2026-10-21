@@ -14,11 +14,14 @@ import os
 from typing import Any
 
 from livekit import api
-from pipecat.frames.frames import TTSSpeakFrame
+from pipecat.frames.frames import InputTextRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
+from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
+from pipecat.audio.vad.silero import SileroVADAnalyzer
+from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.services.kokoro.tts import KokoroTTSService
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.services.whisper.stt import WhisperSTTService
@@ -72,13 +75,46 @@ def _system_prompt(room_name: str, room_metadata: str | None = None) -> str:
     )
 
 
+class LiveClassDataBridge(FrameProcessor):
+    """Mirror completed user and tutor turns to the browser data channel."""
+
+    def __init__(self, transport: LiveKitTransport, role: str):
+        super().__init__(name=f"live-class-{role}-bridge")
+        self.transport = transport
+        self.role = role
+
+    async def publish(self, payload: dict[str, Any]) -> None:
+        client = getattr(self.transport, "_client", None)
+        if client is not None:
+            await client.send_data(json.dumps(payload, ensure_ascii=False).encode())
+
+    async def process_frame(self, frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+        if isinstance(frame, TranscriptionFrame) and frame.text.strip():
+            await self.publish({"type": "live_class_transcript", "role": self.role, "content": frame.text.strip(), "final": True})
+            await self.publish({"type": "live_class_state", "state": "LISTENING"})
+        elif isinstance(frame, TextFrame) and frame.text.strip():
+            await self.publish({"type": "live_class_transcript", "role": self.role, "content": frame.text.strip(), "final": True})
+            await self.publish({"type": "live_class_state", "state": "TEACHING"})
+        await self.push_frame(frame, direction)
+
+
 async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     token = generate_token_with_agent(room_name, f"{AGENT_NAME}-{room_name[-8:]}", LIVEKIT_API_KEY, LIVEKIT_API_SECRET)
     transport = LiveKitTransport(
         url=_room_ws_url(LIVEKIT_URL),
         token=token,
         room_name=room_name,
-        params=LiveKitParams(audio_in_enabled=True, audio_out_enabled=True, camera_in_enabled=False, camera_out_enabled=False),
+        params=LiveKitParams(
+            audio_in_enabled=True,
+            audio_out_enabled=True,
+            camera_in_enabled=False,
+            camera_out_enabled=False,
+            vad_enabled=True,
+            vad_analyzer=SileroVADAnalyzer(
+                params=VADParams(confidence=0.62, start_secs=0.16, stop_secs=0.32, min_volume=0.42)
+            ),
+        ),
     )
     stt = WhisperSTTService(
         model=os.getenv("WHISPER_MODEL", "small.en"),
@@ -130,13 +166,34 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     context_aggregators = llm.create_context_aggregator(context)
     user_aggregator = context_aggregators.user()
     assistant_aggregator = context_aggregators.assistant()
-    pipeline = Pipeline([transport.input(), stt, user_aggregator, llm, tts, transport.output(), assistant_aggregator])
+    user_bridge = LiveClassDataBridge(transport, "user")
+    assistant_bridge = LiveClassDataBridge(transport, "assistant")
+    pipeline = Pipeline([
+        transport.input(), stt, user_bridge, user_aggregator, llm,
+        assistant_bridge, tts, transport.output(), assistant_aggregator,
+    ])
     task = PipelineTask(pipeline, params=PipelineParams(allow_interruptions=True, enable_metrics=True))
+
+    @transport.event_handler("on_data_received")
+    async def on_data_received(_transport: LiveKitTransport, payload: bytes, _participant_id: str):
+        try:
+            data = json.loads(payload.decode())
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return
+        if data.get("type") != "structure_selected" and data.get("type") != "concept_selected":
+            return
+        if data.get("type") == "structure_selected":
+            focus = f"The learner selected the structure {data.get('structureId', 'an unlabeled structure')} in the current visual. Explain that selected structure in context, then ask whether they want to go deeper."
+        else:
+            focus = f"The learner selected this concept on the teaching board: {str(data.get('concept', ''))[:400]}. Explain it interactively and connect it to the current lesson."
+        await assistant_bridge.publish({"type": "live_class_state", "state": "THINKING"})
+        await task.queue_frame(InputTextRawFrame(text=focus))
 
     @transport.event_handler("on_first_participant_joined")
     async def on_first_participant_joined(_transport: LiveKitTransport, _participant_id: str):
         # Prove the transport/TTS path immediately. This avoids making the
         # first audible response depend on an LLM round trip completing.
+        await assistant_bridge.publish({"type": "live_class_state", "state": "GREETING"})
         await asyncio.sleep(1)
         await task.queue_frame(
             TTSSpeakFrame(
