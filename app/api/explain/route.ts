@@ -11,6 +11,11 @@ export async function POST(req: Request) {
     if (!user) {
       return NextResponse.json({ content: "You must be logged in to use the AI Tutor." }, { status: 401 });
     }
+    const userId = user.id;
+    return NextResponse.json(
+      { content: 'The AI Tutor is temporarily paused while service usage is reviewed.', flagged: false },
+      { status: 503 },
+    );
 
     // =========================================================================
     // STEP 2: THE ADMIN BOUNCER - Check if the Admin Globally Paused AI
@@ -21,7 +26,7 @@ export async function POST(req: Request) {
       .eq('id', 1)
       .single();
 
-    if (settings && settings.is_ai_tutor_enabled === false) {
+    if (settings?.is_ai_tutor_enabled === false) {
       return NextResponse.json({ 
         content: "✨ The AI Tutor is currently offline for maintenance. Check back soon!",
         flagged: false
@@ -107,7 +112,7 @@ export async function POST(req: Request) {
         await supabase.from('answer_flags').insert({
           question_id: questionId,
           flag_reason: aiResponseJson.flag_reason || 'Flagged by AI Tutor',
-          raised_by_user_id: user.id
+          raised_by_user_id: userId
         });
       } catch (flagError) {
         console.error("Flag save error:", flagError);

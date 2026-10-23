@@ -19,6 +19,11 @@ export async function POST(req: Request) {
     if (!user) {
       return NextResponse.json({ error: 'You must be logged in to use Teaching Mode.' }, { status: 401 });
     }
+    const userId = user.id;
+    return NextResponse.json(
+      { error: 'ai_paused', message: 'The AI Tutor is temporarily paused while service usage is reviewed.' },
+      { status: 503 },
+    );
 
     const { data: adminSettings } = await supabase
       .from('site_settings')
@@ -26,7 +31,7 @@ export async function POST(req: Request) {
       .eq('id', 1)
       .single();
 
-    if (adminSettings && adminSettings.is_ai_tutor_enabled === false) {
+    if (adminSettings?.is_ai_tutor_enabled === false) {
       return NextResponse.json(
         { error: 'ai_paused', message: 'The AI Tutor is currently paused for maintenance. Please check back shortly.' },
         { status: 503 },
@@ -44,10 +49,10 @@ export async function POST(req: Request) {
         .from('teaching_conversations')
         .select('id, session_type')
         .eq('id', conversationId)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .maybeSingle();
       if (!conversation) return NextResponse.json({ error: 'Teaching session not found.' }, { status: 404 });
-      if (sessionType === 'live_class' && conversation.session_type !== 'live_class') {
+      if (sessionType === 'live_class' && conversation?.session_type !== 'live_class') {
         return NextResponse.json({ error: 'This conversation is not a Live Class session.' }, { status: 400 });
       }
     }
@@ -74,24 +79,24 @@ export async function POST(req: Request) {
         .from('live_class_sessions')
         .select('id, status, started_at, is_free_trial')
         .eq('id', liveClassSessionId)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('status', 'active')
         .maybeSingle();
       if (!liveSession) return NextResponse.json({ error: 'The Live Class session has ended. Start a new session to continue.' }, { status: 403 });
 
-      const { data: profile, error: profileError } = await getOrCreateProfile(supabase, user);
+      const { data: profile, error: profileError } = await getOrCreateProfile(supabase, user!);
       if (profileError || !profile) return NextResponse.json({ error: 'Your account profile could not be loaded.' }, { status: 503 });
       const isAdmin = profile.role === 'admin';
       const isPremiumVoice = isPaidPlan(profile.plan) && (!profile.plan_expires_at || new Date(profile.plan_expires_at) > new Date());
-      const isFreeTrial = liveSession.is_free_trial === true;
+      const isFreeTrial = liveSession?.is_free_trial === true;
       if (!isAdmin && !isPremiumVoice && !isFreeTrial) {
-        await supabase.from('live_class_sessions').update({ status: 'expired', ended_at: new Date().toISOString() }).eq('id', liveClassSessionId).eq('user_id', user.id);
+        await supabase.from('live_class_sessions').update({ status: 'expired', ended_at: new Date().toISOString() }).eq('id', liveClassSessionId).eq('user_id', userId);
         return NextResponse.json({ error: 'Your free Live Class allowance is used for this month. It refreshes next month, or you can upgrade to Hybrid Premium.' }, { status: 403 });
       }
       if (!isAdmin) {
         const { data: chargeRows, error: chargeError } = await supabase.rpc('charge_live_class_session', {
           p_session_id: liveClassSessionId,
-          p_duration_seconds: Math.max(0, Math.floor((Date.now() - new Date(liveSession.started_at).getTime()) / 1000)),
+          p_duration_seconds: Math.max(0, Math.floor((Date.now() - new Date(liveSession!.started_at).getTime()) / 1000)),
           p_end: false,
         });
         const charge = Array.isArray(chargeRows) ? chargeRows[0] : chargeRows;
