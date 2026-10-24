@@ -11,10 +11,13 @@ import asyncio
 import json
 import logging
 import os
+import urllib.error
+import urllib.request
+import uuid
 from typing import Any
 
 from livekit import api
-from pipecat.frames.frames import ErrorFrame, InputTextRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
+from pipecat.frames.frames import ErrorFrame, InputTextRawFrame, LLMContextFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -74,6 +77,58 @@ def _system_prompt(room_name: str, room_metadata: str | None = None) -> str:
         + metadata_context
     )
 
+
+class AiBudgetGate(FrameProcessor):
+    """Reserve shared global spend capacity before each paid LLM generation."""
+
+    def __init__(self, transport: LiveKitTransport, user_id: str, endpoint: str, token: str):
+        super().__init__(name="ai-budget-gate")
+        self.transport = transport
+        self.user_id = user_id
+        self.endpoint = endpoint
+        self.token = token
+
+    def _reserve_sync(self) -> bool:
+        if not self.user_id or not self.endpoint or not self.token:
+            logger.error("Voice AI budget gate is not configured; blocking provider call")
+            return False
+        payload = json.dumps({
+            "userId": self.user_id,
+            "requestId": str(uuid.uuid4()),
+            "feature": "voice",
+        }).encode("utf-8")
+        request = urllib.request.Request(
+            self.endpoint,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.token}",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=4) as response:
+                result = json.loads(response.read(4096).decode("utf-8"))
+                return response.status == 200 and result.get("allowed") is True
+        except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
+            logger.error("Voice AI budget service unavailable (%s); blocking provider call", type(error).__name__)
+            return False
+
+    async def process_frame(self, frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+        if isinstance(frame, LLMContextFrame):
+            allowed = await asyncio.to_thread(self._reserve_sync)
+            if not allowed:
+                client = getattr(self.transport, "_client", None)
+                if client is not None:
+                    message = {
+                        "type": "live_class_state",
+                        "state": "ERROR",
+                        "message": "The tutor is temporarily at capacity. Please try again shortly.",
+                    }
+                    await client.send_data(json.dumps(message).encode("utf-8"))
+                return
+        await self.push_frame(frame, direction)
 
 class LiveClassDataBridge(FrameProcessor):
     """Mirror completed user and tutor turns to the browser data channel."""
