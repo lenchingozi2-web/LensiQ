@@ -77,6 +77,10 @@ begin
     return;
   end if;
 
+  -- Serialize with admin control changes; emergency pause waits for an
+  -- in-progress reservation and prevents later reservations after it commits.
+  perform pg_advisory_xact_lock(hashtextextended('ai-budget-control-global', 0));
+
   -- Central pause and caps are read from a service-role-only singleton.
   -- Missing control state fails closed.
   select is_paused, global_daily_limit_microusd, global_monthly_limit_microusd,
