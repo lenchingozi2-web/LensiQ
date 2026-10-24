@@ -187,17 +187,22 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     )
     openai_api_key = os.getenv("OPENAI_API_KEY", "").strip()
     deepseek_api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
-    llm_api_key = os.getenv("LLM_API_KEY", "").strip() or openai_api_key or deepseek_api_key
+    configured_key = os.getenv("LLM_API_KEY", "").strip()
     llm_base_url = os.getenv("LLM_BASE_URL", "").strip()
-    if not llm_base_url and openai_api_key:
-        llm_base_url = "https://api.openai.com/v1"
-    if not llm_base_url and deepseek_api_key:
-        llm_base_url = "https://api.deepseek.com/v1"
     llm_model = os.getenv("LLM_MODEL", "").strip()
-    if not llm_model and openai_api_key:
-        llm_model = "gpt-4o-mini"
-    if not llm_model and deepseek_api_key:
-        llm_model = "deepseek-chat"
+
+    # Keep DeepSeek as the default voice brain when its key is configured.
+    # An explicit LLM_* contract still takes precedence for intentional overrides.
+    if configured_key:
+        llm_api_key = configured_key
+    elif deepseek_api_key:
+        llm_api_key = deepseek_api_key
+        llm_base_url = llm_base_url or "https://api.deepseek.com/v1"
+        llm_model = llm_model or "deepseek-chat"
+    else:
+        llm_api_key = openai_api_key
+        llm_base_url = llm_base_url or ("https://api.openai.com/v1" if openai_api_key else "")
+        llm_model = llm_model or ("gpt-4o-mini" if openai_api_key else "")
     missing_llm_settings = [
         name for name, value in (
             ("LLM_BASE_URL", llm_base_url),
@@ -223,8 +228,18 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     assistant_aggregator = context_aggregators.assistant()
     user_bridge = LiveClassDataBridge(transport, "user")
     assistant_bridge = LiveClassDataBridge(transport, "assistant")
+    try:
+        room_data = json.loads(room_metadata or "{}")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        room_data = {}
+    budget_gate = AiBudgetGate(
+        transport,
+        str(room_data.get("userId") or ""),
+        str(room_data.get("aiBudgetEndpoint") or ""),
+        os.getenv("AI_BUDGET_INTERNAL_TOKEN", "").strip(),
+    )
     pipeline = Pipeline([
-        transport.input(), stt, user_bridge, user_aggregator, llm,
+        transport.input(), stt, user_bridge, user_aggregator, budget_gate, llm,
         assistant_bridge, tts, transport.output(), assistant_aggregator,
     ])
     task = PipelineTask(pipeline, params=PipelineParams(allow_interruptions=True, enable_metrics=True))
