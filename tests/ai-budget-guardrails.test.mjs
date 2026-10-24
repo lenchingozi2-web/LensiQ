@@ -73,6 +73,14 @@ test('Google OAuth does not force account selection or consent for returning Goo
   assert.doesNotMatch(route, /prompt:\s*['"]select_account['"]/);
 });
 
+test('server Supabase client uses the supported cookie adapter to preserve OAuth sessions', async () => {
+  const serverClient = await read('lib/supabase/server.ts');
+  assert.match(serverClient, /getAll\(\)\s*\{\s*return cookieStore\.getAll\(\)/);
+  assert.match(serverClient, /setAll\(cookiesToSet\)/);
+  assert.match(serverClient, /cookieStore\.set\(\{ name, value, \.\.\.options \}\)/);
+  assert.doesNotMatch(serverClient, /get\(name: string\)|remove\(name: string/);
+});
+
 test('Modal room workers receive the dedicated shared budget-token secret', async () => {
   const modalConfig = await read('pipecat-voice-agent/agent_modal.py');
   assert.match(modalConfig, /ai_budget_secret\s*=\s*modal\.Secret\.from_name\(['"]ai-budget-secret['"]\)/);
