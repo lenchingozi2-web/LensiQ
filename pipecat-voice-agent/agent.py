@@ -260,7 +260,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     budget_gate = AiBudgetGate(
         transport,
         str(room_data.get("userId") or ""),
-        str(room_data.get("aiBudgetEndpoint") or ""),
+        os.getenv("AI_BUDGET_ENDPOINT", "").strip(),
         os.getenv("AI_BUDGET_INTERNAL_TOKEN", "").strip(),
     )
     pipeline = Pipeline([
