@@ -35,7 +35,7 @@ export async function reserveAiRequest(
     return { allowed: false, reason: 'provider_calls_not_approved' };
   }
 
-  const reservationId = requestId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(requestId)
+  const reservationId = requestId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)
     ? requestId
     : randomUUID();
   const { data, error } = await admin.rpc('reserve_ai_budget', {
