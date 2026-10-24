@@ -28,10 +28,10 @@ test('database reservation enforces dollar caps, concurrency and service-role ac
   assert.match(sql, /security definer/i);
   assert.match(sql, /set search_path = pg_catalog, public/i);
   assert.match(sql, /pg_advisory_xact_lock/);
-  assert.match(sql, /25000000/);
-  assert.match(sql, /500000000/);
-  assert.match(sql, /5000000/);
-  assert.match(sql, /100000000/);
+  assert.match(sql, /v_global_daily_cap bigint := 1000000/);
+  assert.match(sql, /v_global_monthly_cap bigint := 10000000/);
+  assert.match(sql, /v_user_daily_cap bigint := 250000/);
+  assert.match(sql, /v_user_monthly_cap bigint := 2000000/);
   assert.match(sql, /request_id uuid primary key/i);
   assert.match(sql, /revoke all on function public\.reserve_ai_budget\(uuid, text, uuid\) from public, anon, authenticated/i);
   assert.match(sql, /grant execute on function public\.reserve_ai_budget\(uuid, text, uuid\) to service_role/i);
