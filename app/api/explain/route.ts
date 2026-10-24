@@ -69,8 +69,8 @@ export async function POST(req: Request) {
     if (
       typeof questionId !== 'string' || questionId.length < 1 || questionId.length > 128 ||
       typeof questionText !== 'string' || questionText.trim().length < 1 || questionText.length > 6000 ||
-      !Array.isArray(options) || options.length > 20 ||
-      options.some((option) => typeof option !== 'string' || option.length > 1000) ||
+      !options || typeof options !== 'object' || Array.isArray(options) || Object.entries(options as Record<string, unknown>).length > 20 ||
+      Object.values(options as Record<string, unknown>).some((option) => typeof option !== 'string' || option.length > 1000) ||
       typeof correctAnswer !== 'string' || correctAnswer.length > 2000 ||
       (modelAnswer !== undefined && modelAnswer !== null && (typeof modelAnswer !== 'string' || modelAnswer.length > 2000))
     ) {
