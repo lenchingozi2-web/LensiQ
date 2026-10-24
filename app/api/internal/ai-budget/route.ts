@@ -117,7 +117,10 @@ export async function POST(request: Request) {
     estimated_cost_microusd: Number(row.reserved_microusd || 0),
     error_code: row.allowed ? null : (row.reason || 'budget_denied'),
   });
-  if (usageEvent.error) console.error('Voice budget event write failed', { code: usageEvent.error.code || 'unknown' });
+  if (usageEvent.error) {
+    console.error('Voice budget event write failed', { code: usageEvent.error.code || 'unknown' });
+    return NextResponse.json({ error: 'AI usage logging unavailable; failing closed.' }, { status: 503 });
+  }
 
   return NextResponse.json({
     allowed: row.allowed,
