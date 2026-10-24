@@ -21,7 +21,21 @@ export async function reserveAiRequest(
   const admin = createAdminClient();
   if (!admin) return { allowed: false, reason: 'budget_unavailable' };
 
-  const reservationId = requestId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)
+  // Both gates must be explicitly opened: the database switch defaults to
+  // paused, and the server-side env flag prevents accidental reactivation.
+  const { data: controls, error: controlError } = await admin
+    .from('ai_runtime_controls')
+    .select('is_paused')
+    .eq('id', 1)
+    .maybeSingle();
+  if (controlError || !controls || controls.is_paused !== false) {
+    return { allowed: false, reason: 'ai_globally_paused' };
+  }
+  if (process.env.AI_PROVIDER_CALLS_ENABLED !== 'true') {
+    return { allowed: false, reason: 'provider_calls_not_approved' };
+  }
+
+  const reservationId = requestId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(requestId)
     ? requestId
     : randomUUID();
   const { data, error } = await admin.rpc('reserve_ai_budget', {
@@ -40,6 +54,23 @@ export async function reserveAiRequest(
   if (!row || typeof row.allowed !== 'boolean') {
     return { allowed: false, reason: 'budget_unavailable' };
   }
+
+  // Usage events contain operational metadata only, never prompt content.
+  const eventStatus = row.allowed ? 'reserved' : 'denied';
+  const eventResult = await admin.from('ai_usage_events').insert({
+    request_id: reservationId,
+    user_id: userId,
+    feature,
+    provider: 'deepseek',
+    model: feature === 'teach' ? (process.env.DEEPSEEK_TEACHING_MODEL || 'deepseek-v4-flash') : (process.env.DEEPSEEK_EXPLAIN_MODEL || 'deepseek-v4-flash'),
+    status: eventStatus,
+    estimated_cost_microusd: Number(row.reserved_microusd || 0),
+    error_code: row.allowed ? null : (row.reason || 'budget_denied'),
+  });
+  if (eventResult.error) {
+    console.error('AI usage event write failed', { code: eventResult.error.code || 'unknown' });
+  }
+
   if (!row.allowed) return { allowed: false, reason: row.reason || 'budget_unavailable' };
 
   return {
