@@ -69,9 +69,12 @@ export default function AiUsagePanel() {
   }, [dirty]);
 
   useEffect(() => {
-    void load();
+    const initialLoad = window.setTimeout(() => void load(), 0);
     const timer = setInterval(() => void load(true), 30_000);
-    return () => clearInterval(timer);
+    return () => {
+      window.clearTimeout(initialLoad);
+      clearInterval(timer);
+    };
   }, [load]);
 
   async function action(payload: Record<string, unknown>, success: string) {
