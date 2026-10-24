@@ -5,6 +5,7 @@ import { isPaidPlan } from '../../../lib/plans';
 import { getOrCreateProfile } from '../../../lib/profile';
 import { buildTeachingContext } from '../../../lib/ai/teaching-context';
 import { buildTeachingSystemPrompt } from '../../../lib/ai/teaching-prompt';
+import { reserveAiRequest } from '../../../lib/ai/request-budget';
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
         )
       : [];
 
-    if (messages.length === 0 || messages.length > 40) {
+    if (messages.length === 0 || messages.length > 20 || messages.some((message) => message.content.length > 6000)) {
       return NextResponse.json({ error: 'Invalid teaching conversation.' }, { status: 400 });
     }
 
@@ -113,8 +114,21 @@ export async function POST(req: Request) {
     const context = await buildTeachingContext(supabase, courseName, messages, conversationId || undefined);
     const systemPrompt = buildTeachingSystemPrompt(courseName, context, sessionType === 'live_class');
 
+    const budget = await reserveAiRequest(supabase, 'teach');
+    if (!budget.allowed) {
+      return NextResponse.json(
+        { error: 'ai_rate_limited', message: 'AI teaching is temporarily at capacity. Please wait a minute and try again.' },
+        { status: budget.reason === 'budget_unavailable' ? 503 : 429 },
+      );
+    }
+
+    if (!process.env.DEEPSEEK_API_KEY) {
+      return NextResponse.json({ error: 'AI provider is not configured.' }, { status: 503 });
+    }
+
     const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
+      signal: AbortSignal.timeout(30000),
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
@@ -123,7 +137,7 @@ export async function POST(req: Request) {
         model: process.env.DEEPSEEK_TEACHING_MODEL || 'deepseek-v4-flash',
         stream: true,
         thinking: { type: 'disabled' },
-        max_tokens: 2400,
+        max_tokens: 1000,
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages,
