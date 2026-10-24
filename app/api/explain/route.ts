@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     const options = body.options;
     const correctAnswer: string = String(rawCorrectAnswer ?? '');
     const rawModelAnswer = body.modelAnswer;
-    const modelAnswer = typeof rawModelAnswer === 'string' ? rawModelAnswer : '';
+    const modelAnswer: string = String(rawModelAnswer ?? '');
     if (
       typeof rawQuestionId !== 'string' || !questionId || questionId.length > 128 ||
       typeof rawQuestionText !== 'string' || !questionText.trim() || questionText.length > 6000 ||
