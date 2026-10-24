@@ -60,6 +60,11 @@ declare
   v_global_month_spend bigint := 0;
   v_user_day_spend bigint := 0;
   v_user_month_spend bigint := 0;
+  v_is_paused boolean := true;
+  v_global_daily_cap bigint := 1000000;
+  v_global_monthly_cap bigint := 10000000;
+  v_user_daily_cap bigint := 250000;
+  v_user_monthly_cap bigint := 2000000;
 begin
   -- Explicitly restrict the privileged function to the trusted server client.
   if coalesce(auth.role(), '') <> 'service_role' then
@@ -69,6 +74,19 @@ begin
 
   if p_user_id is null or p_request_id is null or p_feature is null or p_feature not in ('teach', 'explain', 'voice') then
     return query select false, 'invalid_request'::text, 0::bigint;
+    return;
+  end if;
+
+  -- Central pause and caps are read from a service-role-only singleton.
+  -- Missing control state fails closed.
+  select is_paused, global_daily_limit_microusd, global_monthly_limit_microusd,
+         user_daily_limit_microusd, user_monthly_limit_microusd
+    into v_is_paused, v_global_daily_cap, v_global_monthly_cap,
+         v_user_daily_cap, v_user_monthly_cap
+    from public.ai_runtime_controls where id = 1;
+
+  if not found or coalesce(v_is_paused, true) then
+    return query select false, 'ai_globally_paused'::text, 0::bigint;
     return;
   end if;
 
@@ -135,14 +153,14 @@ begin
   v_user_day_spend := coalesce(v_user_day_spend, 0);
   v_user_month_spend := coalesce(v_user_month_spend, 0);
 
-  -- Global caps: $25/day and $500/month. Per-user fairness caps: $5/day, $100/month.
-  if v_global_day_spend + v_cost > 25000000 then
+  -- Default caps: $1/day and $10/month globally; $0.25/day and $2/month per user.
+  if v_global_day_spend + v_cost > v_global_daily_cap then
     return query select false, 'global_daily_spend_limit'::text, 0::bigint; return;
-  elsif v_global_month_spend + v_cost > 500000000 then
+  elsif v_global_month_spend + v_cost > v_global_monthly_cap then
     return query select false, 'global_monthly_spend_limit'::text, 0::bigint; return;
-  elsif v_user_day_spend + v_cost > 5000000 then
+  elsif v_user_day_spend + v_cost > v_user_daily_cap then
     return query select false, 'user_daily_spend_limit'::text, 0::bigint; return;
-  elsif v_user_month_spend + v_cost > 100000000 then
+  elsif v_user_month_spend + v_cost > v_user_monthly_cap then
     return query select false, 'user_monthly_spend_limit'::text, 0::bigint; return;
   end if;
 
