@@ -1,31 +1,46 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createAdminClient } from '../supabase/admin';
 
 type BudgetResult = {
   allowed: boolean;
   reason: string | null;
-  user_count: number;
-  global_count: number;
+  reserved_microusd: number | null;
 };
 
 /**
- * Reserve a provider-call slot in Postgres before making any paid AI request.
- * The RPC uses transaction locks, so parallel serverless requests share limits.
- * Fail closed if the budget table/function is unavailable.
+ * Reserve request and dollar-denominated budget atomically in Postgres before
+ * any paid provider call. The privileged RPC is not callable by browser users.
+ * Failed provider calls are intentionally not refunded automatically: an
+ * upstream timeout does not prove the provider did not process the request.
  */
 export async function reserveAiRequest(
-  supabase: SupabaseClient,
+  userId: string,
   feature: 'teach' | 'explain',
-): Promise<{ allowed: boolean; reason?: string }> {
-  const { data, error } = await supabase.rpc('reserve_ai_request', {
+  requestId?: string,
+): Promise<{ allowed: boolean; reason?: string; reservedUsd?: number }> {
+  const admin = createAdminClient();
+  if (!admin) return { allowed: false, reason: 'budget_unavailable' };
+
+  const reservationId = requestId || crypto.randomUUID();
+  const { data, error } = await admin.rpc('reserve_ai_budget', {
+    p_user_id: userId,
     p_feature: feature,
+    p_request_id: reservationId,
   });
 
   if (error) {
-    console.error('AI request budget reservation failed:', error.message);
+    // Never log request bodies, provider responses, credentials, or user data.
+    console.error('AI budget reservation failed', { code: error.code || 'unknown' });
     return { allowed: false, reason: 'budget_unavailable' };
   }
 
   const row = (Array.isArray(data) ? data[0] : data) as BudgetResult | null;
-  if (!row?.allowed) return { allowed: false, reason: row?.reason || 'budget_unavailable' };
-  return { allowed: true };
+  if (!row || typeof row.allowed !== 'boolean') {
+    return { allowed: false, reason: 'budget_unavailable' };
+  }
+  if (!row.allowed) return { allowed: false, reason: row.reason || 'budget_unavailable' };
+
+  return {
+    allowed: true,
+    reservedUsd: Number(row.reserved_microusd || 0) / 1_000_000,
+  };
 }
