@@ -65,10 +65,10 @@ export async function POST(req: Request) {
     } catch {
       return NextResponse.json({ content: 'Invalid JSON request.', flagged: false }, { status: 400 });
     }
-    const questionId = typeof body.questionId === 'string' ? body.questionId : '';
-    const questionText = typeof body.questionText === 'string' ? body.questionText : '';
+    const questionId: string = typeof body.questionId === 'string' ? body.questionId : '';
+    const questionText: string = typeof body.questionText === 'string' ? body.questionText : '';
     const options = body.options;
-    const correctAnswer = typeof body.correctAnswer === 'string' ? body.correctAnswer : '';
+    const correctAnswer: string = typeof body.correctAnswer === 'string' ? body.correctAnswer : '';
     const modelAnswer = body.modelAnswer;
     if (
       !questionId || questionId.length > 128 ||
