@@ -44,8 +44,8 @@ export async function GET() {
     admin.from('ai_spend_windows').select('reserved_microusd').eq('window_start', dayStart).eq('scope_key', 'global:day').maybeSingle(),
     admin.from('ai_spend_windows').select('reserved_microusd').eq('window_start', monthStart).eq('scope_key', 'global:month').maybeSingle(),
     admin.from('ai_request_windows').select('request_count').eq('window_start', dayStart).eq('scope_key', 'global:day').maybeSingle(),
-    admin.from('ai_request_windows').select('request_count').eq('window_start', new Date(now.getTime()).toISOString().replace(/:[0-9]{2}\.[0-9]{3}Z$/, ':00.000Z')).eq('scope_key', 'global:hour').maybeSingle(),
-    admin.from('ai_request_windows').select('request_count').eq('window_start', new Date(now.getTime()).toISOString().replace(/:[0-9]{2}\.[0-9]{3}Z$/, ':00.000Z')).eq('scope_key', 'global:minute').maybeSingle(),
+    admin.from('ai_request_windows').select('request_count').eq('window_start', hourStart).eq('scope_key', 'global:hour').maybeSingle(),
+    admin.from('ai_request_windows').select('request_count').eq('window_start', minuteStart).eq('scope_key', 'global:minute').maybeSingle(),
     admin.from('ai_usage_events').select('id, request_id, feature, provider, model, status, input_tokens, output_tokens, estimated_cost_microusd, actual_cost_microusd, error_code, created_at').order('created_at', { ascending: false }).limit(50),
     admin.from('ai_budget_alerts').select('*').order('last_seen_at', { ascending: false }).limit(30),
   ]);
