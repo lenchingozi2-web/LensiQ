@@ -47,8 +47,35 @@ export async function POST(req: Request) {
     }
     // =========================================================================
     
-    const body = await req.json();
+    const contentLength = Number(req.headers.get('content-length') || 0);
+    if (Number.isFinite(contentLength) && contentLength > 32 * 1024) {
+      return NextResponse.json({ content: 'The explanation request is too large.', flagged: false }, { status: 413 });
+    }
+    const rawBody = await req.text();
+    if (Buffer.byteLength(rawBody, 'utf8') > 32 * 1024) {
+      return NextResponse.json({ content: 'The explanation request is too large.', flagged: false }, { status: 413 });
+    }
+    let body: Record<string, unknown>;
+    try {
+      const parsed: unknown = JSON.parse(rawBody);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return NextResponse.json({ content: 'Invalid explanation request.', flagged: false }, { status: 400 });
+      }
+      body = parsed as Record<string, unknown>;
+    } catch {
+      return NextResponse.json({ content: 'Invalid JSON request.', flagged: false }, { status: 400 });
+    }
     const { questionId, questionText, options, correctAnswer, modelAnswer } = body;
+    if (
+      typeof questionId !== 'string' || questionId.length < 1 || questionId.length > 128 ||
+      typeof questionText !== 'string' || questionText.trim().length < 1 || questionText.length > 6000 ||
+      !Array.isArray(options) || options.length > 20 ||
+      options.some((option) => typeof option !== 'string' || option.length > 1000) ||
+      typeof correctAnswer !== 'string' || correctAnswer.length > 2000 ||
+      (modelAnswer !== undefined && modelAnswer !== null && (typeof modelAnswer !== 'string' || modelAnswer.length > 2000))
+    ) {
+      return NextResponse.json({ content: 'Invalid explanation request.', flagged: false }, { status: 400 });
+    }
 
     // 4. THE CACHE CHECK: Look for an existing explanation
     const { data: cachedExplanation } = await supabase
