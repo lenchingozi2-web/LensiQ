@@ -215,12 +215,12 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
 
     # Keep DeepSeek as the default voice brain when its key is configured.
     # An explicit LLM_* contract still takes precedence for intentional overrides.
-    if configured_key:
+    if configured_key and llm_base_url and llm_model:
         llm_api_key = configured_key
     elif deepseek_api_key:
         llm_api_key = deepseek_api_key
-        llm_base_url = llm_base_url or "https://api.deepseek.com/v1"
-        llm_model = llm_model or "deepseek-chat"
+        llm_base_url = "https://api.deepseek.com/v1"
+        llm_model = "deepseek-chat"
     else:
         llm_api_key = openai_api_key
         llm_base_url = llm_base_url or ("https://api.openai.com/v1" if openai_api_key else "")
