@@ -129,3 +129,13 @@ test('admin writes use serialized service-role RPCs rather than direct table upd
   assert.match(migration, /revoke all on function public\.set_ai_runtime_pause/i);
   assert.match(migration, /revoke all on function public\.set_ai_budget_limits/i);
 });
+
+
+test('monitoring migration also upgrades previously-created reservation RPC', async () => {
+  const migration = await read('supabase/migrations/0044_ai_usage_monitoring.sql');
+  assert.match(migration, /create or replace function public\.reserve_ai_budget/i);
+  assert.match(migration, /from public\.ai_runtime_controls where id = 1/i);
+  assert.match(migration, /v_global_day_spend \+ v_cost > v_global_daily_cap/);
+  assert.match(migration, /ai_globally_paused/);
+  assert.match(migration, /grant execute on function public\.reserve_ai_budget\(uuid, text, uuid\) to service_role/i);
+});
