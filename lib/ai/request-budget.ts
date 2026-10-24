@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createAdminClient } from '../supabase/admin';
+import { evaluateAiBudgetAlerts } from './budget-alerts';
 
 type BudgetResult = {
   allowed: boolean;
@@ -70,6 +71,9 @@ export async function reserveAiRequest(
   if (eventResult.error) {
     console.error('AI usage event write failed', { code: eventResult.error.code || 'unknown' });
     return { allowed: false, reason: 'usage_logging_unavailable' };
+  }
+  if (!(await evaluateAiBudgetAlerts(admin))) {
+    return { allowed: false, reason: 'budget_alert_monitor_unavailable' };
   }
 
   if (!row.allowed) return { allowed: false, reason: row.reason || 'budget_unavailable' };
