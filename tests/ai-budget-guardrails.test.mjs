@@ -57,6 +57,22 @@ test('voice model generation is gated by the shared budget and DeepSeek remains 
   assert.match(voice, /https:\/\/api\.deepseek\.com\/v1/);
 });
 
+test('voice budget context bounding uses the supported Pipecat setter and normal discussion pacing', async () => {
+  const voice = await read('pipecat-voice-agent/agent.py');
+  assert.match(voice, /set_messages\(bounded\)/);
+  assert.doesNotMatch(voice, /context\.messages\s*=\s*bounded/);
+  assert.match(voice, /speed=1\.08/);
+  assert.match(voice, /WHISPER_MODEL", "base\.en"/);
+  assert.match(voice, /normal, lively conversational pace/);
+});
+
+test('Google OAuth does not force account selection or consent for returning Google sessions', async () => {
+  const route = await read('app/auth/google/route.ts');
+  assert.match(route, /provider: 'google'/);
+  assert.match(route, /redirectTo: `\$\{origin\}\/auth\/callback/);
+  assert.doesNotMatch(route, /prompt:\s*['"]select_account['"]/);
+});
+
 test('Modal room workers receive the dedicated shared budget-token secret', async () => {
   const modalConfig = await read('pipecat-voice-agent/agent_modal.py');
   assert.match(modalConfig, /ai_budget_secret\s*=\s*modal\.Secret\.from_name\(['"]ai-budget-secret['"]\)/);

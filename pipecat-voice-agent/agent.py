@@ -14,10 +14,10 @@ import os
 import urllib.error
 import urllib.request
 import uuid
-from typing import Any
+from typing import Any, AsyncGenerator
 
 from livekit import api
-from pipecat.frames.frames import ErrorFrame, InputTextRawFrame, LLMContextFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
+from pipecat.frames.frames import ErrorFrame, Frame, InputTextRawFrame, LLMContextFrame, TTSAudioRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -30,6 +30,7 @@ from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.services.whisper.stt import WhisperSTTService
 from pipecat.transports.livekit.transport import LiveKitParams, LiveKitTransport
 from pipecat.runner.livekit import generate_token_with_agent
+from pipecat.utils.tracing.service_decorators import traced_tts
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("lensiq-pipecat")
@@ -68,6 +69,7 @@ def _system_prompt(room_name: str, room_metadata: str | None = None) -> str:
             logger.warning("Ignoring malformed Live Class metadata for room %s", room_name)
     return (
         "You are LenxiQ AI Tutor, a concise and warm medical teacher. "
+        "Use a normal, lively conversational pace: answer directly in a few clear sentences, avoid long pauses and lecture-length monologues, and invite follow-up naturally. "
         f"You are teaching in room {room_name}. Speak naturally, pause for interruption, "
         "and never claim a visual that is not available. When the visual stage should change, "
         "emit a compact JSON data-channel command matching the LenxiQ visual protocol before "
@@ -133,7 +135,11 @@ class AiBudgetGate(FrameProcessor):
             if removable is None:
                 break
             bounded.pop(removable)
-        context.messages = bounded
+        set_messages = getattr(context, "set_messages", None)
+        if callable(set_messages):
+            set_messages(bounded)
+        else:
+            messages[:] = bounded
 
     async def process_frame(self, frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
@@ -151,6 +157,34 @@ class AiBudgetGate(FrameProcessor):
                     await client.send_data(json.dumps(message).encode("utf-8"))
                 return
         await self.push_frame(frame, direction)
+
+class ConversationalKokoroTTSService(KokoroTTSService):
+    """Use a clear, natural discussion pace slightly quicker than Kokoro's default."""
+
+    @traced_tts
+    async def run_tts(self, text: str, context_id: str) -> AsyncGenerator[Frame, None]:
+        import numpy as np
+
+        try:
+            await self.start_tts_usage_metrics(text)
+            stream = self._kokoro.create_stream(
+                text, voice=self._settings.voice, lang=self._settings.language, speed=1.08
+            )
+            async for samples, sample_rate in stream:
+                await self.stop_ttfb_metrics()
+                audio_int16 = (samples * 32767).astype(np.int16).tobytes()
+                audio_data = await self._resampler.resample(audio_int16, sample_rate, self.sample_rate)
+                yield TTSAudioRawFrame(
+                    audio=audio_data,
+                    sample_rate=self.sample_rate,
+                    num_channels=1,
+                    context_id=context_id,
+                )
+        except Exception as error:
+            yield ErrorFrame(error=f"Unknown error occurred: {error}")
+        finally:
+            await self.stop_ttfb_metrics()
+
 
 class LiveClassDataBridge(FrameProcessor):
     """Mirror completed user and tutor turns to the browser data channel."""
@@ -197,13 +231,13 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         ),
     )
     stt = WhisperSTTService(
-        model=os.getenv("WHISPER_MODEL", "small.en"),
+        model=os.getenv("WHISPER_MODEL", "base.en"),
         device=os.getenv("WHISPER_DEVICE", "cpu"),
         compute_type=os.getenv("WHISPER_COMPUTE_TYPE", "int8"),
     )
     # KokoroTTSService embeds kokoro-onnx and downloads its model files into
     # the Modal image cache. It is not an HTTP/OpenAI-compatible service.
-    tts = KokoroTTSService(
+    tts = ConversationalKokoroTTSService(
         settings=KokoroTTSService.Settings(
             voice=os.getenv("KOKORO_VOICE", "af_heart"),
         ),

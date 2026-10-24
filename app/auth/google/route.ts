@@ -29,7 +29,6 @@ export async function GET(request: Request) {
     provider: 'google',
     options: {
       redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      queryParams: { access_type: 'offline', prompt: 'select_account' },
     },
   });
 
