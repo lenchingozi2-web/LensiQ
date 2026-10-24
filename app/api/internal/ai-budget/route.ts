@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
+import { evaluateAiBudgetAlerts } from '../../../../lib/ai/budget-alerts';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -120,6 +121,9 @@ export async function POST(request: Request) {
   if (usageEvent.error) {
     console.error('Voice budget event write failed', { code: usageEvent.error.code || 'unknown' });
     return NextResponse.json({ error: 'AI usage logging unavailable; failing closed.' }, { status: 503 });
+  }
+  if (!(await evaluateAiBudgetAlerts(admin))) {
+    return NextResponse.json({ error: 'AI budget alert monitoring unavailable; failing closed.' }, { status: 503 });
   }
 
   return NextResponse.json({
