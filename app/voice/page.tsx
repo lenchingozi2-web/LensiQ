@@ -866,7 +866,7 @@ function VoiceTutorContent() {
           setMessages((previous) => [...previous, message]);
           messagesRef.current = [...messagesRef.current, message];
           void persistMessage(conversation.id, message);
-          setStatus(data.role === 'user' ? 'LenxiQ AI is following your question…' : 'LenxiQ AI is teaching…');
+          setStatus('LenxiQ AI is teaching…');
         } catch { /* Ignore malformed diagnostic packets. */ }
       });
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => setVoiceActive(speakers.some((speaker) => !speaker.isLocal)));
