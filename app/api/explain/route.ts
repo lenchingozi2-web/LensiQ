@@ -65,16 +65,17 @@ export async function POST(req: Request) {
     } catch {
       return NextResponse.json({ content: 'Invalid JSON request.', flagged: false }, { status: 400 });
     }
-    const { questionId, questionText, options, correctAnswer, modelAnswer } = body;
-    if (typeof questionId !== 'string' || typeof questionText !== 'string' || typeof correctAnswer !== 'string') {
-      return NextResponse.json({ content: 'Invalid explanation request.', flagged: false }, { status: 400 });
-    }
+    const questionId = typeof body.questionId === 'string' ? body.questionId : '';
+    const questionText = typeof body.questionText === 'string' ? body.questionText : '';
+    const options = body.options;
+    const correctAnswer = typeof body.correctAnswer === 'string' ? body.correctAnswer : '';
+    const modelAnswer = body.modelAnswer;
     if (
-      questionId.length < 1 || questionId.length > 128 ||
-      questionText.trim().length < 1 || questionText.length > 6000 ||
+      !questionId || questionId.length > 128 ||
+      !questionText.trim() || questionText.length > 6000 ||
+      !correctAnswer || correctAnswer.length > 2000 ||
       !options || typeof options !== 'object' || Array.isArray(options) || Object.entries(options as Record<string, unknown>).length > 20 ||
       Object.values(options as Record<string, unknown>).some((option) => typeof option !== 'string' || option.length > 1000) ||
-      correctAnswer.length > 2000 ||
       (modelAnswer !== undefined && modelAnswer !== null && (typeof modelAnswer !== 'string' || modelAnswer.length > 2000))
     ) {
       return NextResponse.json({ content: 'Invalid explanation request.', flagged: false }, { status: 400 });
