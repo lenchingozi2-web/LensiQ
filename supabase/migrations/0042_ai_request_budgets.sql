@@ -41,7 +41,7 @@ begin
   v_user_limit := 6;
   v_global_limit := 30;
   v_user_key := 'user:' || v_user_id::text || ':' || p_feature;
-  v_global_key := 'global:' || p_feature;
+  v_global_key := 'global:all';
 
   -- Serialize all reservations for this feature's global minute bucket.
   perform pg_advisory_xact_lock(hashtextextended(v_global_key || ':' || v_window::text, 0));
