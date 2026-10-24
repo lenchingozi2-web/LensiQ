@@ -22,7 +22,7 @@ from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
-from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
+from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext, OpenAILLMContextFrame
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.services.kokoro.tts import KokoroTTSService
@@ -114,9 +114,31 @@ class AiBudgetGate(FrameProcessor):
             logger.error("Voice AI budget service unavailable (%s); blocking provider call", type(error).__name__)
             return False
 
+    def _bound_context(self, frame) -> None:
+        context = getattr(frame, "context", None)
+        messages = getattr(context, "messages", None)
+        if not isinstance(messages, list):
+            return
+        system_message = next((message for message in messages if isinstance(message, dict) and message.get("role") == "system"), None)
+        recent = messages[-20:]
+        bounded = ([system_message] if system_message else []) + [message for message in recent if message is not system_message]
+        for message in bounded:
+            if not isinstance(message, dict):
+                continue
+            content = message.get("content")
+            if isinstance(content, str) and len(content) > 6000:
+                message["content"] = content[-6000:]
+        while len(bounded) > 1 and sum(len(message.get("content", "")) for message in bounded if isinstance(message, dict) and isinstance(message.get("content"), str)) > 30000:
+            removable = next((index for index, message in enumerate(bounded) if message is not system_message and isinstance(message, dict)), None)
+            if removable is None:
+                break
+            bounded.pop(removable)
+        context.messages = bounded
+
     async def process_frame(self, frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
-        if isinstance(frame, LLMContextFrame):
+        if isinstance(frame, (LLMContextFrame, OpenAILLMContextFrame)):
+            self._bound_context(frame)
             allowed = await asyncio.to_thread(self._reserve_sync)
             if not allowed:
                 client = getattr(self.transport, "_client", None)
@@ -221,6 +243,9 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         api_key=llm_api_key,
         base_url=llm_base_url,
         model=llm_model,
+        params=OpenAILLMService.InputParams(max_completion_tokens=800, temperature=0.2),
+        max_retries=0,
+        timeout=20,
     )
     context = OpenAILLMContext(messages=[{"role": "system", "content": _system_prompt(room_name, room_metadata)}])
     context_aggregators = llm.create_context_aggregator(context)
