@@ -64,6 +64,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'AI budget service is not configured.' }, { status: 503 });
   }
 
+  const { data: controls, error: controlError } = await admin
+    .from('ai_runtime_controls')
+    .select('is_paused')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (controlError || !controls) {
+    return NextResponse.json({ error: 'AI runtime control is not configured; failing closed.' }, { status: 503 });
+  }
+  if (controls.is_paused || process.env.AI_PROVIDER_CALLS_ENABLED !== 'true') {
+    const pausedEvent = await admin.from('ai_usage_events').insert({
+      request_id: body.requestId,
+      user_id: body.userId,
+      feature: body.feature,
+      provider: 'voice-configured',
+      status: 'denied',
+      estimated_cost_microusd: 0,
+      error_code: controls.is_paused ? 'ai_globally_paused' : 'provider_calls_not_approved',
+    });
+    if (pausedEvent.error) console.error('Voice budget event write failed', { code: pausedEvent.error.code || 'unknown' });
+    return NextResponse.json({ allowed: false, reason: controls.is_paused ? 'ai_globally_paused' : 'provider_calls_not_approved' }, { status: 503 });
+  }
+
   const { data, error } = await admin.rpc('reserve_ai_budget', {
     p_user_id: body.userId,
     p_feature: body.feature,
@@ -84,6 +107,17 @@ export async function POST(request: Request) {
   if (!row || typeof row.allowed !== 'boolean') {
     return NextResponse.json({ error: 'AI budget service is unavailable.' }, { status: 503 });
   }
+
+  const usageEvent = await admin.from('ai_usage_events').insert({
+    request_id: body.requestId,
+    user_id: body.userId,
+    feature: body.feature,
+    provider: 'voice-configured',
+    status: row.allowed ? 'reserved' : 'denied',
+    estimated_cost_microusd: Number(row.reserved_microusd || 0),
+    error_code: row.allowed ? null : (row.reason || 'budget_denied'),
+  });
+  if (usageEvent.error) console.error('Voice budget event write failed', { code: usageEvent.error.code || 'unknown' });
 
   return NextResponse.json({
     allowed: row.allowed,
