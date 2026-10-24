@@ -69,6 +69,7 @@ export async function reserveAiRequest(
   });
   if (eventResult.error) {
     console.error('AI usage event write failed', { code: eventResult.error.code || 'unknown' });
+    return { allowed: false, reason: 'usage_logging_unavailable' };
   }
 
   if (!row.allowed) return { allowed: false, reason: row.reason || 'budget_unavailable' };
