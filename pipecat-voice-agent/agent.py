@@ -11,15 +11,18 @@ import asyncio
 import json
 import logging
 import os
+import urllib.error
+import urllib.request
+import uuid
 from typing import Any
 
 from livekit import api
-from pipecat.frames.frames import ErrorFrame, InputTextRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
+from pipecat.frames.frames import ErrorFrame, InputTextRawFrame, LLMContextFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
-from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
+from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext, OpenAILLMContextFrame
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.services.kokoro.tts import KokoroTTSService
@@ -74,6 +77,80 @@ def _system_prompt(room_name: str, room_metadata: str | None = None) -> str:
         + metadata_context
     )
 
+
+class AiBudgetGate(FrameProcessor):
+    """Reserve shared global spend capacity before each paid LLM generation."""
+
+    def __init__(self, transport: LiveKitTransport, user_id: str, endpoint: str, token: str):
+        super().__init__(name="ai-budget-gate")
+        self.transport = transport
+        self.user_id = user_id
+        self.endpoint = endpoint
+        self.token = token
+
+    def _reserve_sync(self) -> bool:
+        if not self.user_id or not self.endpoint or not self.token:
+            logger.error("Voice AI budget gate is not configured; blocking provider call")
+            return False
+        payload = json.dumps({
+            "userId": self.user_id,
+            "requestId": str(uuid.uuid4()),
+            "feature": "voice",
+        }).encode("utf-8")
+        request = urllib.request.Request(
+            self.endpoint,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.token}",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=4) as response:
+                result = json.loads(response.read(4096).decode("utf-8"))
+                return response.status == 200 and result.get("allowed") is True
+        except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
+            logger.error("Voice AI budget service unavailable (%s); blocking provider call", type(error).__name__)
+            return False
+
+    def _bound_context(self, frame) -> None:
+        context = getattr(frame, "context", None)
+        messages = getattr(context, "messages", None)
+        if not isinstance(messages, list):
+            return
+        system_message = next((message for message in messages if isinstance(message, dict) and message.get("role") == "system"), None)
+        recent = messages[-20:]
+        bounded = ([system_message] if system_message else []) + [message for message in recent if message is not system_message]
+        for message in bounded:
+            if not isinstance(message, dict):
+                continue
+            content = message.get("content")
+            if isinstance(content, str) and len(content) > 6000:
+                message["content"] = content[-6000:]
+        while len(bounded) > 1 and sum(len(message.get("content", "")) for message in bounded if isinstance(message, dict) and isinstance(message.get("content"), str)) > 30000:
+            removable = next((index for index, message in enumerate(bounded) if message is not system_message and isinstance(message, dict)), None)
+            if removable is None:
+                break
+            bounded.pop(removable)
+        context.messages = bounded
+
+    async def process_frame(self, frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+        if isinstance(frame, (LLMContextFrame, OpenAILLMContextFrame)):
+            self._bound_context(frame)
+            allowed = await asyncio.to_thread(self._reserve_sync)
+            if not allowed:
+                client = getattr(self.transport, "_client", None)
+                if client is not None:
+                    message = {
+                        "type": "live_class_state",
+                        "state": "ERROR",
+                        "message": "The tutor is temporarily at capacity. Please try again shortly.",
+                    }
+                    await client.send_data(json.dumps(message).encode("utf-8"))
+                return
+        await self.push_frame(frame, direction)
 
 class LiveClassDataBridge(FrameProcessor):
     """Mirror completed user and tutor turns to the browser data channel."""
@@ -132,17 +209,22 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     )
     openai_api_key = os.getenv("OPENAI_API_KEY", "").strip()
     deepseek_api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
-    llm_api_key = os.getenv("LLM_API_KEY", "").strip() or openai_api_key or deepseek_api_key
+    configured_key = os.getenv("LLM_API_KEY", "").strip()
     llm_base_url = os.getenv("LLM_BASE_URL", "").strip()
-    if not llm_base_url and openai_api_key:
-        llm_base_url = "https://api.openai.com/v1"
-    if not llm_base_url and deepseek_api_key:
-        llm_base_url = "https://api.deepseek.com/v1"
     llm_model = os.getenv("LLM_MODEL", "").strip()
-    if not llm_model and openai_api_key:
-        llm_model = "gpt-4o-mini"
-    if not llm_model and deepseek_api_key:
+
+    # Keep DeepSeek as the default voice brain when its key is configured.
+    # An explicit LLM_* contract still takes precedence for intentional overrides.
+    if configured_key and llm_base_url and llm_model:
+        llm_api_key = configured_key
+    elif deepseek_api_key:
+        llm_api_key = deepseek_api_key
+        llm_base_url = "https://api.deepseek.com/v1"
         llm_model = "deepseek-chat"
+    else:
+        llm_api_key = openai_api_key
+        llm_base_url = llm_base_url or ("https://api.openai.com/v1" if openai_api_key else "")
+        llm_model = llm_model or ("gpt-4o-mini" if openai_api_key else "")
     missing_llm_settings = [
         name for name, value in (
             ("LLM_BASE_URL", llm_base_url),
@@ -161,6 +243,9 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         api_key=llm_api_key,
         base_url=llm_base_url,
         model=llm_model,
+        params=OpenAILLMService.InputParams(max_completion_tokens=800, temperature=0.2),
+        max_retries=0,
+        timeout=20,
     )
     context = OpenAILLMContext(messages=[{"role": "system", "content": _system_prompt(room_name, room_metadata)}])
     context_aggregators = llm.create_context_aggregator(context)
@@ -168,8 +253,18 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     assistant_aggregator = context_aggregators.assistant()
     user_bridge = LiveClassDataBridge(transport, "user")
     assistant_bridge = LiveClassDataBridge(transport, "assistant")
+    try:
+        room_data = json.loads(room_metadata or "{}")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        room_data = {}
+    budget_gate = AiBudgetGate(
+        transport,
+        str(room_data.get("userId") or ""),
+        os.getenv("AI_BUDGET_ENDPOINT", "").strip(),
+        os.getenv("AI_BUDGET_INTERNAL_TOKEN", "").strip(),
+    )
     pipeline = Pipeline([
-        transport.input(), stt, user_bridge, user_aggregator, llm,
+        transport.input(), stt, user_bridge, user_aggregator, budget_gate, llm,
         assistant_bridge, tts, transport.output(), assistant_aggregator,
     ])
     task = PipelineTask(pipeline, params=PipelineParams(allow_interruptions=True, enable_metrics=True))
