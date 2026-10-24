@@ -13,7 +13,7 @@ create table if not exists public.ai_spend_windows (
 create table if not exists public.ai_spend_reservations (
   request_id uuid primary key,
   user_id uuid not null,
-  feature text not null check (feature in ('teach', 'explain')),
+  feature text not null check (feature in ('teach', 'explain', 'voice')),
   reserved_microusd bigint not null check (reserved_microusd > 0),
   created_at timestamptz not null default now()
 );
@@ -67,13 +67,13 @@ begin
     return;
   end if;
 
-  if p_user_id is null or p_request_id is null or p_feature not in ('teach', 'explain') then
+  if p_user_id is null or p_request_id is null or p_feature is null or p_feature not in ('teach', 'explain', 'voice') then
     return query select false, 'invalid_request'::text, 0::bigint;
     return;
   end if;
 
   -- Conservative maximum reservation per request, in micro-USD.
-  v_cost := case p_feature when 'teach' then 100000 else 50000 end;
+  v_cost := case p_feature when 'teach' then 100000 when 'explain' then 50000 else 20000 end;
   v_user_min := 'user:' || p_user_id::text || ':' || p_feature || ':minute';
   v_user_hour := 'user:' || p_user_id::text || ':' || p_feature || ':hour';
   v_user_day := 'user:' || p_user_id::text || ':' || p_feature || ':day';
@@ -107,17 +107,17 @@ begin
   v_user_hour_count := coalesce(v_user_hour_count, 0);
   v_user_day_count := coalesce(v_user_day_count, 0);
 
-  if v_global_min_count >= 30 then
+  if (p_feature <> 'voice' and v_global_min_count >= 30) or (p_feature = 'voice' and v_global_min_count >= 100) then
     return query select false, 'global_minute_limit'::text, 0::bigint; return;
-  elsif v_global_hour_count >= 120 then
+  elsif (p_feature <> 'voice' and v_global_hour_count >= 120) or (p_feature = 'voice' and v_global_hour_count >= 600) then
     return query select false, 'global_hour_limit'::text, 0::bigint; return;
-  elsif v_global_day_count >= 500 then
+  elsif (p_feature <> 'voice' and v_global_day_count >= 500) or (p_feature = 'voice' and v_global_day_count >= 5000) then
     return query select false, 'global_day_limit'::text, 0::bigint; return;
-  elsif v_user_min_count >= 6 then
+  elsif (p_feature <> 'voice' and v_user_min_count >= 6) or (p_feature = 'voice' and v_user_min_count >= 30) then
     return query select false, 'user_minute_limit'::text, 0::bigint; return;
-  elsif v_user_hour_count >= 30 then
+  elsif (p_feature <> 'voice' and v_user_hour_count >= 30) or (p_feature = 'voice' and v_user_hour_count >= 120) then
     return query select false, 'user_hour_limit'::text, 0::bigint; return;
-  elsif v_user_day_count >= 100 then
+  elsif (p_feature <> 'voice' and v_user_day_count >= 100) or (p_feature = 'voice' and v_user_day_count >= 1000) then
     return query select false, 'user_day_limit'::text, 0::bigint; return;
   end if;
 
