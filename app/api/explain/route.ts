@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
 import { checkAccess } from '../../../lib/gatekeeper';
+import { reserveAiRequest } from '../../../lib/ai/request-budget';
 
 export async function POST(req: Request) {
   try {
@@ -63,7 +64,19 @@ export async function POST(req: Request) {
       });
     }
 
-    // --- 5. If no cache exists, call DeepSeek ---
+    // --- 5. If no cache exists, reserve a budget slot before calling DeepSeek ---
+    const budget = await reserveAiRequest(supabase, 'explain');
+    if (!budget.allowed) {
+      return NextResponse.json(
+        { content: 'AI explanations are temporarily at capacity. Please wait a minute and try again.', flagged: false },
+        { status: budget.reason === 'budget_unavailable' ? 503 : 429 },
+      );
+    }
+    if (!process.env.DEEPSEEK_API_KEY) {
+      return NextResponse.json({ content: 'AI provider is not configured.', flagged: false }, { status: 503 });
+    }
+
+    // --- 6. Provider request ---
     const apiUrl = 'https://api.deepseek.com/chat/completions';
     const systemPrompt = `You are the LenxIQ tutor... 
     MODE: EXPLAIN — Give a deeper explanation.
@@ -79,12 +92,14 @@ export async function POST(req: Request) {
 
     const response = await fetch(apiUrl, {
       method: 'POST',
+      signal: AbortSignal.timeout(20000),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'deepseek-v4-flash',
+        model: process.env.DEEPSEEK_EXPLAIN_MODEL || 'deepseek-v4-flash',
+        max_tokens: 800,
         response_format: { type: 'json_object' }, 
         messages: [
           { role: 'system', content: systemPrompt },
