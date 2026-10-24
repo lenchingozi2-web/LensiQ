@@ -75,19 +75,25 @@ export async function POST(req: Request) {
       }
     }
 
-    const messages = Array.isArray(body.messages)
-      ? body.messages.filter(
-          (message: unknown): message is ChatMessage =>
-            message !== null
-            && typeof message === 'object'
-            && 'role' in message
-            && 'content' in message
-            && ((message as ChatMessage).role === 'user' || (message as ChatMessage).role === 'assistant')
-            && typeof (message as ChatMessage).content === 'string',
-        )
-      : [];
-
-    if (messages.length === 0 || messages.length > 20 || messages.some((message) => message.content.length > 6000) || messages.reduce((total, message) => total + message.content.length, 0) > 30000) {
+    const rawMessages = body.messages;
+    if (
+      !Array.isArray(rawMessages) ||
+      rawMessages.length === 0 ||
+      rawMessages.length > 20 ||
+      rawMessages.some((message: unknown) => {
+        if (!message || typeof message !== 'object') return true;
+        const candidate = message as Record<string, unknown>;
+        return (candidate.role !== 'user' && candidate.role !== 'assistant')
+          || typeof candidate.content !== 'string';
+      })
+    ) {
+      return NextResponse.json({ error: 'Invalid teaching conversation.' }, { status: 400 });
+    }
+    const messages = rawMessages as ChatMessage[];
+    if (
+      messages.some((message) => message.content.length > 6000) ||
+      messages.reduce((total, message) => total + message.content.length, 0) > 30000
+    ) {
       return NextResponse.json({ error: 'Invalid teaching conversation.' }, { status: 400 });
     }
 
