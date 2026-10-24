@@ -85,9 +85,9 @@ export async function POST(req: Request) {
       }
     }
 
-    const rawMessages = body.messages;
+    const rawMessages: unknown[] = Array.isArray(body.messages) ? body.messages : [];
     if (
-      !Array.isArray(rawMessages) ||
+      !Array.isArray(body.messages) ||
       rawMessages.length === 0 ||
       rawMessages.length > 20 ||
       rawMessages.some((message: unknown) => {
