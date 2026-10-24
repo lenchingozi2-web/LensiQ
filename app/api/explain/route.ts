@@ -68,15 +68,15 @@ export async function POST(req: Request) {
     const rawQuestionId = body.questionId;
     const rawQuestionText = body.questionText;
     const rawCorrectAnswer = body.correctAnswer;
-    const questionId = typeof rawQuestionId === 'string' ? rawQuestionId : '';
-    const questionText = typeof rawQuestionText === 'string' ? rawQuestionText : '';
+    const questionId: string = String(rawQuestionId ?? '');
+    const questionText: string = String(rawQuestionText ?? '');
     const options = body.options;
-    const correctAnswer = typeof rawCorrectAnswer === 'string' ? rawCorrectAnswer : '';
+    const correctAnswer: string = String(rawCorrectAnswer ?? '');
     const modelAnswer = body.modelAnswer;
     if (
-      !questionId || questionId.length > 128 ||
-      !questionText.trim() || questionText.length > 6000 ||
-      !correctAnswer || correctAnswer.length > 2000 ||
+      typeof rawQuestionId !== 'string' || !questionId || questionId.length > 128 ||
+      typeof rawQuestionText !== 'string' || !questionText.trim() || questionText.length > 6000 ||
+      typeof rawCorrectAnswer !== 'string' || !correctAnswer || correctAnswer.length > 2000 ||
       !options || typeof options !== 'object' || Array.isArray(options) || Object.entries(options as Record<string, unknown>).length > 20 ||
       Object.values(options as Record<string, unknown>).some((option) => typeof option !== 'string' || option.length > 1000) ||
       (modelAnswer !== undefined && modelAnswer !== null && (typeof modelAnswer !== 'string' || modelAnswer.length > 2000))
