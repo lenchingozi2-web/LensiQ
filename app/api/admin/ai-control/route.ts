@@ -156,13 +156,12 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   if (body.action === 'pause') {
     const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 200) : 'Emergency stop activated by admin';
-    const { error } = await admin.from('ai_runtime_controls').update({
-      is_paused: true,
-      pause_reason: reason || 'Emergency stop activated by admin',
-      updated_at: now,
-      updated_by: user.id,
-    }).eq('id', 1);
-    if (error) return NextResponse.json({ error: 'Could not activate emergency stop.' }, { status: 503 });
+    const { data, error } = await admin.rpc('set_ai_runtime_pause', {
+      p_is_paused: true,
+      p_pause_reason: reason || 'Emergency stop activated by admin',
+      p_updated_by: user.id,
+    });
+    if (error || data !== true) return NextResponse.json({ error: 'Could not activate emergency stop.' }, { status: 503 });
     return NextResponse.json({ ok: true, isPaused: true });
   }
 
@@ -170,13 +169,12 @@ export async function POST(request: Request) {
     if (process.env.AI_PROVIDER_CALLS_ENABLED !== 'true') {
       return NextResponse.json({ error: 'Resume is locked. Set AI_PROVIDER_CALLS_ENABLED=true only after review, verified migrations, and provider limits are configured.' }, { status: 409 });
     }
-    const { error } = await admin.from('ai_runtime_controls').update({
-      is_paused: false,
-      pause_reason: '',
-      updated_at: now,
-      updated_by: user.id,
-    }).eq('id', 1);
-    if (error) return NextResponse.json({ error: 'Could not update AI runtime control.' }, { status: 503 });
+    const { data, error } = await admin.rpc('set_ai_runtime_pause', {
+      p_is_paused: false,
+      p_pause_reason: '',
+      p_updated_by: user.id,
+    });
+    if (error || data !== true) return NextResponse.json({ error: 'Could not update AI runtime control.' }, { status: 503 });
     return NextResponse.json({ ok: true, isPaused: false });
   }
 
@@ -197,15 +195,14 @@ export async function POST(request: Request) {
       userDailyUsd > userMonthlyUsd
     ) return NextResponse.json({ error: 'Limits are outside safe bounds or inconsistent.' }, { status: 400 });
 
-    const { error } = await admin.from('ai_runtime_controls').update({
-      global_daily_limit_microusd: Math.round(globalDailyUsd * 1_000_000),
-      global_monthly_limit_microusd: Math.round(globalMonthlyUsd * 1_000_000),
-      user_daily_limit_microusd: Math.round(userDailyUsd * 1_000_000),
-      user_monthly_limit_microusd: Math.round(userMonthlyUsd * 1_000_000),
-      updated_at: now,
-      updated_by: user.id,
-    }).eq('id', 1);
-    if (error) return NextResponse.json({ error: 'Could not update budget limits.' }, { status: 503 });
+    const { data, error } = await admin.rpc('set_ai_budget_limits', {
+      p_global_daily_limit_microusd: Math.round(globalDailyUsd * 1_000_000),
+      p_global_monthly_limit_microusd: Math.round(globalMonthlyUsd * 1_000_000),
+      p_user_daily_limit_microusd: Math.round(userDailyUsd * 1_000_000),
+      p_user_monthly_limit_microusd: Math.round(userMonthlyUsd * 1_000_000),
+      p_updated_by: user.id,
+    });
+    if (error || data !== true) return NextResponse.json({ error: 'Budget limits were rejected by the database safety checks.' }, { status: 400 });
     return NextResponse.json({ ok: true });
   }
 
