@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createAdminClient } from '../supabase/admin';
 
 type BudgetResult = {
@@ -20,7 +21,9 @@ export async function reserveAiRequest(
   const admin = createAdminClient();
   if (!admin) return { allowed: false, reason: 'budget_unavailable' };
 
-  const reservationId = requestId || crypto.randomUUID();
+  const reservationId = requestId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)
+    ? requestId
+    : randomUUID();
   const { data, error } = await admin.rpc('reserve_ai_budget', {
     p_user_id: userId,
     p_feature: feature,
