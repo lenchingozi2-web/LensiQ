@@ -28,21 +28,27 @@ export async function GET(request: Request) {
   const origin = siteOrigin(requestUrl);
   const code = requestUrl.searchParams.get('code');
   const next = safeNextPath(requestUrl.searchParams.get('next'));
-  const errorDescription = requestUrl.searchParams.get('error_description');
+  const errorDescription = requestUrl.searchParams.get('error_description') || requestUrl.searchParams.get('error');
 
   if (errorDescription) {
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorDescription)}&next=${encodeURIComponent(next)}`, origin));
+    const response = NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(`Google sign-in was cancelled or rejected: ${errorDescription}`)}&next=${encodeURIComponent(next)}`, origin));
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   }
 
   if (!code) {
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent('Google sign-in could not be completed. Please try again.')}&next=${encodeURIComponent(next)}`, origin));
+    const response = NextResponse.redirect(new URL(`/login?error=${encodeURIComponent('Google sign-in returned no authorization code. Please try again, or use email and password.')}&next=${encodeURIComponent(next)}`, origin));
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   }
 
   const supabase = await createClient();
   const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
   if (exchangeError) {
     console.error('[Auth] Google OAuth code exchange failed:', exchangeError.message);
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent('Google sign-in could not be completed. Please try again.')}&next=${encodeURIComponent(next)}`, origin));
+    const response = NextResponse.redirect(new URL(`/login?error=${encodeURIComponent('Google sign-in could not complete its secure callback. Please try again from this page.')}&next=${encodeURIComponent(next)}`, origin));
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   }
 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -63,5 +69,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent('Your account session could not be secured. Please try again.')}&next=${encodeURIComponent(next)}`, origin));
   }
 
-  return NextResponse.redirect(new URL(next, origin));
+  const response = NextResponse.redirect(new URL(next, origin));
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
 }
