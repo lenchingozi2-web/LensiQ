@@ -12,7 +12,7 @@ The Modal Secret named ``livekit-credentials`` must contain LIVEKIT_URL,
 LIVEKIT_API_KEY, LIVEKIT_API_SECRET, and an OpenAI-compatible model contract:
 LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL. As a convenience, OPENAI_API_KEY
 can replace LLM_API_KEY and supplies the standard OpenAI endpoint/model defaults;
-DEEPSEEK_API_KEY supplies the DeepSeek endpoint and ``deepseek-chat`` default.
+DEEPSEEK_API_KEY supplies the DeepSeek endpoint and ``deepseek-chat`` default.\nThe ``lensiq-llm-fallback`` Modal secret must also contain\n``AI_BUDGET_INTERNAL_TOKEN``, matching the Vercel environment variable. The\nvoice worker fails closed and will not call the LLM when shared budget checks fail.
 LIVEKIT_URL may be wss:// or https://; this module normalizes it for the
 LiveKit server API and WebRTC transport.
 """

@@ -1,0 +1,21 @@
+name: AI budget guardrails
+on:
+  pull_request:
+  push:
+    branches:
+      - fix/ai-spend-guardrails
+jobs:
+  ai-budget-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run AI budget regression tests
+        run: node --test tests/ai-budget-guardrails.test.mjs
+      - name: Validate voice worker Python syntax
+        run: python -m py_compile pipecat-voice-agent/agent.py pipecat-voice-agent/agent_modal.py
