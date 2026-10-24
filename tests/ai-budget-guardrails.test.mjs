@@ -106,3 +106,26 @@ test('admin AI control API requires an authenticated admin and locks resume behi
   assert.match(route, /AI_BUDGET_ALERT_WEBHOOK_URL/);
   assert.match(route, /ai_budget_alerts/);
 });
+
+
+test('usage alerts are evaluated before guarded requests can proceed', async () => {
+  const budget = await read('lib/ai/request-budget.ts');
+  const voice = await read('app/api/internal/ai-budget/route.ts');
+  const alerts = await read('lib/ai/budget-alerts.ts');
+  assert.match(budget, /evaluateAiBudgetAlerts\(admin\)/);
+  assert.match(voice, /evaluateAiBudgetAlerts\(admin\)/);
+  assert.match(alerts, /\[50, 'warning'\]/);
+  assert.match(alerts, /\[80, 'critical'\]/);
+  assert.match(alerts, /AI_BUDGET_ALERT_WEBHOOK_URL/);
+  assert.match(alerts, /AbortSignal\.timeout\(3000\)/);
+});
+
+test('admin writes use serialized service-role RPCs rather than direct table updates', async () => {
+  const route = await read('app/api/admin/ai-control/route.ts');
+  const migration = await read('supabase/migrations/0044_ai_usage_monitoring.sql');
+  assert.match(route, /rpc\('set_ai_runtime_pause'/);
+  assert.match(route, /rpc\('set_ai_budget_limits'/);
+  assert.match(migration, /pg_advisory_xact_lock\(hashtextextended\('ai-budget-control-global', 0\)\)/);
+  assert.match(migration, /revoke all on function public\.set_ai_runtime_pause/i);
+  assert.match(migration, /revoke all on function public\.set_ai_budget_limits/i);
+});
