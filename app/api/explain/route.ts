@@ -72,14 +72,15 @@ export async function POST(req: Request) {
     const questionText: string = String(rawQuestionText ?? '');
     const options = body.options;
     const correctAnswer: string = String(rawCorrectAnswer ?? '');
-    const modelAnswer = body.modelAnswer;
+    const rawModelAnswer = body.modelAnswer;
+    const modelAnswer = typeof rawModelAnswer === 'string' ? rawModelAnswer : '';
     if (
       typeof rawQuestionId !== 'string' || !questionId || questionId.length > 128 ||
       typeof rawQuestionText !== 'string' || !questionText.trim() || questionText.length > 6000 ||
       typeof rawCorrectAnswer !== 'string' || !correctAnswer || correctAnswer.length > 2000 ||
       !options || typeof options !== 'object' || Array.isArray(options) || Object.entries(options as Record<string, unknown>).length > 20 ||
       Object.values(options as Record<string, unknown>).some((option) => typeof option !== 'string' || option.length > 1000) ||
-      (modelAnswer !== undefined && modelAnswer !== null && (typeof modelAnswer !== 'string' || modelAnswer.length > 2000))
+      ((rawModelAnswer !== undefined && rawModelAnswer !== null && typeof rawModelAnswer !== 'string') || modelAnswer.length > 2000)
     ) {
       return NextResponse.json({ content: 'Invalid explanation request.', flagged: false }, { status: 400 });
     }
