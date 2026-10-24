@@ -12,7 +12,10 @@ The Modal Secret named ``livekit-credentials`` must contain LIVEKIT_URL,
 LIVEKIT_API_KEY, LIVEKIT_API_SECRET, and an OpenAI-compatible model contract:
 LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL. As a convenience, OPENAI_API_KEY
 can replace LLM_API_KEY and supplies the standard OpenAI endpoint/model defaults;
-DEEPSEEK_API_KEY supplies the DeepSeek endpoint and ``deepseek-chat`` default.\nThe ``lensiq-llm-fallback`` Modal secret must also contain\n``AI_BUDGET_INTERNAL_TOKEN``, matching the Vercel environment variable. The\nvoice worker fails closed and will not call the LLM when shared budget checks fail.
+DEEPSEEK_API_KEY supplies the DeepSeek endpoint and ``deepseek-chat`` default.
+The ``ai-budget-secret`` Modal secret must contain ``AI_BUDGET_INTERNAL_TOKEN``,
+matching the Vercel environment variable. The voice worker fails closed and
+will not call the LLM when shared budget checks fail.
 LIVEKIT_URL may be wss:// or https://; this module normalizes it for the
 LiveKit server API and WebRTC transport.
 """
@@ -45,6 +48,7 @@ voice_image = (
 app = modal.App(APP_NAME)
 livekit_credentials = modal.Secret.from_name("livekit-credentials")
 llm_fallback = modal.Secret.from_name("lensiq-llm-fallback")
+ai_budget_secret = modal.Secret.from_name("ai-budget-secret")
 
 
 def _api_url(value: str) -> str:
@@ -59,7 +63,7 @@ def _api_url(value: str) -> str:
 
 @app.function(
     image=voice_image,
-    secrets=[livekit_credentials, llm_fallback],
+    secrets=[livekit_credentials, llm_fallback, ai_budget_secret],
     cpu=2.0,
     memory=4096,
     timeout=60 * 30,

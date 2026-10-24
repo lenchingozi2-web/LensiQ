@@ -57,6 +57,12 @@ test('voice model generation is gated by the shared budget and DeepSeek remains 
   assert.match(voice, /https:\/\/api\.deepseek\.com\/v1/);
 });
 
+test('Modal room workers receive the dedicated shared budget-token secret', async () => {
+  const modalConfig = await read('pipecat-voice-agent/agent_modal.py');
+  assert.match(modalConfig, /ai_budget_secret\s*=\s*modal\.Secret\.from_name\(['"]ai-budget-secret['"]\)/);
+  assert.match(modalConfig, /secrets=\[livekit_credentials, llm_fallback, ai_budget_secret\]/);
+});
+
 test('internal budget endpoint requires a constant-time shared-token check', async () => {
   const route = await read('app/api/internal/ai-budget/route.ts');
   assert.match(route, /timingSafeEqual/);
