@@ -36,8 +36,20 @@ export async function POST(request: Request) {
   if (Number.isFinite(length) && length > 2048) {
     return NextResponse.json({ error: 'Invalid budget request.' }, { status: 413 });
   }
+  const rawBody = await request.text();
+  if (Buffer.byteLength(rawBody, 'utf8') > 2048) {
+    return NextResponse.json({ error: 'Invalid budget request.' }, { status: 413 });
+  }
 
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  let body: Record<string, unknown> | null = null;
+  try {
+    const parsed: unknown = JSON.parse(rawBody);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      body = parsed as Record<string, unknown>;
+    }
+  } catch {
+    body = null;
+  }
   if (
     !body ||
     !validUuid(body.userId) ||
