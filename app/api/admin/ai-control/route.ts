@@ -153,7 +153,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON request.' }, { status: 400 });
   }
 
-  const now = new Date().toISOString();
   if (body.action === 'pause') {
     const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 200) : 'Emergency stop activated by admin';
     const { data, error } = await admin.rpc('set_ai_runtime_pause', {
