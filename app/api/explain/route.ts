@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     }
 
     // --- 5. If no cache exists, reserve a budget slot before calling DeepSeek ---
-    const budget = await reserveAiRequest(supabase, 'explain');
+    const budget = await reserveAiRequest(userId, 'explain', req.headers.get('idempotency-key') || undefined);
     if (!budget.allowed) {
       return NextResponse.json(
         { content: 'AI explanations are temporarily at capacity. Please wait a minute and try again.', flagged: false },
@@ -137,7 +137,7 @@ export async function POST(req: Request) {
     return NextResponse.json(aiResponseJson);
 
   } catch (error) {
-    console.error("AI Generation Error:", error);
+    console.error('AI Generation Error:', error instanceof Error ? error.name : 'unknown_error');
     return NextResponse.json(
       { content: "The AI Tutor is currently analyzing other charts. Please try again.", flagged: false }, 
       { status: 500 }
