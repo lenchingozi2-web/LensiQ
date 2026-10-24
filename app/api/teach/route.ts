@@ -39,11 +39,28 @@ export async function POST(req: Request) {
       );
     }
 
-    const body = await req.json();
-    const courseName = typeof body?.courseName === 'string' ? body.courseName : 'Pharmacology';
-    const conversationId = typeof body?.conversationId === 'string' ? body.conversationId : '';
-    const sessionType = body?.sessionType === 'live_class' ? 'live_class' : 'teaching_room';
-    const liveClassSessionId = typeof body?.liveClassSessionId === 'string' ? body.liveClassSessionId : '';
+    const contentLength = Number(req.headers.get('content-length') || 0);
+    if (Number.isFinite(contentLength) && contentLength > 128 * 1024) {
+      return NextResponse.json({ error: 'Teaching request is too large.' }, { status: 413 });
+    }
+    const rawBody = await req.text();
+    if (Buffer.byteLength(rawBody, 'utf8') > 128 * 1024) {
+      return NextResponse.json({ error: 'Teaching request is too large.' }, { status: 413 });
+    }
+    let body: Record<string, unknown>;
+    try {
+      const parsed: unknown = JSON.parse(rawBody);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return NextResponse.json({ error: 'Invalid teaching request.' }, { status: 400 });
+      }
+      body = parsed as Record<string, unknown>;
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON request.' }, { status: 400 });
+    }
+    const courseName = typeof body.courseName === 'string' ? body.courseName.slice(0, 120) : 'Pharmacology';
+    const conversationId = typeof body.conversationId === 'string' ? body.conversationId.slice(0, 128) : '';
+    const sessionType = body.sessionType === 'live_class' ? 'live_class' : 'teaching_room';
+    const liveClassSessionId = typeof body.liveClassSessionId === 'string' ? body.liveClassSessionId.slice(0, 128) : '';
 
     if (conversationId) {
       const { data: conversation } = await supabase
@@ -58,7 +75,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const messages = Array.isArray(body?.messages)
+    const messages = Array.isArray(body.messages)
       ? body.messages.filter(
           (message: unknown): message is ChatMessage =>
             message !== null
@@ -70,7 +87,7 @@ export async function POST(req: Request) {
         )
       : [];
 
-    if (messages.length === 0 || messages.length > 20 || messages.some((message) => message.content.length > 6000)) {
+    if (messages.length === 0 || messages.length > 20 || messages.some((message) => message.content.length > 6000) || messages.reduce((total, message) => total + message.content.length, 0) > 30000) {
       return NextResponse.json({ error: 'Invalid teaching conversation.' }, { status: 400 });
     }
 
@@ -114,7 +131,7 @@ export async function POST(req: Request) {
     const context = await buildTeachingContext(supabase, courseName, messages, conversationId || undefined);
     const systemPrompt = buildTeachingSystemPrompt(courseName, context, sessionType === 'live_class');
 
-    const budget = await reserveAiRequest(supabase, 'teach');
+    const budget = await reserveAiRequest(userId, 'teach', req.headers.get('idempotency-key') || undefined);
     if (!budget.allowed) {
       return NextResponse.json(
         { error: 'ai_rate_limited', message: 'AI teaching is temporarily at capacity. Please wait a minute and try again.' },
@@ -159,7 +176,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
-    console.error('AI Teaching Error:', error);
+    console.error('AI Teaching Error:', error instanceof Error ? error.name : 'unknown_error');
     return NextResponse.json(
       { error: 'The AI Tutor is temporarily unavailable. Please try again.' },
       { status: 500 },
