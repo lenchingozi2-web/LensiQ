@@ -77,6 +77,13 @@ export default async function AdminDashboard() {
           </div>
         </header>
 
+        <section className="mt-5 flex flex-col justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-sm font-black text-blue-950">AI provider safety controls</p>
+            <p className="mt-1 text-sm text-blue-800">Monitor reserved spend, budget alerts, and the global emergency stop.</p>
+          </div>
+          <a href="/admin/ai-usage" className="inline-flex w-fit items-center rounded-xl bg-blue-900 px-4 py-3 text-sm font-black text-white hover:bg-blue-800">Open AI usage monitor →</a>
+        </section>
 
         <section className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {[
