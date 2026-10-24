@@ -64,3 +64,45 @@ test('internal budget endpoint requires a constant-time shared-token check', asy
   assert.match(route, /createAdminClient\(\)/);
   assert.match(route, /reserve_ai_budget/);
 });
+
+
+test('central AI switch defaults paused and stores configurable conservative caps', async () => {
+  const migration = await read('supabase/migrations/0044_ai_usage_monitoring.sql');
+  assert.match(migration, /is_paused boolean not null default true/i);
+  assert.match(migration, /global_daily_limit_microusd bigint not null default 1000000/i);
+  assert.match(migration, /global_monthly_limit_microusd bigint not null default 10000000/i);
+  assert.match(migration, /user_daily_limit_microusd bigint not null default 250000/i);
+  assert.match(migration, /user_monthly_limit_microusd bigint not null default 2000000/i);
+  assert.match(migration, /ai_usage_events/);
+  assert.match(migration, /ai_budget_alerts/);
+  assert.match(migration, /revoke all on public\.ai_runtime_controls from public, anon, authenticated/i);
+});
+
+test('budget reservation checks the central pause and configurable caps atomically', async () => {
+  const sql = await read('supabase/migrations/0043_ai_spend_budget.sql');
+  assert.match(sql, /from public\.ai_runtime_controls where id = 1/i);
+  assert.match(sql, /ai_globally_paused/);
+  assert.match(sql, /v_global_day_spend \+ v_cost > v_global_daily_cap/);
+  assert.match(sql, /v_global_month_spend \+ v_cost > v_global_monthly_cap/);
+  assert.match(sql, /v_user_day_spend \+ v_cost > v_user_daily_cap/);
+  assert.match(sql, /v_user_month_spend \+ v_cost > v_user_monthly_cap/);
+});
+
+test('voice reservation endpoint checks global pause and explicit provider approval', async () => {
+  const route = await read('app/api/internal/ai-budget/route.ts');
+  assert.match(route, /from\('ai_runtime_controls'\)/);
+  assert.match(route, /controls\.is_paused/);
+  assert.match(route, /AI_PROVIDER_CALLS_ENABLED !== 'true'/);
+  assert.match(route, /ai_usage_events/);
+  assert.match(route, /usage logging unavailable; failing closed/i);
+});
+
+test('admin AI control API requires an authenticated admin and locks resume behind explicit approval', async () => {
+  const route = await read('app/api/admin/ai-control/route.ts');
+  assert.match(route, /profile\?\.role !== 'admin'/);
+  assert.match(route, /AI_PROVIDER_CALLS_ENABLED !== 'true'/);
+  assert.match(route, /action === 'pause'/);
+  assert.match(route, /action === 'limits'/);
+  assert.match(route, /AI_BUDGET_ALERT_WEBHOOK_URL/);
+  assert.match(route, /ai_budget_alerts/);
+});
