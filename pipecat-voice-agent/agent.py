@@ -90,10 +90,15 @@ class AiBudgetGate(FrameProcessor):
         self.endpoint = endpoint
         self.token = token
 
-    def _reserve_sync(self) -> bool:
-        if not self.user_id or not self.endpoint or not self.token:
-            logger.error("Voice AI budget gate is not configured; blocking provider call")
-            return False
+    def _reserve_sync(self) -> tuple[bool, str]:
+        missing = [name for name, value in (
+            ("user_id", self.user_id),
+            ("endpoint", self.endpoint),
+            ("shared_token", self.token),
+        ) if not value]
+        if missing:
+            logger.error("Voice AI budget gate missing required settings: %s", ", ".join(missing))
+            return False, "This class is missing its secure tutor session context. Please end and restart the class."
         payload = json.dumps({
             "userId": self.user_id,
             "requestId": str(uuid.uuid4()),
@@ -111,10 +116,24 @@ class AiBudgetGate(FrameProcessor):
         try:
             with urllib.request.urlopen(request, timeout=4) as response:
                 result = json.loads(response.read(4096).decode("utf-8"))
-                return response.status == 200 and result.get("allowed") is True
+                if response.status == 200 and result.get("allowed") is True:
+                    return True, ""
+                reason = result.get("reason")
+                if reason in ("user_daily_spend_limit", "user_monthly_spend_limit", "global_daily_spend_limit", "global_monthly_spend_limit", "user_minute_limit", "user_hour_limit", "user_day_limit", "global_minute_limit", "global_hour_limit", "global_day_limit"):
+                    return False, "The AI usage allowance has been reached. Please try again later."
+                if reason in ("ai_globally_paused", "provider_calls_not_approved"):
+                    return False, "AI voice responses are temporarily paused. Please try again later."
+                return False, "The tutor could not authorize this response. Please try again shortly."
+        except urllib.error.HTTPError as error:
+            logger.error("Voice AI budget service rejected reservation (HTTP %s)", error.code)
+            if error.code == 429:
+                return False, "The AI usage allowance has been reached. Please try again later."
+            if error.code == 401:
+                return False, "The tutor authorization check failed. Please reload the class and try again."
+            return False, "The tutor budget service is temporarily unavailable. Please try again shortly."
         except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
             logger.error("Voice AI budget service unavailable (%s); blocking provider call", type(error).__name__)
-            return False
+            return False, "The tutor budget service is temporarily unavailable. Please try again shortly."
 
     def _bound_context(self, frame) -> None:
         context = getattr(frame, "context", None)
@@ -145,14 +164,14 @@ class AiBudgetGate(FrameProcessor):
         await super().process_frame(frame, direction)
         if isinstance(frame, (LLMContextFrame, OpenAILLMContextFrame)):
             self._bound_context(frame)
-            allowed = await asyncio.to_thread(self._reserve_sync)
+            allowed, denial_message = await asyncio.to_thread(self._reserve_sync)
             if not allowed:
                 client = getattr(self.transport, "_client", None)
                 if client is not None:
                     message = {
                         "type": "live_class_state",
                         "state": "ERROR",
-                        "message": "The tutor is temporarily at capacity. Please try again shortly.",
+                        "message": denial_message,
                     }
                     await client.send_data(json.dumps(message).encode("utf-8"))
                 return

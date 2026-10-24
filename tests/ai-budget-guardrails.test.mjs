@@ -87,6 +87,21 @@ test('Modal room workers receive the dedicated shared budget-token secret', asyn
   assert.match(modalConfig, /secrets=\[livekit_credentials, llm_fallback, ai_budget_secret\]/);
 });
 
+test('room-poll Live Class stores learner identity in room metadata before polling', async () => {
+  const tokenRoute = await read('app/api/voice/token/route.ts');
+  const modalConfig = await read('pipecat-voice-agent/agent_modal.py');
+  assert.match(tokenRoute, /LIVEKIT_DISPATCH_MODE === 'room-poll'[\s\S]*?createRoom\(\{ name: roomName, metadata: dispatchMetadata \}\)/);
+  assert.match(tokenRoute, /livekit_room_setup_failed/);
+  assert.match(modalConfig, /if not any\(not p\.identity\.startswith\(AGENT_NAME\) for p in participants\.participants\):\s*continue/);
+});
+
+test('voice budget denials distinguish missing session context from actual allowance limits', async () => {
+  const voice = await read('pipecat-voice-agent/agent.py');
+  assert.match(voice, /missing required settings: %s/);
+  assert.match(voice, /AI usage allowance has been reached/);
+  assert.doesNotMatch(voice, /at capacity/);
+});
+
 test('internal budget endpoint requires a constant-time shared-token check', async () => {
   const route = await read('app/api/internal/ai-budget/route.ts');
   assert.match(route, /timingSafeEqual/);
