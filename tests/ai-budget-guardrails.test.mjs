@@ -32,7 +32,7 @@ test('database reservation enforces dollar caps, concurrency and service-role ac
   assert.match(sql, /500000000/);
   assert.match(sql, /5000000/);
   assert.match(sql, /100000000/);
-  assert.match(sql, /primary key\s*\(request_id\)/i);
+  assert.match(sql, /request_id uuid primary key/i);
   assert.match(sql, /revoke all on function public\.reserve_ai_budget\(uuid, text, uuid\) from public, anon, authenticated/i);
   assert.match(sql, /grant execute on function public\.reserve_ai_budget\(uuid, text, uuid\) to service_role/i);
   assert.match(sql, /duplicate_request/);
