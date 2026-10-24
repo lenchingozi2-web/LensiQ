@@ -57,10 +57,20 @@ export async function POST(req: Request) {
     } catch {
       return NextResponse.json({ error: 'Invalid JSON request.' }, { status: 400 });
     }
-    const courseName = typeof body.courseName === 'string' ? body.courseName.slice(0, 120) : 'Pharmacology';
-    const conversationId = typeof body.conversationId === 'string' ? body.conversationId.slice(0, 128) : '';
+    const rawCourseName = body.courseName;
+    const rawConversationId = body.conversationId;
+    const rawLiveClassSessionId = body.liveClassSessionId;
+    if (
+      (rawCourseName !== undefined && typeof rawCourseName !== 'string') ||
+      (rawConversationId !== undefined && typeof rawConversationId !== 'string') ||
+      (rawLiveClassSessionId !== undefined && typeof rawLiveClassSessionId !== 'string')
+    ) {
+      return NextResponse.json({ error: 'Invalid teaching request.' }, { status: 400 });
+    }
+    const courseName: string = String(rawCourseName ?? 'Pharmacology').slice(0, 120);
+    const conversationId: string = String(rawConversationId ?? '').slice(0, 128);
     const sessionType = body.sessionType === 'live_class' ? 'live_class' : 'teaching_room';
-    const liveClassSessionId = typeof body.liveClassSessionId === 'string' ? body.liveClassSessionId.slice(0, 128) : '';
+    const liveClassSessionId: string = String(rawLiveClassSessionId ?? '').slice(0, 128);
 
     if (conversationId) {
       const { data: conversation } = await supabase
