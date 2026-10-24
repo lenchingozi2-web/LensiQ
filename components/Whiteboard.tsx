@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 
 type WhiteboardProps = {
@@ -29,20 +29,14 @@ export default function Whiteboard({ topic, markdown, onConceptSelect }: Whitebo
   const [slideKey, setSlideKey] = useState(0);
   const activeIndex = Math.min(activeStep, Math.max(steps.length - 1, 0));
 
-  useEffect(() => {
-    if (steps.length < 2) return;
-    const timer = window.setInterval(() => {
-      setActiveStep((current) => {
-        const next = (current + 1) % steps.length;
-        onConceptSelect?.(steps[next], next);
-        setSlideKey((value) => value + 1);
-        return next;
-      });
-    }, 5200);
-    return () => window.clearInterval(timer);
-  }, [onConceptSelect, steps]);
+  const chooseStep = (index: number) => {
+    const next = Math.max(0, Math.min(steps.length - 1, index));
+    setActiveStep(next);
+    setSlideKey((value) => value + 1);
+    if (steps[next]) onConceptSelect?.(steps[next], next);
+  };
 
-  const step = steps[activeIndex] ?? 'The tutor is preparing the next visual explanation.';
+  const step = steps[activeIndex] ?? 'Your tutor’s explanation will appear here when the first answer arrives.';
 
   return (
     <section className="relative isolate h-full w-full overflow-hidden bg-[#060a12] text-white" aria-label="Full-screen interactive medical concept whiteboard">
@@ -64,7 +58,12 @@ export default function Whiteboard({ topic, markdown, onConceptSelect }: Whitebo
               {step}
             </ReactMarkdown>
           </article>
-          <p className="mt-10 max-w-2xl text-sm font-semibold leading-6 text-white/45 sm:text-base">This board advances automatically with the tutor’s teaching. Interrupt at any time to ask for a deeper explanation.</p>
+          {steps.length > 0 && <div className="mt-8 flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => chooseStep(activeIndex - 1)} disabled={activeIndex === 0} className="rounded-xl border border-white/15 bg-white/[0.06] px-4 py-2.5 text-xs font-black text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35">← Previous</button>
+            <button type="button" onClick={() => onConceptSelect?.(step, activeIndex)} className="rounded-xl border border-[#e8a23d]/40 bg-[#e8a23d]/10 px-4 py-2.5 text-xs font-black text-[#ffd68d] transition hover:bg-[#e8a23d]/20">Ask tutor about this</button>
+            <button type="button" onClick={() => chooseStep(activeIndex + 1)} disabled={activeIndex >= steps.length - 1} className="rounded-xl bg-[#e8a23d] px-4 py-2.5 text-xs font-black text-[#101827] transition hover:bg-[#ffd68d] disabled:cursor-not-allowed disabled:opacity-35">Next →</button>
+          </div>}
+          <p className="mt-5 max-w-2xl text-sm font-semibold leading-6 text-white/45 sm:text-base">Choose a point to focus the tutor on it. The board stays still until you navigate or the tutor changes the lesson.</p>
         </div>
 
         {steps.length > 1 && <div className="absolute bottom-[28dvh] left-6 flex max-w-[calc(100%-3rem)] gap-2 overflow-x-auto sm:bottom-[23dvh] sm:left-12 lg:left-[10vw]" aria-label="Automatic lesson progress">

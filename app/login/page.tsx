@@ -76,7 +76,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
   return (
     <main className="flex-1 flex flex-col w-full px-8 sm:max-w-md justify-center gap-2 mx-auto mt-20">
-      <form className="flex-1 flex flex-col w-full justify-center gap-2 text-slate-800">
+      <form autoComplete="on" className="flex-1 flex flex-col w-full justify-center gap-2 text-slate-800">
         <input type="hidden" name="next" value={next} />
         <h1 className="text-3xl font-bold mb-6 text-center text-[#0B1220]">LenxiQ AI access</h1>
         {(params.message || params.error) && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-800">{params.error || (params.message === 'Could not authenticate user' ? 'Email or password did not match. Try again, use Google, or reset your password.' : 'Sign-in could not be completed. Please retry, use Google, or reset your password.')}</p>}
@@ -84,8 +84,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <label className="text-sm font-semibold" htmlFor="email">Email Address</label>
         <input 
           className="rounded-md px-4 py-2 bg-slate-50 border mb-4 text-slate-800" 
-          name="email" 
+          id="email"
+          name="email"
           type="email"
+          autoComplete="username"
           placeholder="doctor@example.com" 
           required 
         />
@@ -93,8 +95,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <label className="text-sm font-semibold" htmlFor="password">Password</label>
         <input 
           className="rounded-md px-4 py-2 bg-slate-50 border mb-8 text-slate-800" 
-          type="password" 
-          name="password" 
+          id="password"
+          type="password"
+          name="password"
+          autoComplete="current-password" 
           placeholder="••••••••" 
           required 
         />

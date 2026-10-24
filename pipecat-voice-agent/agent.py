@@ -168,10 +168,13 @@ class LiveClassDataBridge(FrameProcessor):
     async def process_frame(self, frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
         if isinstance(frame, TranscriptionFrame) and frame.text.strip():
-            await self.publish({"type": "live_class_transcript", "role": self.role, "content": frame.text.strip(), "final": True})
-            await self.publish({"type": "live_class_state", "state": "THINKING"})
-        elif isinstance(frame, TextFrame) and frame.text.strip():
-            await self.publish({"type": "live_class_transcript", "role": self.role, "content": frame.text.strip(), "final": True})
+            # Learner speech is input to the tutor, not part of the answer transcript.
+            if self.role == "assistant":
+                await self.publish({"type": "live_class_transcript", "role": "assistant", "content": frame.text.strip(), "final": True})
+            else:
+                await self.publish({"type": "live_class_state", "state": "THINKING"})
+        elif isinstance(frame, TextFrame) and frame.text.strip() and self.role == "assistant":
+            await self.publish({"type": "live_class_transcript", "role": "assistant", "content": frame.text.strip(), "final": True})
             await self.publish({"type": "live_class_state", "state": "TEACHING"})
         await self.push_frame(frame, direction)
 
@@ -260,7 +263,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     budget_gate = AiBudgetGate(
         transport,
         str(room_data.get("userId") or ""),
-        os.getenv("AI_BUDGET_ENDPOINT", "").strip(),
+        os.getenv("AI_BUDGET_ENDPOINT", "https://www.lenxiq.online/api/internal/ai-budget").strip(),
         os.getenv("AI_BUDGET_INTERNAL_TOKEN", "").strip(),
     )
     pipeline = Pipeline([
@@ -286,7 +289,15 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         if data.get("type") != "structure_selected" and data.get("type") != "concept_selected":
             return
         if data.get("type") == "structure_selected":
-            focus = f"The learner selected the structure {data.get('structureId', 'an unlabeled structure')} in the current visual. Explain that selected structure in context, then ask whether they want to go deeper."
+            model_url = str(data.get("modelUrl") or "the current approved anatomy model")[:400]
+            structure_id = str(data.get("structureId") or "an unlabeled structure")[:180]
+            focus = (
+                f"The learner pointed to and selected '{structure_id}' in the active 3D medical model ({model_url}). "
+                "Treat this selection as the learner's intended anatomical target. Explain what that structure is, "
+                "where it sits in the displayed model, its function and relevant clinical/physiology context. "
+                "If the mesh name is generic or the exact structure cannot be identified confidently from the model "
+                "and label, say so clearly and ask the learner to select a clearer labelled part; do not invent anatomy."
+            )
         else:
             focus = f"The learner selected this concept on the teaching board: {str(data.get('concept', ''))[:400]}. Explain it interactively and connect it to the current lesson."
         await assistant_bridge.publish({"type": "live_class_state", "state": "THINKING"})

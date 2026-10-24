@@ -77,6 +77,9 @@ def run_voice_room(room_name: str, room_metadata: str = "") -> None:
     # agent.py uses the same value for RoomService and RTC; https is accepted by
     # RoomService and agent.py converts it back to wss for the RTC transport.
     os.environ["LIVEKIT_URL"] = _api_url(livekit_url)
+    # The endpoint is public, but all reservations remain protected by the shared bearer token.
+    # Default it here so a missing optional Modal secret field cannot silently block every tutor answer.
+    os.environ.setdefault("AI_BUDGET_ENDPOINT", "https://www.lenxiq.online/api/internal/ai-budget")
     sys.path.insert(0, "/root")
     import importlib.util
 
