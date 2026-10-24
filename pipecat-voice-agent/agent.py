@@ -292,18 +292,29 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         await assistant_bridge.publish({"type": "live_class_state", "state": "THINKING"})
         await task.queue_frame(InputTextRawFrame(text=focus))
 
-    @transport.event_handler("on_first_participant_joined")
-    async def on_first_participant_joined(_transport: LiveKitTransport, _participant_id: str):
-        # Prove the transport/TTS path immediately. This avoids making the
-        # first audible response depend on an LLM round trip completing.
+    greeting_queued = False
+
+    async def queue_initial_greeting(source: str) -> None:
+        nonlocal greeting_queued
+        if greeting_queued:
+            return
+        greeting_queued = True
+        # The room poller launches workers only after a learner is present.
+        # Queueing at pipeline start avoids relying on an event that can be
+        # missed when the worker joins an already-created room.
+        logger.info("Queueing Live Class greeting for %s (%s)", room_name, source)
         await assistant_bridge.publish({"type": "live_class_state", "state": "GREETING"})
-        await asyncio.sleep(1)
         await task.queue_frame(
             TTSSpeakFrame(
                 "Hello, I am your LenxiQ medical tutor. Tell me which concept you would like to master."
             )
         )
 
+    @transport.event_handler("on_first_participant_joined")
+    async def on_first_participant_joined(_transport: LiveKitTransport, _participant_id: str):
+        await queue_initial_greeting("first_participant")
+
+    await queue_initial_greeting("pipeline_start")
     logger.info("Joining Live Class room %s", room_name)
     await PipelineRunner().run(task)
 
