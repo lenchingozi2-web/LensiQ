@@ -319,7 +319,7 @@ function VoiceTutorContent() {
     setConversationId(data.conversation.id);
     conversationIdRef.current = data.conversation.id;
     setCourseName(data.conversation.course_name);
-    setMessages(data.messages ?? []);
+    setMessages((data.messages ?? []).filter((message: Message) => message.role === 'assistant'));
     const recordingResponse = await fetch(`/api/voice/recording?conversationId=${encodeURIComponent(id)}`);
     const recordingData = recordingResponse.ok ? await recordingResponse.json().catch(() => ({})) : {};
     if (recordingData.recording?.signedUrl) { setRecordingDownloadUrl(recordingData.recording.signedUrl); setRecordingReady(true); } else { setRecordingDownloadUrl(null); setRecordingReady(false); }
@@ -854,8 +854,9 @@ function VoiceTutorContent() {
             return;
           }
           if (topic !== 'lensiq.live_class.transcript' && data.type !== 'live_class_transcript') return;
-          if (!data.role || !data.content?.trim()) return;
+          if (data.role !== 'assistant' || !data.content?.trim()) return;
           const content = data.content.trim();
+          if (/^(?:i(?:'m| am)\\s+)?listening(?:\\s+to\\s+you)?[.!\\s]*$/i.test(content)) return;
           const key = `content:${data.role}:${content.toLowerCase()}`;
           if (transcriptIdsRef.current.has(key)) return;
           transcriptIdsRef.current.add(key);
@@ -871,8 +872,9 @@ function VoiceTutorContent() {
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => setVoiceActive(speakers.some((speaker) => !speaker.isLocal)));
       room.on(RoomEvent.TranscriptionReceived, (segments: TranscriptionSegment[], participant?: Participant) => {
         for (const segment of segments) {
-          if (!segment.final || !segment.text.trim()) continue;
-          const message: Message = { role: participant?.isLocal ? 'user' : 'assistant', content: segment.text.trim() };
+          if (participant?.isLocal || !segment.final || !segment.text.trim()) continue;
+          const message: Message = { role: 'assistant', content: segment.text.trim() };
+          if (/^(?:i(?:'m| am)\\s+)?listening(?:\\s+to\\s+you)?[.!\\s]*$/i.test(message.content)) continue;
           if (message.role === 'assistant') applyTutorTranscript(message.content);
           else explicitVisualThisTurnRef.current = false;
           const key = `content:${message.role}:${message.content.toLowerCase()}`;
@@ -914,10 +916,8 @@ function VoiceTutorContent() {
       setMicMuted(false);
       setRuntimeState('GREETING');
       setAudioState(room.canPlaybackAudio ? (agentAudioSubscribedRef.current ? 'playing' : 'ready') : agentAudioSubscribedRef.current ? 'blocked' : 'waiting');
-      const openingMessage: Message = { role: 'assistant', content: topicFocus ? `Live Class opened for ${topicFocus}. Speak naturally; LenxiQ AI will teach aloud and you can interrupt at any time.` : `Live Class opened. Tell LenxiQ AI what you want to understand, and the tutor will teach aloud.` };
-      setMessages([openingMessage]);
-      messagesRef.current = [openingMessage];
-      await persistMessage(conversation.id, openingMessage);
+      setMessages([]);
+      messagesRef.current = [];
       setStatus('Your live teaching studio is open. Your tutor is warming the first greeting; class time starts when tutor audio begins.');
       setAmbienceNotice('Ambience is off by default. Turn it on only if it helps you focus.');
     } catch (sessionError) {
