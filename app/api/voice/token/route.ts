@@ -197,6 +197,28 @@ export async function POST(req: Request) {
     },
   });
   
+  // In room-poll mode the Modal poller launches from LiveKit room metadata;
+  // dispatch metadata is not delivered to it. Create the room explicitly so
+  // the worker receives the authenticated user ID and lesson context.
+  if (process.env.LIVEKIT_DISPATCH_MODE === 'room-poll') {
+    try {
+      const roomService = new RoomServiceClient(dispatchHost, apiKey, apiSecret);
+      await roomService.createRoom({ name: roomName, metadata: dispatchMetadata });
+    } catch (roomError) {
+      console.error('Live Class room metadata initialization failed:', roomError);
+      const { error: releaseError } = await supabase.rpc('charge_live_class_session', {
+        p_session_id: quota.session_id,
+        p_duration_seconds: 0,
+        p_end: true,
+      });
+      if (releaseError) console.error('Live Class reservation cleanup failed:', releaseError.code || 'unknown');
+      return NextResponse.json({
+        error: 'livekit_room_setup_failed',
+        message: 'The Live Class room could not be prepared. Please try again.',
+      }, { status: 503 });
+    }
+  }
+
   if (process.env.LIVEKIT_DISPATCH_MODE !== 'room-poll') {
     try {
       const dispatchClient = new AgentDispatchClient(dispatchHost, apiKey, apiSecret);

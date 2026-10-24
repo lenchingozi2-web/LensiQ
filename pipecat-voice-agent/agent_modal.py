@@ -133,6 +133,11 @@ def poll_livekit_rooms() -> None:
                     if "does not exist" in str(error).lower() or "not_found" in str(error).lower():
                         continue
                     raise
+                # Token issuance creates rooms ahead of the browser join so it
+                # can attach private lesson metadata. Do not start or greet in
+                # an empty room; wait until the authenticated learner connects.
+                if not any(not p.identity.startswith(AGENT_NAME) for p in participants.participants):
+                    continue
                 if any(p.identity.startswith(AGENT_NAME) for p in participants.participants):
                     continue
                 # A worker can take several seconds to boot Whisper/Kokoro. Claim the
