@@ -184,3 +184,14 @@ test('monitoring migration also upgrades previously-created reservation RPC', as
   assert.match(migration, /ai_globally_paused/);
   assert.match(migration, /grant execute on function public\.reserve_ai_budget\(uuid, text, uuid\) to service_role/i);
 });
+
+
+test('migration 0045 qualifies columns that collide with RETURNS TABLE output variables', async () => {
+  const sql = await read('supabase/migrations/0045_fix_ai_budget_ambiguous_column.sql');
+  assert.match(sql, /select coalesce\(w\.reserved_microusd, 0\)/);
+  assert.match(sql, /from public\.ai_spend_windows as w/);
+  assert.match(sql, /select coalesce\(w\.request_count, 0\)/);
+  assert.match(sql, /from public\.ai_runtime_controls as c/);
+  assert.match(sql, /revoke all on function public\.reserve_ai_budget\(uuid, text, uuid\) from public, anon, authenticated/i);
+  assert.match(sql, /grant execute on function public\.reserve_ai_budget\(uuid, text, uuid\) to service_role/i);
+});
