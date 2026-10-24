@@ -29,6 +29,12 @@ export async function GET() {
   const { admin } = context;
   const now = new Date();
   const dayStart = isoDay(now);
+  const hourDate = new Date(now);
+  hourDate.setUTCMinutes(0, 0, 0);
+  const hourStart = hourDate.toISOString();
+  const minuteDate = new Date(now);
+  minuteDate.setUTCSeconds(0, 0);
+  const minuteStart = minuteDate.toISOString();
   const monthDate = new Date(now);
   monthDate.setUTCDate(1);
   const monthStart = isoDay(monthDate);
@@ -68,6 +74,7 @@ export async function GET() {
       const key = `${item.name}_${percent}_${item.period}`;
       const threshold = Math.floor(item.cap * percent / 100);
       if (item.observed >= threshold) {
+        const previous = await admin.from('ai_budget_alerts').select('active').eq('alert_key', key).maybeSingle();
         const alert = {
           alert_key: key,
           level,
@@ -80,6 +87,19 @@ export async function GET() {
         };
         const saved = await admin.from('ai_budget_alerts').upsert(alert, { onConflict: 'alert_key' });
         if (saved.error) console.error('AI budget alert persistence failed', { code: saved.error.code || 'unknown' });
+        if ((!previous.data || previous.data.active === false) && process.env.AI_BUDGET_ALERT_WEBHOOK_URL) {
+          try {
+            const notification = await fetch(process.env.AI_BUDGET_ALERT_WEBHOOK_URL, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ source: 'LensiQ AI budget monitor', alert: { key, level, metric: item.label, observedUsd: usd(item.observed), thresholdUsd: usd(threshold), at: now.toISOString() } }),
+              signal: AbortSignal.timeout(3000),
+            });
+            if (!notification.ok) console.error('AI budget alert webhook returned non-success', { status: notification.status });
+          } catch {
+            console.error('AI budget alert webhook failed');
+          }
+        }
         activeAlerts.push({ key, level, metric: item.label, observed: usd(item.observed), threshold: usd(threshold) });
       }
     }
