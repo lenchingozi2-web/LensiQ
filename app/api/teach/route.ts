@@ -85,9 +85,10 @@ export async function POST(req: Request) {
       }
     }
 
-    const rawMessages: unknown[] = Array.isArray(body.messages) ? body.messages : [];
+    const rawMessagesValue = body.messages;
+    const rawMessages: unknown[] = Array.isArray(rawMessagesValue) ? rawMessagesValue as unknown[] : [];
     if (
-      !Array.isArray(body.messages) ||
+      !Array.isArray(rawMessagesValue) ||
       rawMessages.length === 0 ||
       rawMessages.length > 20 ||
       rawMessages.some((message: unknown) => {
