@@ -15,6 +15,7 @@ import urllib.error
 import urllib.request
 import uuid
 from typing import Any, AsyncGenerator
+from urllib.parse import urlparse
 
 from livekit import api
 from pipecat.frames.frames import ErrorFrame, Frame, InputTextRawFrame, LLMContextFrame, TTSAudioRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
@@ -78,6 +79,64 @@ def _system_prompt(room_name: str, room_metadata: str | None = None) -> str:
         "not clinical decision support."
         + metadata_context
     )
+
+
+def _provider_for_endpoint(base_url: str, model: str) -> str:
+    host = (urlparse(base_url).hostname or "").lower()
+    normalized_model = model.strip().lower()
+    if host == "generativelanguage.googleapis.com":
+        if not normalized_model.startswith("gemini-"):
+            raise RuntimeError("The Google Live Class endpoint must use a Gemini model.")
+        return "gemini"
+    if host == "api.groq.com":
+        if "gpt" in normalized_model:
+            raise RuntimeError("GPT models are not permitted for Live Class.")
+        return "groq"
+    raise RuntimeError("Live Class accepts only Gemini or Groq model endpoints; GPT/OpenAI fallback is disabled.")
+
+
+def _select_live_class_llm() -> tuple[str, str, str, str]:
+    explicit = {
+        "base_url": os.getenv("LLM_BASE_URL", "").strip(),
+        "api_key": os.getenv("LLM_API_KEY", "").strip(),
+        "model": os.getenv("LLM_MODEL", "").strip(),
+    }
+    if explicit["base_url"] or explicit["api_key"]:
+        missing = [name for name, value in explicit.items() if not value]
+        if missing:
+            raise RuntimeError("Voice worker requires a complete LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL contract.")
+        provider = _provider_for_endpoint(explicit["base_url"], explicit["model"])
+        requested_provider = os.getenv("LIVE_CLASS_LLM_PROVIDER", "").strip().lower()
+        if requested_provider and requested_provider != provider:
+            raise RuntimeError("LIVE_CLASS_LLM_PROVIDER does not match the configured Gemini or Groq endpoint.")
+        return provider, explicit["api_key"], explicit["base_url"], explicit["model"]
+
+    requested_provider = os.getenv("LIVE_CLASS_LLM_PROVIDER", "").strip().lower()
+    if requested_provider not in ("", "gemini", "groq"):
+        raise RuntimeError("LIVE_CLASS_LLM_PROVIDER must be either 'gemini' or 'groq'.")
+    gemini_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    provider = requested_provider or ("gemini" if gemini_key else "groq" if groq_key else "")
+
+    if provider == "gemini":
+        api_key = gemini_key
+        base_url = os.getenv(
+            "GEMINI_BASE_URL",
+            "https://generativelanguage.googleapis.com/v1beta/openai/",
+        ).strip()
+        model = (os.getenv("GEMINI_MODEL") or os.getenv("LLM_MODEL") or "").strip()
+    elif provider == "groq":
+        api_key = groq_key
+        base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").strip()
+        model = (os.getenv("GROQ_MODEL") or os.getenv("LLM_MODEL") or "").strip()
+    else:
+        raise RuntimeError("Configure a Gemini or Groq API key and model for Live Class; GPT fallback is disabled.")
+
+    if not api_key or not model:
+        raise RuntimeError(f"The selected {provider} Live Class provider is missing its API key or model name.")
+    if _provider_for_endpoint(base_url, model) != provider:
+        raise RuntimeError("The selected Live Class provider does not match its configured endpoint/model.")
+    return provider, api_key, base_url, model
 
 
 class AiBudgetGate(FrameProcessor):
@@ -275,38 +334,10 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         model_path=os.getenv("KOKORO_MODEL_PATH") or None,
         voices_path=os.getenv("KOKORO_VOICES_PATH") or None,
     )
-    openai_api_key = os.getenv("OPENAI_API_KEY", "").strip()
-    deepseek_api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
-    configured_key = os.getenv("LLM_API_KEY", "").strip()
-    llm_base_url = os.getenv("LLM_BASE_URL", "").strip()
-    llm_model = os.getenv("LLM_MODEL", "").strip()
-
-    # Keep DeepSeek as the default voice brain when its key is configured.
-    # An explicit LLM_* contract still takes precedence for intentional overrides.
-    if configured_key and llm_base_url and llm_model:
-        llm_api_key = configured_key
-    elif deepseek_api_key:
-        llm_api_key = deepseek_api_key
-        llm_base_url = "https://api.deepseek.com/v1"
-        llm_model = "deepseek-chat"
-    else:
-        llm_api_key = openai_api_key
-        llm_base_url = llm_base_url or ("https://api.openai.com/v1" if openai_api_key else "")
-        llm_model = llm_model or ("gpt-4o-mini" if openai_api_key else "")
-    missing_llm_settings = [
-        name for name, value in (
-            ("LLM_BASE_URL", llm_base_url),
-            ("LLM_API_KEY, OPENAI_API_KEY, or DEEPSEEK_API_KEY", llm_api_key),
-            ("LLM_MODEL", llm_model),
-        ) if not value
-    ]
-    if missing_llm_settings:
-        raise RuntimeError(
-            "Voice worker is missing LLM settings: "
-            + ", ".join(missing_llm_settings)
-            + ". Add them to the Modal livekit-credentials secret; "
-            "host.docker.internal is local-only."
-        )
+    llm_provider, llm_api_key, llm_base_url, llm_model = _select_live_class_llm()
+    logger.info("Live Class LLM provider configured (%s/%s)", llm_provider, llm_model)
+    # Pipecat's OpenAILLMService is used only as an OpenAI-compatible protocol
+    # adapter; the endpoint guard above restricts the actual provider to Gemini/Groq.
     llm = OpenAILLMService(
         api_key=llm_api_key,
         base_url=llm_base_url,

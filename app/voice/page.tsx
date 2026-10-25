@@ -184,6 +184,32 @@ function VoiceTutorContent() {
   useEffect(() => { recordingDownloadUrlRef.current = recordingDownloadUrl; }, [recordingDownloadUrl]);
 
   useEffect(() => {
+    if (!connected || runtimeState !== 'THINKING') return;
+    const timer = window.setTimeout(() => {
+      if (runtimeStateRef.current !== 'THINKING') return;
+      const message = 'The tutor has not replied yet. Try asking once more; if it stays quiet, end and restart the class.';
+      runtimeStateRef.current = 'ERROR';
+      setRuntimeState('ERROR');
+      setStatus(message);
+      setError(message);
+    }, 30000);
+    return () => window.clearTimeout(timer);
+  }, [connected, runtimeState]);
+
+  useEffect(() => {
+    if (!connected || runtimeState !== 'GREETING' || agentAudioSubscribed) return;
+    const timer = window.setTimeout(() => {
+      if (runtimeStateRef.current !== 'GREETING' || agentAudioSubscribedRef.current) return;
+      const message = 'The tutor has not joined the audio room yet. Check your connection, then end and restart the class.';
+      runtimeStateRef.current = 'ERROR';
+      setRuntimeState('ERROR');
+      setStatus(message);
+      setError(message);
+    }, 25000);
+    return () => window.clearTimeout(timer);
+  }, [connected, runtimeState, agentAudioSubscribed]);
+
+  useEffect(() => {
     if (!connected || studioOpen) return;
     const timer = window.setTimeout(() => {
       setStudioOpen(true);
@@ -842,14 +868,17 @@ function VoiceTutorContent() {
               clientStage(data.state === 'TTS_AUDIO_FRAME' ? 'AGENT_TTS_PCM_MEASURED' : 'AGENT_TTS_PCM_SUMMARY', { ...data });
               return;
             }
-            if (data.state === 'ERROR') {
+          if (data.state === 'ERROR') {
+              runtimeStateRef.current = 'ERROR';
               setRuntimeState('ERROR');
               setStatus(data.message || 'The tutor could not complete that response. Please try speaking again.');
               setError(data.message || 'The tutor could not complete that response.');
               return;
             }
             if (!(data.state in RUNTIME_COPY)) return;
+            runtimeStateRef.current = data.state;
             setRuntimeState(data.state);
+            if (data.state === 'THINKING') setError('');
             setStatus(RUNTIME_COPY[data.state].detail);
             return;
           }
@@ -863,6 +892,9 @@ function VoiceTutorContent() {
           const message: Message = { id: data.id ?? undefined, role: data.role, content };
           if (data.role === 'assistant') applyTutorTranscript(content);
           else explicitVisualThisTurnRef.current = false;
+          runtimeStateRef.current = 'TEACHING';
+          setRuntimeState('TEACHING');
+          setError('');
           setMessages((previous) => [...previous, message]);
           messagesRef.current = [...messagesRef.current, message];
           void persistMessage(conversation.id, message);
@@ -877,6 +909,9 @@ function VoiceTutorContent() {
           if (/^(?:i(?:'m| am)\\s+)?listening(?:\\s+to\\s+you)?[.!\\s]*$/i.test(message.content)) continue;
           if (message.role === 'assistant') applyTutorTranscript(message.content);
           else explicitVisualThisTurnRef.current = false;
+          runtimeStateRef.current = 'TEACHING';
+          setRuntimeState('TEACHING');
+          setError('');
           const key = `content:${message.role}:${message.content.toLowerCase()}`;
           if (transcriptIdsRef.current.has(key)) continue;
           transcriptIdsRef.current.add(key);
@@ -914,11 +949,14 @@ function VoiceTutorContent() {
       // audible, with a strict ten-second escape hatch above for diagnostics
       // and mobile autoplay recovery.
       setMicMuted(false);
-      setRuntimeState('GREETING');
       setAudioState(room.canPlaybackAudio ? (agentAudioSubscribedRef.current ? 'playing' : 'ready') : agentAudioSubscribedRef.current ? 'blocked' : 'waiting');
       setMessages([]);
       messagesRef.current = [];
-      setStatus('Your live teaching studio is open. Your tutor is warming the first greeting; class time starts when tutor audio begins.');
+      if (runtimeStateRef.current === 'INITIALIZING' || runtimeStateRef.current === 'READY') {
+        runtimeStateRef.current = 'GREETING';
+        setRuntimeState('GREETING');
+        setStatus('Your live teaching studio is open. Your tutor is warming the first greeting; class time starts when tutor audio begins.');
+      }
       setAmbienceNotice('Ambience is off by default. Turn it on only if it helps you focus.');
     } catch (sessionError) {
       microphoneTrack.stop();

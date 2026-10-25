@@ -4,7 +4,7 @@ This stack keeps voice processing local: LiveKit server, Pipecat worker, faster-
 
 ## Modal deployment
 
-`agent_modal.py` deploys the same Pipecat pipeline to Modal for LiveKit Cloud. It uses `modal.App("lenxiq-ai-voice")`, pulls the LiveKit credentials and the OpenAI-compatible LLM contract (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`) from the existing Modal Secret named `livekit-credentials`, and schedules a lightweight room poller every 5 seconds. Each active room gets a separate worker with 2 vCPU, 4 GB RAM, a 5-minute idle scale-down window, and a 30-minute maximum lifetime; one poller container stays warm to reduce first-greeting latency. The worker uses Silero VAD for segmented Whisper turns and publishes tutor/learner transcript and interaction-state packets to the browser.
+`agent_modal.py` deploys the Pipecat pipeline to Modal for LiveKit Cloud. It uses `modal.App("lenxiq-ai-voice")`, reads LiveKit credentials and Gemini/Groq provider settings from the existing Modal secrets, and schedules a lightweight room poller every 5 seconds. Each active room gets a separate worker with 2 vCPU, 4 GB RAM, a 5-minute idle scale-down window, and a 30-minute maximum lifetime; one poller container stays warm to reduce first-greeting latency. The worker uses Silero VAD for segmented Whisper turns and publishes tutor/learner transcript and interaction-state packets to the browser.
 
 ```bash
 modal deploy agent_modal.py
@@ -25,7 +25,7 @@ LIVEKIT_AGENT_NAME=lensiq-voice-tutor
 
 Use the exact `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` values from the Modal `livekit-credentials` secret. Do not use the old `*.app.github.dev` URL, and do not set `LIVEKIT_INTERNAL_URL` for the Modal room-poll deployment.
 
-The Modal worker also needs an OpenAI-compatible LLM endpoint because Pipecat must generate the tutor response before Kokoro can speak it. The referenced `livekit-credentials` secret must include `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL`; alternatively `OPENAI_API_KEY` enables the standard OpenAI defaults, or `DEEPSEEK_API_KEY` enables `https://api.deepseek.com/v1` with `deepseek-chat`. Do not use the local Docker default `host.docker.internal:11434` in Modal. Kokoro itself is local and free; it is initialized directly through `kokoro-onnx`.
+The mounted `livekit-credentials` and `lensiq-llm-fallback` secrets must collectively provide the LiveKit values above and either a complete `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` contract pointing to Google's Gemini endpoint or Groq, or provider-specific settings (`GEMINI_API_KEY` with `GEMINI_MODEL`, or `GROQ_API_KEY` with `GROQ_MODEL`). If both direct provider keys exist, Gemini is selected by default; set `LIVE_CLASS_LLM_PROVIDER=groq` to choose Groq. GPT/OpenAI, DeepSeek, and local Ollama endpoints are rejected. The worker logs the selected provider and model name, never credentials. The `ai-budget-secret` Modal secret must contain `AI_BUDGET_INTERNAL_TOKEN`, matching the Vercel environment variable. The voice worker fails closed and will not call the LLM when shared budget checks fail.
 
 The worker uses a mobile-safe Silero VAD loudness gate by default (`LIVEKIT_VAD_MIN_VOLUME=0.03`, `LIVEKIT_VAD_CONFIDENCE=0.62`, `LIVEKIT_VAD_START_SECS=0.16`, and `LIVEKIT_VAD_STOP_SECS=0.32`). These may be overridden in the Modal environment if a particular microphone needs tuning; do not raise the volume gate to `0.42`, which can reject ordinary phone speech.
 
@@ -54,4 +54,4 @@ In Codespaces, set `LIVEKIT_AGENT_URL=http://host.docker.internal:7880` if the w
 
 ## Model endpoint
 
-The worker defaults to a local OpenAI-compatible LLM endpoint at `host.docker.internal:11434`. Set `LLM_BASE_URL`, `LLM_MODEL`, and `LLM_API_KEY` for the model server available on the host. Kokoro and Whisper remain local.
+Use `GEMINI_API_KEY` plus `GEMINI_MODEL`, or `GROQ_API_KEY` plus `GROQ_MODEL`. Set `LIVE_CLASS_LLM_PROVIDER` to `gemini` or `groq` if both are configured. Alternatively, set the complete `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` contract to one of the supported Gemini/Groq endpoints. There is no automatic retry or silent provider switch. The shared AI budget gate remains mandatory before a Live Class model call.

@@ -48,13 +48,26 @@ test('request payloads are byte-bounded before paid provider calls', async () =>
   assert.match(explain, /questionText\.length > 6000/);
 });
 
-test('voice model generation is gated by the shared budget and DeepSeek remains the default', async () => {
+test('voice model generation is budget-gated and restricted to Gemini or Groq', async () => {
   const voice = await read('pipecat-voice-agent/agent.py');
   assert.match(voice, /class AiBudgetGate/);
   assert.match(voice, /AI_BUDGET_INTERNAL_TOKEN/);
   assert.match(voice, /user_aggregator, budget_gate, llm/);
-  assert.match(voice, /elif deepseek_api_key:/);
-  assert.match(voice, /https:\/\/api\.deepseek\.com\/v1/);
+  assert.match(voice, /GEMINI_API_KEY/);
+  assert.match(voice, /GROQ_API_KEY/);
+  assert.match(voice, /def _provider_for_endpoint/);
+  assert.match(voice, /generativelanguage\.googleapis\.com/);
+  assert.match(voice, /api\.groq\.com/);
+  assert.match(voice, /GPT\/OpenAI fallback is disabled/);
+  assert.doesNotMatch(voice, /gpt-4o-mini|OPENAI_API_KEY|DEEPSEEK_API_KEY|api\.openai\.com/);
+});
+
+test('Live Class leaves Thinking on assistant text and surfaces bounded greeting/answer timeouts', async () => {
+  const client = await read('app/voice/page.tsx');
+  assert.match(client, /runtimeStateRef\.current = 'TEACHING';\s*setRuntimeState\('TEACHING'\)/);
+  assert.match(client, /not replied yet[\s\S]{0,260}30000/);
+  assert.match(client, /not joined the audio room yet[\s\S]{0,260}25000/);
+  assert.match(client, /runtimeStateRef\.current === 'INITIALIZING' \|\| runtimeStateRef\.current === 'READY'/);
 });
 
 test('voice budget context bounding uses the supported Pipecat setter and normal discussion pacing', async () => {

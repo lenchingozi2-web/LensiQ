@@ -32,9 +32,11 @@ services:
       WHISPER_MODEL: ${WHISPER_MODEL:-small.en}
       WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
       WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
-      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
-      LLM_API_KEY: ${LLM_API_KEY:-local}
-      LLM_MODEL: ${LLM_MODEL:-llama3.1:8b}
+      LIVE_CLASS_LLM_PROVIDER: ${LIVE_CLASS_LLM_PROVIDER:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
