@@ -95,7 +95,10 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    console.error('Internal AI budget reservation failed', { code: error.code || 'unknown' });
+    console.error('Internal AI budget reservation failed', {
+      code: error.code || 'unknown',
+      message: (error.message || 'unknown').slice(0, 240),
+    });
     return NextResponse.json({ error: 'AI budget service is unavailable.' }, { status: 503 });
   }
 

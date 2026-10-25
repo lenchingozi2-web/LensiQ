@@ -133,6 +133,14 @@ test('budget reservation checks the central pause and configurable caps atomical
   assert.match(sql, /v_user_month_spend \+ v_cost > v_user_monthly_cap/);
 });
 
+test('forward migration fixes ambiguous reserved_microusd output-variable references', async () => {
+  const migration = await read('supabase/migrations/0045_fix_ai_budget_ambiguous_column.sql');
+  assert.match(migration, /create or replace function public\.reserve_ai_budget/i);
+  assert.equal((migration.match(/coalesce\(w\.reserved_microusd, 0\)/g) || []).length, 4);
+  assert.doesNotMatch(migration, /select coalesce\(reserved_microusd, 0\)/i);
+  assert.match(migration, /grant execute on function public\.reserve_ai_budget\(uuid, text, uuid\) to service_role/i);
+});
+
 test('voice reservation endpoint checks global pause and explicit provider approval', async () => {
   const route = await read('app/api/internal/ai-budget/route.ts');
   assert.match(route, /from\('ai_runtime_controls'\)/);
