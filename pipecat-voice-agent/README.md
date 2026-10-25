@@ -27,6 +27,8 @@ Use the exact `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` values 
 
 The Modal worker also needs an OpenAI-compatible LLM endpoint because Pipecat must generate the tutor response before Kokoro can speak it. The referenced `livekit-credentials` secret must include `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL`; alternatively `OPENAI_API_KEY` enables the standard OpenAI defaults, or `DEEPSEEK_API_KEY` enables `https://api.deepseek.com/v1` with `deepseek-chat`. Do not use the local Docker default `host.docker.internal:11434` in Modal. Kokoro itself is local and free; it is initialized directly through `kokoro-onnx`.
 
+The worker uses a mobile-safe Silero VAD loudness gate by default (`LIVEKIT_VAD_MIN_VOLUME=0.03`, `LIVEKIT_VAD_CONFIDENCE=0.62`, `LIVEKIT_VAD_START_SECS=0.16`, and `LIVEKIT_VAD_STOP_SECS=0.32`). These may be overridden in the Modal environment if a particular microphone needs tuning; do not raise the volume gate to `0.42`, which can reject ordinary phone speech.
+
 ## Run locally
 
 1. Copy the parent project values into a local `.env` file; never commit secrets.

@@ -249,7 +249,15 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
             camera_out_enabled=False,
             vad_enabled=True,
             vad_analyzer=SileroVADAnalyzer(
-                params=VADParams(confidence=0.62, start_secs=0.16, stop_secs=0.32, min_volume=0.42)
+                params=VADParams(
+                    confidence=float(os.getenv("LIVEKIT_VAD_CONFIDENCE", "0.62")),
+                    start_secs=float(os.getenv("LIVEKIT_VAD_START_SECS", "0.16")),
+                    stop_secs=float(os.getenv("LIVEKIT_VAD_STOP_SECS", "0.32")),
+                    # Pipecat's volume is normalized EBU-R128 loudness, not
+                    # microphone peak amplitude. A 0.42 gate rejects ordinary
+                    # phone speech; keep this mobile-safe and tunable.
+                    min_volume=float(os.getenv("LIVEKIT_VAD_MIN_VOLUME", "0.03")),
+                )
             ),
         ),
     )
