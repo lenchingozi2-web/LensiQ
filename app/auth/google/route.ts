@@ -11,7 +11,7 @@ function siteOrigin(requestUrl: URL) {
       // Fall through to the production default or local request origin.
     }
   }
-  return process.env.NODE_ENV === 'production' ? 'https://lenxiq.online' : requestUrl.origin;
+  return process.env.NODE_ENV === 'production' ? 'https://www.lenxiq.online' : requestUrl.origin;
 }
 
 function safeNextPath(value: string | null) {
@@ -24,13 +24,25 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const origin = siteOrigin(requestUrl);
   const next = safeNextPath(requestUrl.searchParams.get('next'));
-  const supabase = await createClient();
+  let pkceCookieWriteObserved = false;
+  const supabase = await createClient((names) => {
+    pkceCookieWriteObserved = names.some((name) => name.startsWith('sb-') && name.includes('code-verifier'));
+  });
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      queryParams: { access_type: 'offline', prompt: 'select_account' },
     },
+  });
+
+  console.error('[AuthDiag] Google OAuth kickoff result', {
+    started: !error && Boolean(data.url),
+    pkceCookieWriteObserved,
+    requestHost: requestUrl.host,
+    callbackHost: new URL(`${origin}/auth/callback`).host,
+    authErrorCode: error?.code || null,
+    authErrorStatus: typeof error?.status === 'number' ? error.status : null,
+    authErrorName: error?.name || null,
   });
 
   if (error || !data.url) {

@@ -128,10 +128,6 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor }: M
   return (
     <primitive
       object={scene}
-      onPointerDown={(event: { stopPropagation: () => void; object: THREE.Object3D }) => {
-        event.stopPropagation();
-        onStructureSelect?.(event.object.name || 'Unnamed structure');
-      }}
       onClick={(event: { stopPropagation: () => void; object: THREE.Object3D }) => {
         event.stopPropagation();
         onStructureSelect?.(event.object.name || 'Unnamed structure');

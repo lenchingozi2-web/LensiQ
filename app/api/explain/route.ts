@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
 import { checkAccess } from '../../../lib/gatekeeper';
+import { reserveAiRequest } from '../../../lib/ai/request-budget';
 
 export async function POST(req: Request) {
   try {
@@ -11,6 +12,11 @@ export async function POST(req: Request) {
     if (!user) {
       return NextResponse.json({ content: "You must be logged in to use the AI Tutor." }, { status: 401 });
     }
+    const userId = user.id;
+    return NextResponse.json(
+      { content: 'The AI Tutor is temporarily paused while service usage is reviewed.', flagged: false },
+      { status: 503 },
+    );
 
     // =========================================================================
     // STEP 2: THE ADMIN BOUNCER - Check if the Admin Globally Paused AI
@@ -21,7 +27,7 @@ export async function POST(req: Request) {
       .eq('id', 1)
       .single();
 
-    if (settings && settings.is_ai_tutor_enabled === false) {
+    if (settings?.is_ai_tutor_enabled === false) {
       return NextResponse.json({ 
         content: "✨ The AI Tutor is currently offline for maintenance. Check back soon!",
         flagged: false
@@ -41,8 +47,43 @@ export async function POST(req: Request) {
     }
     // =========================================================================
     
-    const body = await req.json();
-    const { questionId, questionText, options, correctAnswer, modelAnswer } = body;
+    const contentLength = Number(req.headers.get('content-length') || 0);
+    if (Number.isFinite(contentLength) && contentLength > 32 * 1024) {
+      return NextResponse.json({ content: 'The explanation request is too large.', flagged: false }, { status: 413 });
+    }
+    const rawBody = await req.text();
+    if (Buffer.byteLength(rawBody, 'utf8') > 32 * 1024) {
+      return NextResponse.json({ content: 'The explanation request is too large.', flagged: false }, { status: 413 });
+    }
+    let body: Record<string, unknown>;
+    try {
+      const parsed: unknown = JSON.parse(rawBody);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return NextResponse.json({ content: 'Invalid explanation request.', flagged: false }, { status: 400 });
+      }
+      body = parsed as Record<string, unknown>;
+    } catch {
+      return NextResponse.json({ content: 'Invalid JSON request.', flagged: false }, { status: 400 });
+    }
+    const rawQuestionId = body.questionId;
+    const rawQuestionText = body.questionText;
+    const rawCorrectAnswer = body.correctAnswer;
+    const questionId: string = String(rawQuestionId ?? '');
+    const questionText: string = String(rawQuestionText ?? '');
+    const options = body.options;
+    const correctAnswer: string = String(rawCorrectAnswer ?? '');
+    const rawModelAnswer = body.modelAnswer;
+    const modelAnswer: string = String(rawModelAnswer ?? '');
+    if (
+      typeof rawQuestionId !== 'string' || !questionId || questionId.length > 128 ||
+      typeof rawQuestionText !== 'string' || !questionText.trim() || questionText.length > 6000 ||
+      typeof rawCorrectAnswer !== 'string' || !correctAnswer || correctAnswer.length > 2000 ||
+      !options || typeof options !== 'object' || Array.isArray(options) || Object.entries(options as Record<string, unknown>).length > 20 ||
+      Object.values(options as Record<string, unknown>).some((option) => typeof option !== 'string' || option.length > 1000) ||
+      ((rawModelAnswer !== undefined && rawModelAnswer !== null && typeof rawModelAnswer !== 'string') || modelAnswer.length > 2000)
+    ) {
+      return NextResponse.json({ content: 'Invalid explanation request.', flagged: false }, { status: 400 });
+    }
 
     // 4. THE CACHE CHECK: Look for an existing explanation
     const { data: cachedExplanation } = await supabase
@@ -58,7 +99,19 @@ export async function POST(req: Request) {
       });
     }
 
-    // --- 5. If no cache exists, call DeepSeek ---
+    // --- 5. If no cache exists, reserve a budget slot before calling DeepSeek ---
+    const budget = await reserveAiRequest(userId, 'explain', req.headers.get('idempotency-key') || undefined);
+    if (!budget.allowed) {
+      return NextResponse.json(
+        { content: 'AI explanations are temporarily at capacity. Please wait a minute and try again.', flagged: false },
+        { status: budget.reason === 'budget_unavailable' ? 503 : 429 },
+      );
+    }
+    if (!process.env.DEEPSEEK_API_KEY) {
+      return NextResponse.json({ content: 'AI provider is not configured.', flagged: false }, { status: 503 });
+    }
+
+    // --- 6. Provider request ---
     const apiUrl = 'https://api.deepseek.com/chat/completions';
     const systemPrompt = `You are the LenxIQ tutor... 
     MODE: EXPLAIN — Give a deeper explanation.
@@ -74,12 +127,14 @@ export async function POST(req: Request) {
 
     const response = await fetch(apiUrl, {
       method: 'POST',
+      signal: AbortSignal.timeout(20000),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'deepseek-v4-flash',
+        model: process.env.DEEPSEEK_EXPLAIN_MODEL || 'deepseek-v4-flash',
+        max_tokens: 800,
         response_format: { type: 'json_object' }, 
         messages: [
           { role: 'system', content: systemPrompt },
@@ -107,7 +162,7 @@ export async function POST(req: Request) {
         await supabase.from('answer_flags').insert({
           question_id: questionId,
           flag_reason: aiResponseJson.flag_reason || 'Flagged by AI Tutor',
-          raised_by_user_id: user.id
+          raised_by_user_id: userId
         });
       } catch (flagError) {
         console.error("Flag save error:", flagError);
@@ -117,7 +172,7 @@ export async function POST(req: Request) {
     return NextResponse.json(aiResponseJson);
 
   } catch (error) {
-    console.error("AI Generation Error:", error);
+    console.error('AI Generation Error:', error instanceof Error ? error.name : 'unknown_error');
     return NextResponse.json(
       { content: "The AI Tutor is currently analyzing other charts. Please try again.", flagged: false }, 
       { status: 500 }

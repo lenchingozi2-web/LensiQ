@@ -9,8 +9,15 @@ Deploy:
     modal deploy pipecat-voice-agent/agent_modal.py
 
 The Modal Secret named ``livekit-credentials`` must contain LIVEKIT_URL,
-LIVEKIT_API_KEY, and LIVEKIT_API_SECRET. LIVEKIT_URL may be wss:// or https://;
-this module normalizes it for the LiveKit server API and WebRTC transport.
+LIVEKIT_API_KEY, LIVEKIT_API_SECRET, and an OpenAI-compatible model contract:
+LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL. As a convenience, OPENAI_API_KEY
+can replace LLM_API_KEY and supplies the standard OpenAI endpoint/model defaults;
+DEEPSEEK_API_KEY supplies the DeepSeek endpoint and ``deepseek-chat`` default.
+The ``ai-budget-secret`` Modal secret must contain ``AI_BUDGET_INTERNAL_TOKEN``,
+matching the Vercel environment variable. The voice worker fails closed and
+will not call the LLM when shared budget checks fail.
+LIVEKIT_URL may be wss:// or https://; this module normalizes it for the
+LiveKit server API and WebRTC transport.
 """
 from __future__ import annotations
 
@@ -40,6 +47,8 @@ voice_image = (
 
 app = modal.App(APP_NAME)
 livekit_credentials = modal.Secret.from_name("livekit-credentials")
+llm_fallback = modal.Secret.from_name("lensiq-llm-fallback")
+ai_budget_secret = modal.Secret.from_name("ai-budget-secret")
 
 
 def _api_url(value: str) -> str:
@@ -54,11 +63,14 @@ def _api_url(value: str) -> str:
 
 @app.function(
     image=voice_image,
-    secrets=[livekit_credentials],
+    secrets=[livekit_credentials, llm_fallback, ai_budget_secret],
     cpu=2.0,
     memory=4096,
     timeout=60 * 30,
-    scaledown_window=30,
+    # Keep a warm container with Whisper/Kokoro loaded for the premium
+    # experience; otherwise the first greeting waits for a full cold start.
+    scaledown_window=300,
+    min_containers=1,
     max_containers=20,
 )
 def run_voice_room(room_name: str, room_metadata: str = "") -> None:
@@ -69,6 +81,9 @@ def run_voice_room(room_name: str, room_metadata: str = "") -> None:
     # agent.py uses the same value for RoomService and RTC; https is accepted by
     # RoomService and agent.py converts it back to wss for the RTC transport.
     os.environ["LIVEKIT_URL"] = _api_url(livekit_url)
+    # The endpoint is public, but all reservations remain protected by the shared bearer token.
+    # Default it here so a missing optional Modal secret field cannot silently block every tutor answer.
+    os.environ.setdefault("AI_BUDGET_ENDPOINT", "https://www.lenxiq.online/api/internal/ai-budget")
     sys.path.insert(0, "/root")
     import importlib.util
 
@@ -82,16 +97,18 @@ def run_voice_room(room_name: str, room_metadata: str = "") -> None:
 
 @app.function(
     image=voice_image,
-    secrets=[livekit_credentials],
+    secrets=[livekit_credentials, llm_fallback],
     cpu=0.25,
     memory=512,
     timeout=45,
-    schedule=modal.Period(seconds=10),
+    schedule=modal.Period(seconds=5),
     scaledown_window=30,
 )
 def poll_livekit_rooms() -> None:
     """Find active learner rooms and fan each one out to a short-lived worker."""
     import asyncio
+    import json
+    import time
 
     from livekit import api
 
@@ -107,12 +124,43 @@ def poll_livekit_rooms() -> None:
             for room in response.rooms:
                 if not room.name.startswith(ROOM_PREFIX):
                     continue
-                participants = await api_client.room.list_participants(
-                    api.ListParticipantsRequest(room=room.name)
-                )
+                try:
+                    participants = await api_client.room.list_participants(
+                        api.ListParticipantsRequest(room=room.name)
+                    )
+                except Exception as error:
+                    # A room may close between list_rooms and this call.
+                    if "does not exist" in str(error).lower() or "not_found" in str(error).lower():
+                        continue
+                    raise
+                # Token issuance creates rooms ahead of the browser join so it
+                # can attach private lesson metadata. Do not start or greet in
+                # an empty room; wait until the authenticated learner connects.
+                if not any(not p.identity.startswith(AGENT_NAME) for p in participants.participants):
+                    continue
                 if any(p.identity.startswith(AGENT_NAME) for p in participants.participants):
                     continue
-                run_voice_room.spawn(room.name, room.metadata or "")
+                # A worker can take several seconds to boot Whisper/Kokoro. Claim the
+                # room before spawning so the next 10-second poll cannot launch a
+                # second worker with the same LiveKit identity. Expire a stale claim
+                # after two minutes so a genuinely failed worker can be retried.
+                try:
+                    metadata = json.loads(room.metadata or "{}")
+                except json.JSONDecodeError:
+                    metadata = {}
+                claimed_at = float(metadata.get("agentLaunchRequestedAt", 0) or 0)
+                if time.time() - claimed_at < 120:
+                    continue
+                metadata["agentLaunchRequestedAt"] = time.time()
+                metadata["agentLaunchRequestedBy"] = AGENT_NAME
+                claimed_metadata = json.dumps(metadata, separators=(",", ":"))
+                await api_client.room.update_room_metadata(
+                    api.UpdateRoomMetadataRequest(
+                        room=room.name,
+                        metadata=claimed_metadata,
+                    )
+                )
+                await run_voice_room.spawn.aio(room.name, claimed_metadata)
         finally:
             await api_client.aclose()
 

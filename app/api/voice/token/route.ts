@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { AccessToken, AgentDispatchClient, RoomServiceClient } from 'livekit-server-sdk';
 import { createClient } from '../../../../lib/supabase/server';
+import { logAuthRequestRejection } from '../../../../lib/auth/request-diagnostics';
 import { LIVE_CLASS_MODEL_ASSETS, LIVE_CLASS_MOLECULE_ASSETS } from '@/lib/voice/live-class-visuals';
 import { LIVE_CLASS_MODEL_CATALOG, LIVE_CLASS_MOLECULE_CATALOG } from '@/lib/voice/live-class-model-catalog';
 
@@ -20,8 +21,11 @@ function normalizeLiveKitUrl(value: string) {
 
 export async function POST(req: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Not authenticated.', message: 'Sign in to start your Live Class.' }, { status: 401 });
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (!user) {
+    logAuthRequestRejection(req, 'voice-token', authError);
+    return NextResponse.json({ error: 'Not authenticated.', message: 'Sign in to start your Live Class.' }, { status: 401 });
+  }
 
   // The browser must join the same LiveKit Cloud deployment that the Modal
   // worker polls. Never fall back to an old NEXT_PUBLIC_* Codespaces URL in
@@ -197,6 +201,28 @@ export async function POST(req: Request) {
     },
   });
   
+  // In room-poll mode the Modal poller launches from LiveKit room metadata;
+  // dispatch metadata is not delivered to it. Create the room explicitly so
+  // the worker receives the authenticated user ID and lesson context.
+  if (process.env.LIVEKIT_DISPATCH_MODE === 'room-poll') {
+    try {
+      const roomService = new RoomServiceClient(dispatchHost, apiKey, apiSecret);
+      await roomService.createRoom({ name: roomName, metadata: dispatchMetadata });
+    } catch (roomError) {
+      console.error('Live Class room metadata initialization failed:', roomError);
+      const { error: releaseError } = await supabase.rpc('charge_live_class_session', {
+        p_session_id: quota.session_id,
+        p_duration_seconds: 0,
+        p_end: true,
+      });
+      if (releaseError) console.error('Live Class reservation cleanup failed:', releaseError.code || 'unknown');
+      return NextResponse.json({
+        error: 'livekit_room_setup_failed',
+        message: 'The Live Class room could not be prepared. Please try again.',
+      }, { status: 503 });
+    }
+  }
+
   if (process.env.LIVEKIT_DISPATCH_MODE !== 'room-poll') {
     try {
       const dispatchClient = new AgentDispatchClient(dispatchHost, apiKey, apiSecret);
