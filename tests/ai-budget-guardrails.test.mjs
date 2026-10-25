@@ -62,8 +62,11 @@ test('voice budget context bounding uses the supported Pipecat setter and normal
   assert.match(voice, /set_messages\(bounded\)/);
   assert.doesNotMatch(voice, /context\.messages\s*=\s*bounded/);
   assert.match(voice, /speed=1\.08/);
-  assert.match(voice, /WHISPER_MODEL", "base\.en"/);
+  assert.match(voice, /WHISPER_MODEL", "tiny\.en"/);
   assert.match(voice, /normal, lively conversational pace/);
+  assert.match(voice, /transcription received \(characters=%d\)/);
+  assert.match(voice, /budget reservation authorized/);
+  assert.match(voice, /tutor response text generated \(characters=%d\)/);
 });
 
 test('Google OAuth does not force account selection or consent for returning Google sessions', async () => {
