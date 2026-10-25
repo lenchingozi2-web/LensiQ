@@ -121,7 +121,7 @@ def _select_live_class_llm() -> tuple[str, str, str, str]:
             base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").strip()
             model = (os.getenv("GROQ_MODEL") or "").strip()
             if not model or "gpt" in model.lower():
-                model = "llama-3.3-70b-versatile"
+                model = "qwen/qwen3.8-27b"
         if not api_key:
             raise RuntimeError(f"The selected {provider} Live Class provider is missing its API key.")
         if _provider_for_endpoint(base_url, model) != provider:
