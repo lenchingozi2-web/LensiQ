@@ -81,6 +81,16 @@ test('server Supabase client uses the supported cookie adapter to preserve OAuth
   assert.doesNotMatch(serverClient, /get\(name: string\)|remove\(name: string/);
 });
 
+test('auth rejection diagnostics log cookie-presence booleans without token values', async () => {
+  const diagnostics = await read('lib/auth/request-diagnostics.ts');
+  assert.match(diagnostics, /hasSupabaseSessionCookie/);
+  assert.match(diagnostics, /hasPkceCookie/);
+  assert.match(diagnostics, /hasActiveSessionCookie/);
+  assert.match(diagnostics, /authErrorCode/);
+  assert.doesNotMatch(diagnostics, /console\.error\([^\n]*rawCookieHeader/);
+  assert.doesNotMatch(diagnostics, /access_token|refresh_token|user\.id/);
+});
+
 test('Modal room workers receive the dedicated shared budget-token secret', async () => {
   const modalConfig = await read('pipecat-voice-agent/agent_modal.py');
   assert.match(modalConfig, /ai_budget_secret\s*=\s*modal\.Secret\.from_name\(['"]ai-budget-secret['"]\)/);
