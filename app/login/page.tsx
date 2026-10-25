@@ -29,11 +29,22 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     const email = String(formData.get('email') ?? '').trim().toLowerCase();
     const password = formData.get('password') as string;
     const nextPath = safeNextPath(formData.get('next') as string | null);
-    const supabase = await createClient();
+    let authCookieWriteObserved = false;
+    const supabase = await createClient((names) => {
+      authCookieWriteObserved = names.some((name) => name.startsWith('sb-') && name.includes('-auth-token') && !name.includes('code-verifier'));
+    });
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
+    });
+    console.error('[AuthDiag] Email/password sign-in result', {
+      accepted: !error && Boolean(data.user),
+      hasSession: Boolean(data.session),
+      authCookieWriteObserved,
+      authErrorCode: error?.code || null,
+      authErrorStatus: typeof error?.status === 'number' ? error.status : null,
+      authErrorName: error?.name || null,
     });
 
     if (error || !data.user) {
@@ -42,9 +53,15 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     
     // Ensure an Auth user without a public profile is repaired before protected access.
     const { error: profileError } = await getOrCreateProfile(supabase, data.user);
-    if (profileError) redirect('/login?message=Your account could not be initialized');
+    if (profileError) {
+      console.error('[AuthDiag] Email/password profile bootstrap failed', { hasError: true, errorCode: 'code' in profileError ? profileError.code || null : null });
+      redirect('/login?message=Your account could not be initialized');
+    }
     const { error: activeSessionError } = await issueActiveSession(supabase, data.user.id);
-    if (activeSessionError) redirect('/login?message=Your account session could not be secured');
+    if (activeSessionError) {
+      console.error('[AuthDiag] Email/password active-session issuance failed', { hasError: true });
+      redirect('/login?message=Your account session could not be secured');
+    }
     revalidatePath('/');
     redirect(nextPath);
   }
