@@ -96,6 +96,38 @@ def _provider_for_endpoint(base_url: str, model: str) -> str:
 
 
 def _select_live_class_llm() -> tuple[str, str, str, str]:
+    requested_provider = os.getenv("LIVE_CLASS_LLM_PROVIDER", "").strip().lower()
+    if requested_provider not in ("", "gemini", "groq"):
+        raise RuntimeError("LIVE_CLASS_LLM_PROVIDER must be either 'gemini' or 'groq'.")
+
+    # Prefer provider-specific keys over the legacy generic contract. The
+    # existing Modal secret still contains an old Manus/GPT proxy URL and
+    # model, but a provisioned GROQ_API_KEY is the approved active path.
+    gemini_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    provider = requested_provider or ("gemini" if gemini_key else "groq" if groq_key else "")
+    if provider:
+        if provider == "gemini":
+            api_key = gemini_key
+            base_url = os.getenv(
+                "GEMINI_BASE_URL",
+                "https://generativelanguage.googleapis.com/v1beta/openai/",
+            ).strip()
+            model = (os.getenv("GEMINI_MODEL") or "").strip()
+            if not model or "gpt" in model.lower():
+                model = "gemini-2.0-flash"
+        else:
+            api_key = groq_key
+            base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").strip()
+            model = (os.getenv("GROQ_MODEL") or "").strip()
+            if not model or "gpt" in model.lower():
+                model = "llama-3.3-70b-versatile"
+        if not api_key:
+            raise RuntimeError(f"The selected {provider} Live Class provider is missing its API key.")
+        if _provider_for_endpoint(base_url, model) != provider:
+            raise RuntimeError("The selected Live Class provider does not match its configured endpoint/model.")
+        return provider, api_key, base_url, model
+
     explicit = {
         "base_url": os.getenv("LLM_BASE_URL", "").strip(),
         "api_key": os.getenv("LLM_API_KEY", "").strip(),
@@ -106,37 +138,11 @@ def _select_live_class_llm() -> tuple[str, str, str, str]:
         if missing:
             raise RuntimeError("Voice worker requires a complete LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL contract.")
         provider = _provider_for_endpoint(explicit["base_url"], explicit["model"])
-        requested_provider = os.getenv("LIVE_CLASS_LLM_PROVIDER", "").strip().lower()
         if requested_provider and requested_provider != provider:
             raise RuntimeError("LIVE_CLASS_LLM_PROVIDER does not match the configured Gemini or Groq endpoint.")
         return provider, explicit["api_key"], explicit["base_url"], explicit["model"]
 
-    requested_provider = os.getenv("LIVE_CLASS_LLM_PROVIDER", "").strip().lower()
-    if requested_provider not in ("", "gemini", "groq"):
-        raise RuntimeError("LIVE_CLASS_LLM_PROVIDER must be either 'gemini' or 'groq'.")
-    gemini_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
-    groq_key = os.getenv("GROQ_API_KEY", "").strip()
-    provider = requested_provider or ("gemini" if gemini_key else "groq" if groq_key else "")
-
-    if provider == "gemini":
-        api_key = gemini_key
-        base_url = os.getenv(
-            "GEMINI_BASE_URL",
-            "https://generativelanguage.googleapis.com/v1beta/openai/",
-        ).strip()
-        model = (os.getenv("GEMINI_MODEL") or os.getenv("LLM_MODEL") or "").strip()
-    elif provider == "groq":
-        api_key = groq_key
-        base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").strip()
-        model = (os.getenv("GROQ_MODEL") or os.getenv("LLM_MODEL") or "").strip()
-    else:
-        raise RuntimeError("Configure a Gemini or Groq API key and model for Live Class; GPT fallback is disabled.")
-
-    if not api_key or not model:
-        raise RuntimeError(f"The selected {provider} Live Class provider is missing its API key or model name.")
-    if _provider_for_endpoint(base_url, model) != provider:
-        raise RuntimeError("The selected Live Class provider does not match its configured endpoint/model.")
-    return provider, api_key, base_url, model
+    raise RuntimeError("Configure a Gemini or Groq API key and model for Live Class; GPT fallback is disabled.")
 
 
 class AiBudgetGate(FrameProcessor):
