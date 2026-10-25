@@ -879,6 +879,13 @@ function VoiceTutorContent() {
             runtimeStateRef.current = data.state;
             setRuntimeState(data.state);
             if (data.state === 'THINKING') setError('');
+            if (data.state === 'TEACHING' && messagesRef.current.length === 0) {
+              updateVisualContext({
+                type: 'whiteboard',
+                topic: topicFocus || courseName || 'Live lesson',
+                markdown: '### Live teaching\n\nThe tutor is explaining the first concept now.',
+              });
+            }
             setStatus(RUNTIME_COPY[data.state].detail);
             return;
           }

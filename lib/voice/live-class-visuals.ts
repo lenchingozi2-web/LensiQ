@@ -138,8 +138,8 @@ function extractTopic(speech: string, courseName: string) {
     if (pattern.test(speech)) return label;
   }
 
-  const firstSentence = speech.split(/(?<=[.!?])\s+/)[0]?.trim() || '';
-  if (firstSentence) return firstSentence.length > 66 ? `${firstSentence.slice(0, 63).trimEnd()}…` : firstSentence;
+  const firstSentence = speech.split(/(?<=[.!?])\s+/)[0]?.replace(/^[-–—•\s]+/, '').trim() || '';
+  if (firstSentence && firstSentence.length >= 4) return firstSentence.length > 66 ? `${firstSentence.slice(0, 63).trimEnd()}…` : firstSentence;
   return courseName || 'Live lesson concept';
 }
 
@@ -150,7 +150,10 @@ export function transcriptToWhiteboardMarkdown(speech: string) {
     .filter(Boolean)
     .slice(0, 5);
 
-  if (statements.length === 0) return '';
+  if (statements.length === 0) {
+    const fallback = normalizeSpeech(speech).replace(/^[-–—•\s]+/, '').trim();
+    return fallback.length >= 4 ? `### Key idea\n\n${fallback}` : '';
+  }
   return `### The tutor's explanation\n\n${statements.map((statement, index) => `- **${index + 1}.** ${statement}`).join('\n')}`;
 }
 
