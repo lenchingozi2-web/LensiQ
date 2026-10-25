@@ -11,6 +11,7 @@ function siteOrigin(requestUrl: URL) {
       // Fall through to the production default or local request origin.
     }
   }
+  if (requestUrl.hostname === 'lenxiq.online' || requestUrl.hostname === 'www.lenxiq.online') return requestUrl.origin;
   return process.env.NODE_ENV === 'production' ? 'https://www.lenxiq.online' : requestUrl.origin;
 }
 
