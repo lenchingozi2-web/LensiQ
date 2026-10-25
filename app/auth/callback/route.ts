@@ -37,6 +37,12 @@ export async function GET(request: Request) {
   const next = safeNextPath(requestUrl.searchParams.get('next'));
   const errorDescription = requestUrl.searchParams.get('error_description') || requestUrl.searchParams.get('error');
 
+  console.error('[AuthDiag] Google OAuth callback reached', {
+    requestHost: requestUrl.host,
+    hasAuthorizationCode: Boolean(code),
+    hasProviderError: Boolean(errorDescription),
+  });
+
   if (errorDescription) {
     return noStoreRedirect(origin, `/login?error=${encodeURIComponent(`Google sign-in was cancelled or rejected: ${errorDescription}`)}&next=${encodeURIComponent(next)}`);
   }
@@ -51,6 +57,7 @@ export async function GET(request: Request) {
   const response = NextResponse.redirect(new URL(next, origin));
   response.headers.set('Cache-Control', 'no-store');
   const requestCookies = await cookies();
+  let authCookieWriteObserved = false;
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -60,7 +67,10 @@ export async function GET(request: Request) {
           return requestCookies.getAll().map(({ name, value }) => ({ name, value }));
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set({ name, value, ...options }));
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set({ name, value, ...options });
+            if (name.startsWith('sb-') && name.includes('-auth-token') && !name.includes('code-verifier')) authCookieWriteObserved = true;
+          });
         },
       },
     },
@@ -68,23 +78,35 @@ export async function GET(request: Request) {
 
   const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
   if (exchangeError) {
-    console.error('[Auth] Google OAuth code exchange failed:', exchangeError.message);
+    console.error('[AuthDiag] Google OAuth code exchange failed', {
+      authCookieWriteObserved,
+      authErrorCode: exchangeError.code || null,
+      authErrorStatus: typeof exchangeError.status === 'number' ? exchangeError.status : null,
+      authErrorName: exchangeError.name || null,
+    });
     return noStoreRedirect(origin, `/login?error=${encodeURIComponent('Google sign-in could not complete its secure callback. Please try again from this page.')}&next=${encodeURIComponent(next)}`);
   }
 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) {
+    console.error('[AuthDiag] Google OAuth user lookup failed', {
+      authCookieWriteObserved,
+      hasUser: Boolean(user),
+      authErrorCode: userError?.code || null,
+      authErrorStatus: typeof userError?.status === 'number' ? userError.status : null,
+      authErrorName: userError?.name || null,
+    });
     return noStoreRedirect(origin, `/login?error=${encodeURIComponent('Google sign-in did not return a valid account.')}&next=${encodeURIComponent(next)}`);
   }
   const { error: bootstrapError } = await getOrCreateProfile(supabase, user);
   if (bootstrapError) {
-    console.error('[Auth] Google account bootstrap failed:', bootstrapError.message);
+    console.error('[AuthDiag] Google account bootstrap failed', { hasError: true, errorCode: 'code' in bootstrapError ? bootstrapError.code || null : null });
     return noStoreRedirect(origin, `/login?error=${encodeURIComponent('Your account could not be initialized. Please try again.')}&next=${encodeURIComponent(next)}`);
   }
 
   const { token: activeToken, error: activeSessionError } = await issueActiveSession(supabase, user.id);
   if (activeSessionError || !activeToken) {
-    console.error('[Auth] Google active-session issuance failed:', activeSessionError);
+    console.error('[AuthDiag] Google active-session issuance failed', { hasError: true });
     await supabase.auth.signOut({ scope: 'local' });
     return noStoreRedirect(origin, `/login?error=${encodeURIComponent('Your account session could not be secured. Please try again.')}&next=${encodeURIComponent(next)}`);
   }
@@ -94,6 +116,12 @@ export async function GET(request: Request) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
+  });
+  console.error('[AuthDiag] Google OAuth callback completed', {
+    authCookieWriteObserved,
+    activeSessionCookieWritten: true,
+    callbackHost: requestUrl.host,
+    redirectHost: new URL(origin).host,
   });
   return response;
 }
