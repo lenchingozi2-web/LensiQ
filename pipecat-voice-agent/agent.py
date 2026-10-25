@@ -117,6 +117,7 @@ class AiBudgetGate(FrameProcessor):
             with urllib.request.urlopen(request, timeout=4) as response:
                 result = json.loads(response.read(4096).decode("utf-8"))
                 if response.status == 200 and result.get("allowed") is True:
+                    logger.info("Voice AI budget reservation authorized")
                     return True, ""
                 reason = result.get("reason")
                 if reason in ("user_daily_spend_limit", "user_monthly_spend_limit", "global_daily_spend_limit", "global_monthly_spend_limit", "user_minute_limit", "user_hour_limit", "user_day_limit", "global_minute_limit", "global_hour_limit", "global_day_limit"):
@@ -185,6 +186,7 @@ class ConversationalKokoroTTSService(KokoroTTSService):
         import numpy as np
 
         try:
+            logger.info("Live Class tutor speech synthesis started (characters=%d)", len(text.strip()))
             await self.start_tts_usage_metrics(text)
             stream = self._kokoro.create_stream(
                 text, voice=self._settings.voice, lang=self._settings.language, speed=1.08
@@ -221,12 +223,14 @@ class LiveClassDataBridge(FrameProcessor):
     async def process_frame(self, frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
         if isinstance(frame, TranscriptionFrame) and frame.text.strip():
+            logger.info("Live Class %s transcription received (characters=%d)", self.role, len(frame.text.strip()))
             # Learner speech is input to the tutor, not part of the answer transcript.
             if self.role == "assistant":
                 await self.publish({"type": "live_class_transcript", "role": "assistant", "content": frame.text.strip(), "final": True})
             else:
                 await self.publish({"type": "live_class_state", "state": "THINKING"})
         elif isinstance(frame, TextFrame) and frame.text.strip() and self.role == "assistant":
+            logger.info("Live Class tutor response text generated (characters=%d)", len(frame.text.strip()))
             await self.publish({"type": "live_class_transcript", "role": "assistant", "content": frame.text.strip(), "final": True})
             await self.publish({"type": "live_class_state", "state": "TEACHING"})
         await self.push_frame(frame, direction)
@@ -250,7 +254,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         ),
     )
     stt = WhisperSTTService(
-        model=os.getenv("WHISPER_MODEL", "base.en"),
+        model=os.getenv("WHISPER_MODEL", "tiny.en"),
         device=os.getenv("WHISPER_DEVICE", "cpu"),
         compute_type=os.getenv("WHISPER_COMPUTE_TYPE", "int8"),
     )
