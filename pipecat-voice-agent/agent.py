@@ -72,11 +72,12 @@ def _system_prompt(room_name: str, room_metadata: str | None = None) -> str:
         "You are LenxiQ AI Tutor, a concise and warm medical teacher. "
         "Use a normal, lively conversational pace: answer directly in a few clear sentences, avoid long pauses and lecture-length monologues, and invite follow-up naturally. "
         f"You are teaching in room {room_name}. Speak naturally, pause for interruption, "
-        "and never claim a visual that is not available. When the visual stage should change, "
-        "emit a compact JSON data-channel command matching the LenxiQ visual protocol before "
-        "explaining the concept. Use a whiteboard for mechanisms and an approved model for "
-        "pathology, histology, cytology, anatomy, or pharmacology structures. This is education, "
-        "not clinical decision support."
+        "and never claim a visual that is not available. The browser synchronizes the teaching board "
+        "from your natural explanation, so do not output JSON, XML, markdown code fences, slash commands, "
+        "screen commands, tool calls, labels such as 'screen detected', or stage directions. Never read "
+        "the visual protocol aloud. Use only natural spoken sentences, with no backslashes or raw markup. "
+        "Use a whiteboard concept, approved model, or simulation only by explaining the concept naturally. "
+        "This is education, not clinical decision support."
         + metadata_context
     )
 
@@ -315,9 +316,9 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
             vad_enabled=True,
             vad_analyzer=SileroVADAnalyzer(
                 params=VADParams(
-                    confidence=float(os.getenv("LIVEKIT_VAD_CONFIDENCE", "0.62")),
-                    start_secs=float(os.getenv("LIVEKIT_VAD_START_SECS", "0.16")),
-                    stop_secs=float(os.getenv("LIVEKIT_VAD_STOP_SECS", "0.32")),
+                    confidence=float(os.getenv("LIVEKIT_VAD_CONFIDENCE", "0.50")),
+                    start_secs=float(os.getenv("LIVEKIT_VAD_START_SECS", "0.08")),
+                    stop_secs=float(os.getenv("LIVEKIT_VAD_STOP_SECS", "0.28")),
                     # Pipecat's volume is normalized EBU-R128 loudness, not
                     # microphone peak amplitude. A 0.42 gate rejects ordinary
                     # phone speech; keep this mobile-safe and tunable.
@@ -327,7 +328,9 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         ),
     )
     stt = WhisperSTTService(
-        model=os.getenv("WHISPER_MODEL", "tiny.en"),
+        # Base English is a better accuracy/latency balance than tiny.en for
+        # medical terms and short phone utterances.
+        model=os.getenv("WHISPER_MODEL", "base.en"),
         device=os.getenv("WHISPER_DEVICE", "cpu"),
         compute_type=os.getenv("WHISPER_COMPUTE_TYPE", "int8"),
     )
