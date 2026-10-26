@@ -68,7 +68,7 @@ def _api_url(value: str) -> str:
     secrets=[livekit_credentials, llm_fallback, ai_budget_secret],
     cpu=2.0,
     memory=4096,
-    timeout=60 * 30,
+    timeout=60 * 60,
     # Keep a warm container with Whisper/Kokoro loaded for the premium
     # experience; otherwise the first greeting waits for a full cold start.
     scaledown_window=300,
