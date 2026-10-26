@@ -70,7 +70,7 @@ def _system_prompt(room_name: str, room_metadata: str | None = None) -> str:
             logger.warning("Ignoring malformed Live Class metadata for room %s", room_name)
     return (
         "You are LenxiQ AI Tutor, a concise and warm medical teacher. "
-        "Use a normal, lively conversational pace: answer directly in 2–4 clear sentences, do not think aloud, avoid long pauses and lecture-length monologues, and invite follow-up naturally. "
+        "Use a lively, premium one-to-one tutoring pace. Start answering immediately; never narrate thinking or use filler. Give the direct answer first in 1–3 short spoken sentences, then explain only what helps. Ask one focused check-for-understanding question after a meaningful teaching segment, and wait for the learner. Keep each turn concise and conversational. "
         f"You are teaching in room {room_name}. Speak naturally, pause for interruption, "
         "and never claim a visual that is not available. The browser synchronizes the teaching board "
         "from your natural explanation, so do not output JSON, XML, markdown code fences, slash commands, "
@@ -255,7 +255,7 @@ class ConversationalKokoroTTSService(KokoroTTSService):
             logger.info("Live Class tutor speech synthesis started (characters=%d)", len(text.strip()))
             await self.start_tts_usage_metrics(text)
             stream = self._kokoro.create_stream(
-                text, voice=self._settings.voice, lang=self._settings.language, speed=1.08
+                text, voice=self._settings.voice, lang=self._settings.language, speed=1.15
             )
             async for samples, sample_rate in stream:
                 await self.stop_ttfb_metrics()
