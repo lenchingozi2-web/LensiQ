@@ -131,10 +131,28 @@ def poll_livekit_rooms() -> None:
                         api.ListParticipantsRequest(room=room.name)
                     )
                 except Exception as error:
-                    # A room may close between list_rooms and this call.
-                    if "does not exist" in str(error).lower() or "not_found" in str(error).lower():
+                    # LiveKit may close a room after list_rooms returns it. Its
+                    # Twirp API reports this normal race as HTTP 409 / aborted
+                    # ("room has already closed"), not only as not_found.
+                    # Treat known closed-room responses as stale poll results;
+                    # one ended class must never fail the scheduled poller.
+                    error_text = str(error).lower()
+                    error_code = str(getattr(error, "code", "")).lower()
+                    error_status = getattr(error, "status", None)
+                    room_already_closed = (
+                        error_status == 409
+                        or error_code in {"aborted", "not_found", "notfound"}
+                        or "room has already closed" in error_text
+                        or "does not exist" in error_text
+                        or "not_found" in error_text
+                    )
+                    if room_already_closed:
+                        print(f"Skipping room that closed during polling: {room.name}")
                         continue
-                    raise
+                    # Isolate unexpected per-room API errors too, so one bad
+                    # room does not prevent other active lessons from starting.
+                    print(f"Unable to inspect LiveKit room {room.name}: {type(error).__name__}")
+                    continue
                 # Token issuance creates rooms ahead of the browser join so it
                 # can attach private lesson metadata. Do not start or greet in
                 # an empty room; wait until the authenticated learner connects.
