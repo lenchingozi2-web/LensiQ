@@ -63,6 +63,20 @@ def _api_url(value: str) -> str:
     return value
 
 
+def _is_closed_room_error(error: Exception) -> bool:
+    """Recognize LiveKit's normal room-close race without hiding other errors."""
+    error_text = str(error).lower()
+    error_code = str(getattr(error, "code", "")).lower()
+    error_status = getattr(error, "status", None)
+    return (
+        error_status == 409
+        or error_code in {"aborted", "not_found", "notfound"}
+        or "room has already closed" in error_text
+        or "does not exist" in error_text
+        or "not_found" in error_text
+    )
+
+
 @app.function(
     image=voice_image,
     secrets=[livekit_credentials, llm_fallback, ai_budget_secret],
@@ -136,17 +150,7 @@ def poll_livekit_rooms() -> None:
                     # ("room has already closed"), not only as not_found.
                     # Treat known closed-room responses as stale poll results;
                     # one ended class must never fail the scheduled poller.
-                    error_text = str(error).lower()
-                    error_code = str(getattr(error, "code", "")).lower()
-                    error_status = getattr(error, "status", None)
-                    room_already_closed = (
-                        error_status == 409
-                        or error_code in {"aborted", "not_found", "notfound"}
-                        or "room has already closed" in error_text
-                        or "does not exist" in error_text
-                        or "not_found" in error_text
-                    )
-                    if room_already_closed:
+                    if _is_closed_room_error(error):
                         print(f"Skipping room that closed during polling: {room.name}")
                         continue
                     # Isolate unexpected per-room API errors too, so one bad
@@ -174,13 +178,25 @@ def poll_livekit_rooms() -> None:
                 metadata["agentLaunchRequestedAt"] = time.time()
                 metadata["agentLaunchRequestedBy"] = AGENT_NAME
                 claimed_metadata = json.dumps(metadata, separators=(",", ":"))
-                await api_client.room.update_room_metadata(
-                    api.UpdateRoomMetadataRequest(
-                        room=room.name,
-                        metadata=claimed_metadata,
+                try:
+                    await api_client.room.update_room_metadata(
+                        api.UpdateRoomMetadataRequest(
+                            room=room.name,
+                            metadata=claimed_metadata,
+                        )
                     )
-                )
-                await run_voice_room.spawn.aio(room.name, claimed_metadata)
+                except Exception as error:
+                    if _is_closed_room_error(error):
+                        print(f"Skipping room that closed while claiming: {room.name}")
+                    else:
+                        print(f"Unable to claim LiveKit room {room.name}: {type(error).__name__}")
+                    continue
+                try:
+                    await run_voice_room.spawn.aio(room.name, claimed_metadata)
+                except Exception as error:
+                    # Leave the claim to expire so a failed cold start can be retried,
+                    # while keeping the scheduled poller healthy for other rooms.
+                    print(f"Unable to start voice worker for {room.name}: {type(error).__name__}")
         finally:
             await api_client.aclose()
 

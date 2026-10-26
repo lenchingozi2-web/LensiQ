@@ -4,7 +4,7 @@ This stack keeps voice processing local: LiveKit server, Pipecat worker, faster-
 
 ## Modal deployment
 
-`agent_modal.py` deploys the Pipecat pipeline to Modal for LiveKit Cloud. It uses `modal.App("lenxiq-ai-voice")`, reads LiveKit credentials and Gemini/Groq provider settings from the existing Modal secrets, and schedules a lightweight room poller every 5 seconds. Each active room gets a separate worker with 2 vCPU, 4 GB RAM, a 5-minute idle scale-down window, and a 30-minute maximum lifetime; one poller container stays warm to reduce first-greeting latency. The worker uses Silero VAD for segmented Whisper turns and publishes tutor/learner transcript and interaction-state packets to the browser.
+`agent_modal.py` deploys the Pipecat pipeline to Modal for LiveKit Cloud. It uses `modal.App("lenxiq-ai-voice")`, reads LiveKit credentials and Gemini/Groq provider settings from the existing Modal secrets, and schedules a lightweight room poller every 5 seconds. Each active room gets a separate worker with 2 vCPU, 4 GB RAM, a 5-minute idle scale-down window, and a 60-minute maximum lifetime, subject to the learner's server-side allowance; one poller container stays warm to reduce first-greeting latency. The worker uses mobile-safe Silero VAD, responsive Whisper turns, slightly faster Kokoro speech, and publishes tutor/learner transcript and interaction-state packets to the browser.
 
 ```bash
 modal deploy agent_modal.py

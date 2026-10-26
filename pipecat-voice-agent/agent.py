@@ -70,7 +70,7 @@ def _system_prompt(room_name: str, room_metadata: str | None = None) -> str:
             logger.warning("Ignoring malformed Live Class metadata for room %s", room_name)
     return (
         "You are LenxiQ AI Tutor, a concise and warm medical teacher. "
-        "Use a lively, premium one-to-one tutoring pace. Start answering immediately; never narrate thinking or use filler. Give the direct answer first in 1–3 short spoken sentences, then explain only what helps. Ask one focused check-for-understanding question after a meaningful teaching segment, and wait for the learner. Keep each turn concise and conversational. "
+        "Use a normal, lively conversational pace that is slightly faster than a lecture. Start answering immediately; never narrate thinking or use filler. Give the direct answer first in 1–3 short spoken sentences, then explain only what helps. Ask one focused check-for-understanding question after a meaningful teaching segment, and wait for the learner. Keep each turn concise and conversational. "
         f"You are teaching in room {room_name}. Speak naturally, pause for interruption, "
         "and never claim a visual that is not available. The browser synchronizes the teaching board "
         "from your natural explanation, so do not output JSON, XML, markdown code fences, slash commands, "
@@ -255,7 +255,7 @@ class ConversationalKokoroTTSService(KokoroTTSService):
             logger.info("Live Class tutor speech synthesis started (characters=%d)", len(text.strip()))
             await self.start_tts_usage_metrics(text)
             stream = self._kokoro.create_stream(
-                text, voice=self._settings.voice, lang=self._settings.language, speed=1.15
+                text, voice=self._settings.voice, lang=self._settings.language, speed=1.08
             )
             async for samples, sample_rate in stream:
                 await self.stop_ttfb_metrics()
@@ -316,9 +316,9 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
             vad_enabled=True,
             vad_analyzer=SileroVADAnalyzer(
                 params=VADParams(
-                    confidence=float(os.getenv("LIVEKIT_VAD_CONFIDENCE", "0.50")),
-                    start_secs=float(os.getenv("LIVEKIT_VAD_START_SECS", "0.08")),
-                    stop_secs=float(os.getenv("LIVEKIT_VAD_STOP_SECS", "0.28")),
+                    confidence=float(os.getenv("LIVEKIT_VAD_CONFIDENCE", "0.62")),
+                    start_secs=float(os.getenv("LIVEKIT_VAD_START_SECS", "0.16")),
+                    stop_secs=float(os.getenv("LIVEKIT_VAD_STOP_SECS", "0.32")),
                     # Pipecat's volume is normalized EBU-R128 loudness, not
                     # microphone peak amplitude. A 0.42 gate rejects ordinary
                     # phone speech; keep this mobile-safe and tunable.
@@ -328,9 +328,9 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         ),
     )
     stt = WhisperSTTService(
-        # Base English is a better accuracy/latency balance than tiny.en for
-        # medical terms and short phone utterances.
-        model=os.getenv("WHISPER_MODEL", "base.en"),
+        # tiny.en keeps turn-taking responsive on the 2-vCPU worker; callers
+        # can override it with base.en when medical transcription accuracy wins.
+        model=os.getenv("WHISPER_MODEL", "tiny.en"),
         device=os.getenv("WHISPER_DEVICE", "cpu"),
         compute_type=os.getenv("WHISPER_COMPUTE_TYPE", "int8"),
     )
