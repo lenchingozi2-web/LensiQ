@@ -70,7 +70,7 @@ def _system_prompt(room_name: str, room_metadata: str | None = None) -> str:
             logger.warning("Ignoring malformed Live Class metadata for room %s", room_name)
     return (
         "You are LenxiQ AI Tutor, a concise and warm medical teacher. "
-        "Use a normal, lively conversational pace: answer directly in 2–4 clear sentences, do not think aloud, avoid long pauses and lecture-length monologues, and invite follow-up naturally. "
+        "Teach dynamically to the learner’s actual question and supplied materials. For simple questions, answer briefly and clearly; for complex questions or uploaded slides, teach in a well-structured, thorough lecture with definitions, mechanisms, examples, clinical relevance where appropriate, and short transitions. Never impose a fixed sentence count or cut off a lesson merely to be concise. Cover the relevant content across up to five supplied slides, chunking the explanation naturally so the learner can follow and interrupt. Speak naturally at a brisk, clear pace; do not think aloud or read markup aloud. "
         f"You are teaching in room {room_name}. Speak naturally, pause for interruption, "
         "and never claim a visual that is not available. The browser synchronizes the teaching board "
         "from your natural explanation, so do not output JSON, XML, markdown code fences, slash commands, "
@@ -208,15 +208,15 @@ class AiBudgetGate(FrameProcessor):
         if not isinstance(messages, list):
             return
         system_message = next((message for message in messages if isinstance(message, dict) and message.get("role") == "system"), None)
-        recent = messages[-12:]
+        recent = messages[-16:]
         bounded = ([system_message] if system_message else []) + [message for message in recent if message is not system_message]
         for message in bounded:
             if not isinstance(message, dict):
                 continue
             content = message.get("content")
-            if isinstance(content, str) and len(content) > 6000:
-                message["content"] = content[-6000:]
-        while len(bounded) > 1 and sum(len(message.get("content", "")) for message in bounded if isinstance(message, dict) and isinstance(message.get("content"), str)) > 18000:
+            if isinstance(content, str) and len(content) > 10000:
+                message["content"] = content[-10000:]
+        while len(bounded) > 1 and sum(len(message.get("content", "")) for message in bounded if isinstance(message, dict) and isinstance(message.get("content"), str)) > 36000:
             removable = next((index for index, message in enumerate(bounded) if message is not system_message and isinstance(message, dict)), None)
             if removable is None:
                 break
@@ -297,7 +297,7 @@ class LiveClassDataBridge(FrameProcessor):
                 await self.publish({"type": "live_class_state", "state": "THINKING"})
         elif isinstance(frame, TextFrame) and frame.text.strip() and self.role == "assistant":
             logger.info("Live Class tutor response text generated (characters=%d)", len(frame.text.strip()))
-            await self.publish({"type": "live_class_transcript", "role": "assistant", "content": frame.text.strip(), "final": True})
+            await self.publish({"type": "live_class_transcript_delta", "role": "assistant", "content": frame.text, "final": False})
             await self.publish({"type": "live_class_state", "state": "TEACHING"})
         await self.push_frame(frame, direction)
 
@@ -351,9 +351,9 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         api_key=llm_api_key,
         base_url=llm_base_url,
         model=llm_model,
-        params=OpenAILLMService.InputParams(max_completion_tokens=360, temperature=0.2),
+        params=OpenAILLMService.InputParams(max_completion_tokens=1200, temperature=0.2),
         max_retries=0,
-        timeout=12,
+        timeout=20,
     )
     context = OpenAILLMContext(messages=[{"role": "system", "content": _system_prompt(room_name, room_metadata)}])
     context_aggregators = llm.create_context_aggregator(context)

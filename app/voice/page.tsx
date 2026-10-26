@@ -134,6 +134,7 @@ function VoiceTutorContent() {
   const sessionIdRef = useRef<string | null>(null);
   const messagesRef = useRef<Message[]>([]);
   const transcriptIdsRef = useRef(new Set<string>());
+  const tutorTranscriptBufferRef = useRef('');
   const audioContainerRef = useRef<HTMLDivElement>(null);
   const audioElementsRef = useRef(new Map<string, HTMLAudioElement>());
   const ambienceAudioRef = useRef<HTMLAudioElement>(null);
@@ -878,7 +879,7 @@ function VoiceTutorContent() {
             if (!(data.state in RUNTIME_COPY)) return;
             runtimeStateRef.current = data.state;
             setRuntimeState(data.state);
-            if (data.state === 'THINKING') setError('');
+            if (data.state === 'THINKING') { setError(''); tutorTranscriptBufferRef.current = ''; }
             if (data.state === 'TEACHING' && messagesRef.current.length === 0) {
               updateVisualContext({
                 type: 'whiteboard',
@@ -887,6 +888,13 @@ function VoiceTutorContent() {
               });
             }
             setStatus(RUNTIME_COPY[data.state].detail);
+            return;
+          }
+          if (data.type === 'live_class_transcript_delta' && typeof data.content === 'string' && data.content.trim()) {
+            // LLM text arrives in small chunks ahead of/alongside TTS. Accumulate it
+            // so the teaching board can evolve while the tutor is speaking.
+            tutorTranscriptBufferRef.current += data.content;
+            applyTutorTranscript(tutorTranscriptBufferRef.current);
             return;
           }
           if (topic !== 'lensiq.live_class.transcript' && data.type !== 'live_class_transcript') return;
