@@ -21,5 +21,5 @@ export const secondaryNavigation: NavigationLink[] = [
   { href: '/library', label: 'Library', description: 'Explore reference resources' },
   { href: '/files', label: 'My files', description: 'Manage saved lecture uploads' },
   { href: '/wallet', label: 'Study wallet', description: 'Check subscription and balances' },
-  { href: '/studio', label: 'Video studio', description: 'Create a visual lesson plan' },
+  { href: '/studio', label: 'Storyboard studio', description: 'Plan video scenes (rendering coming later)' },
 ];
