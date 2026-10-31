@@ -3,6 +3,7 @@ on:
   pull_request:
   push:
     branches:
+      - main
       - fix/ai-spend-guardrails
 jobs:
   ai-budget-tests:
