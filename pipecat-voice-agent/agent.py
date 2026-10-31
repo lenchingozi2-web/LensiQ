@@ -288,8 +288,16 @@ class AiBudgetGate(FrameProcessor):
 class MaterialContextBridge(FrameProcessor):
     """Retrieve only the most relevant excerpts from uploaded lecture text."""
 
-    def __init__(self, room_metadata: str | None):
+    def __init__(self, room_metadata: str | None, transport: LiveKitTransport):
         super().__init__(name="live-class-material-context")
+        self.transport = transport
+        self.map_urls: list[str] = []
+        self.syllabus: list[str] = []
+        self.visuals: dict[str, dict[str, Any]] = {}
+        self.last_visual: dict[str, Any] | None = None
+        self.last_visual_key: str | None = None
+        self.approved_models: dict[str, str] = {}
+        self.approved_molecules: dict[str, Any] = {}
         self.urls: list[str] = []
         self.source_labels: list[str] = []
         self.chunks: list[tuple[str, str]] = []
@@ -299,6 +307,11 @@ class MaterialContextBridge(FrameProcessor):
         try:
             metadata = json.loads(room_metadata or "{}")
             self.urls = [value for value in (metadata.get("materialUrls") or []) if isinstance(value, str)][:6]
+            self.map_urls = [value for value in (metadata.get("materialMapUrls") or []) if isinstance(value, str)][:6]
+            protocol = metadata.get("visualProtocol") or {}
+            if isinstance(protocol, dict):
+                self.approved_models = protocol.get("approvedModelAssets") or {}
+                self.approved_molecules = protocol.get("approvedMoleculeAssets") or {}
             material_context = metadata.get("materialContext") or {}
             if isinstance(material_context, dict):
                 self.source_labels = [value.strip()[:100] for value in material_context.get("sources", [])
@@ -461,7 +474,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
                 params=VADParams(
                     confidence=float(os.getenv("LIVEKIT_VAD_CONFIDENCE", "0.62")),
                     start_secs=float(os.getenv("LIVEKIT_VAD_START_SECS", "0.16")),
-                    stop_secs=float(os.getenv("LIVEKIT_VAD_STOP_SECS", "0.32")),
+                    stop_secs=float(os.getenv("LIVEKIT_VAD_STOP_SECS", "0.68")),
                     # Pipecat's volume is normalized EBU-R128 loudness, not
                     # microphone peak amplitude. A 0.42 gate rejects ordinary
                     # phone speech; keep this mobile-safe and tunable.
@@ -504,7 +517,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     assistant_aggregator = context_aggregators.assistant()
     user_bridge = LiveClassDataBridge(transport, "user")
     assistant_bridge = LiveClassDataBridge(transport, "assistant")
-    material_bridge = MaterialContextBridge(room_metadata)
+    material_bridge = MaterialContextBridge(room_metadata, transport)
     try:
         room_data = json.loads(room_metadata or "{}")
     except (TypeError, ValueError, json.JSONDecodeError):
