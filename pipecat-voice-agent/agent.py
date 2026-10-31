@@ -160,6 +160,7 @@ class AiBudgetGate(FrameProcessor):
         self.token = token
         self.available_turns = 0
         self.last_renewal_attempt = 0.0
+        self.last_successful_lease = 0.0
         self.renewal_task: asyncio.Task | None = None
         self.lease_lock = asyncio.Lock()
 
@@ -224,6 +225,8 @@ class AiBudgetGate(FrameProcessor):
             allowed, message = await asyncio.to_thread(self._reserve_sync)
             if allowed:
                 self.available_turns += 128
+                self.last_successful_lease = time.monotonic()
+                logger.info('Live Class lease renewed; remaining authorized turns=%d', self.available_turns)
                 return True
             logger.warning("Voice lease renewal failed: %s", message)
             return False
@@ -232,9 +235,13 @@ class AiBudgetGate(FrameProcessor):
         await self.renew()
 
     async def periodic_renewal(self) -> None:
+        # Check in the background frequently enough to recover from transient
+        # provider or network errors; never block the normal speech hot path.
         while True:
-            await asyncio.sleep(15 * 60)
-            if self.available_turns < 192:
+            await asyncio.sleep(30)
+            if (self.available_turns <= 96 or
+                (self.available_turns < 192 and
+                 time.monotonic() - self.last_successful_lease >= 15 * 60)):
                 await self.renew()
 
     def _bound_context(self, frame) -> None:
@@ -267,7 +274,11 @@ class AiBudgetGate(FrameProcessor):
         if isinstance(frame, (LLMContextFrame, OpenAILLMContextFrame)):
             self._bound_context(frame)
             if self.available_turns <= 0:
-                denial_message = "The tutor has reached its authorized turn allowance. Let us finish this concept and continue in another class."
+                # A previously failed background refresh must not permanently
+                # strand the room. Reauthorize on depletion, not on each turn.
+                await self.renew()
+            if self.available_turns <= 0:
+                denial_message = "The tutor is unable to renew its voice allowance right now. Your room is still connected; please try again shortly."
                 client = getattr(self.transport, "_client", None)
                 if client is not None:
                     message = {
@@ -281,7 +292,7 @@ class AiBudgetGate(FrameProcessor):
                 await self.push_frame(ErrorFrame(error=denial_message), direction)
                 return
             self.available_turns -= 1
-            if self.available_turns < 40 and (self.renewal_task is None or self.renewal_task.done()):
+            if self.available_turns <= 96 and (self.renewal_task is None or self.renewal_task.done()):
                 self.renewal_task = asyncio.create_task(self.renew())
         await self.push_frame(frame, direction)
 
