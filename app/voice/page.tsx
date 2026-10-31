@@ -86,6 +86,7 @@ function VoiceTutorContent() {
   const [courseName, setCourseName] = useState(searchParams.get('course')?.trim() || 'Pharmacology');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploadedFileUrls, setUploadedFileUrls] = useState<string[]>([]);
+  const [uploadedMapUrls, setUploadedMapUrls] = useState<string[]>([]);
   const [materialProfiles, setMaterialProfiles] = useState<MaterialProfile[]>([]);
   const [focusText, setFocusText] = useState('');
   const [connected, setConnected] = useState(false);
@@ -181,8 +182,9 @@ function VoiceTutorContent() {
 
   useEffect(() => {
     const handleUploadedMaterials = (event: Event) => {
-      const detail = (event as CustomEvent<{ urls?: string[]; paths?: string[]; profiles?: MaterialProfile[] } | string[]>).detail;
+      const detail = (event as CustomEvent<{ urls?: string[]; mapUrls?: string[]; paths?: string[]; profiles?: MaterialProfile[] } | string[]>).detail;
       setUploadedFileUrls(Array.isArray(detail) ? detail : detail?.urls ?? []);
+      setUploadedMapUrls(Array.isArray(detail) ? [] : detail?.mapUrls ?? []);
       uploadedMaterialPathsRef.current = Array.isArray(detail) ? [] : detail?.paths ?? [];
       setMaterialProfiles(Array.isArray(detail) ? [] : detail?.profiles ?? []);
     };
@@ -696,6 +698,7 @@ function VoiceTutorContent() {
       }
     }
     setUploadedFileUrls([]);
+    setUploadedMapUrls([]);
     window.dispatchEvent(new CustomEvent('lensiq:clear-uploaded-materials'));
     setSessionSummary({ topic: topicFocus || courseName, durationSeconds, turns: messagesRef.current.filter((item) => item.role === 'user').length, recordingAvailable: Boolean(recordingBlob?.size) });
     sessionStartedAtRef.current = null;
@@ -766,7 +769,7 @@ function VoiceTutorContent() {
       await startMicMonitor(microphoneTrack).catch(() => undefined);
       setStatus('Preparing your visual medical workspace…');
       activeConversation = await createConversation();
-      const tokenResponse = await fetch('/api/voice/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseName, topicFocus, focusText, conversationId: activeConversation.id, fileUrls: uploadedFileUrls, materialContext }) });
+      const tokenResponse = await fetch('/api/voice/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseName, topicFocus, focusText, conversationId: activeConversation.id, fileUrls: uploadedFileUrls, materialMapUrls: uploadedMapUrls, materialContext }) });
       const tokenData = await tokenResponse.json().catch(() => ({}));
       if (!tokenResponse.ok) throw new Error(tokenData.message || tokenData.error || 'Unable to create a secure Live Class session.');
       setSessionId(tokenData.sessionId);
@@ -827,13 +830,13 @@ function VoiceTutorContent() {
       });
       room.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
         try {
-          const data = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; message?: string; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; structureId?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
+          const data = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; message?: string; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; structureId?: string; note?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
           if (data.type === 'show_3d_model' && data.modelUrl && isApprovedMedicalModelUrl(data.modelUrl)) {
             explicitVisualThisTurnRef.current = true;
             const pendingHighlight = pendingHighlightRef.current;
             pendingHighlightRef.current = null;
             setSelectedStructure(pendingHighlight?.structureId ?? '');
-            updateVisualContext({ type: 'model', modelUrl: data.modelUrl, ...(pendingHighlight ? { structureId: pendingHighlight.structureId, highlightColor: pendingHighlight.color } : {}) });
+            updateVisualContext({ type: 'model', modelUrl: data.modelUrl, note: data.note, ...(pendingHighlight ? { structureId: pendingHighlight.structureId, highlightColor: pendingHighlight.color } : {}) });
             return;
           }
           if (data.type === 'show_molecular_model' && data.modelUrl && isApprovedMoleculeModelUrl(data.modelUrl)) {
