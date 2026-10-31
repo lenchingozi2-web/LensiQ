@@ -33,7 +33,7 @@ OPEN_QUESTIONS = (
     'bc0366c8-6d87-460f-86e8-27af7a0cad87',
     'c25d173f-b674-48cd-8dc2-dad4380f1030',
     'c5676142-5365-4f62-ba6e-2a022c45341d',
-    'f4423f3d-6b5b-47d6-b961-1b58bc0ed4',
+    'f4423f3d-6b5b-47d6-b961-1b58bc0ed4c0',
 )
 PENICILLIN_ANSWER = (
     'Penicillins are beta-lactam antibiotics that bind penicillin-binding proteins '
