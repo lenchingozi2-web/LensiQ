@@ -1,0 +1,86 @@
+name: LenxiQ medical database - approved repair
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: 'Approved SQL repair (allowlisted)'
+        required: true
+        type: choice
+        options:
+          - repair_premium_text_subscription_access
+      confirmation:
+        description: 'Type APPLY-MEDICAL-REPAIR to authorize this database write'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lenxiq-medical-db-write
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    name: Apply approved medical database repair
+    runs-on: ubuntu-latest
+    environment: medical-db-write
+    timeout-minutes: 15
+    env:
+      PROJECT_REF: hixvbcrrklyajhkyliay
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SCRIPT_NAME: ${{ inputs.script }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate explicit authorization and credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CONFIRMATION" == "APPLY-MEDICAL-REPAIR" ]] || { echo "::error::Confirmation phrase does not match."; exit 1; }
+          [[ -n "$SUPABASE_ACCESS_TOKEN" && -n "$SUPABASE_DB_PASSWORD" ]] || { echo "::error::Both Supabase credentials are required."; exit 1; }
+          [[ "$SCRIPT_NAME" == "repair_premium_text_subscription_access" ]] || { echo "::error::SQL script is not allowlisted."; exit 1; }
+          test -f "supabase/sql/$SCRIPT_NAME.sql"
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.84.2
+
+      - name: Confirm correct Supabase project
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase projects list --output json > "$RUNNER_TEMP/projects.json"
+          jq -e --arg ref "$PROJECT_REF" '
+            if type == "array" then any(.[]; .id == $ref or .ref == $ref)
+            else any(.projects[]?; .id == $ref or .ref == $ref) end
+          ' "$RUNNER_TEMP/projects.json" > /dev/null
+          echo "Confirmed intended LenxiQ medical project."
+
+      - name: Apply allowlisted SQL to the verified project
+        shell: bash
+        run: |
+          set -euo pipefail
+          # SQL is committed, reviewed and fixed by the workflow input allowlist.
+          # Do not accept arbitrary SQL or an arbitrary connection string.
+          # Use the project's direct database host and encrypted PostgreSQL connection.
+          export PGCONNECT_TIMEOUT=15
+          export PGSSLMODE=require
+          export PGPASSWORD="$SUPABASE_DB_PASSWORD"
+          DB_HOST="db.${PROJECT_REF}.supabase.co"
+          psql --no-psqlrc --set ON_ERROR_STOP=1 \
+            --host "$DB_HOST" --port 5432 --username postgres --dbname postgres \
+            --file "supabase/sql/$SCRIPT_NAME.sql"
+          echo "Approved SQL executed against $PROJECT_REF."
+
+      - name: Write audit summary
+        if: always()
+        shell: bash
+        run: |
+          echo "### LenxiQ medical database repair" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Project: \`$PROJECT_REF\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Script: \`$SCRIPT_NAME\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Git commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Job result: \`${{ job.status }}\`" >> "$GITHUB_STEP_SUMMARY"
