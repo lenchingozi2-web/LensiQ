@@ -341,6 +341,8 @@ class MaterialContextBridge(FrameProcessor):
                                 segments.append((str(entry.get("title") or "lecture"), entry["content"]))
                                 if isinstance(entry.get("visual"), dict):
                                     self.visuals[entry["content"]] = entry["visual"]
+                        self.syllabus.extend(str(entry.get("topic") or "")[:100]
+                            for entry in material.get("syllabus", [])[:70] if isinstance(entry, dict))
                         return segments
                 # Keep every parsed character (up to the 4 MB/source download
                 # bound); overlapping windows avoid silently dropping later pages.
@@ -351,11 +353,11 @@ class MaterialContextBridge(FrameProcessor):
                     if chunk:
                         chunks.append((label, chunk))
                 return chunks
-            except (OSError, UnicodeError, TimeoutError) as error:
+            except (OSError, UnicodeError, TimeoutError, ValueError, TypeError) as error:
                 logger.warning("Unable to load uploaded source %d: %s", index + 1, type(error).__name__)
                 return []
 
-        sources = self.map_urls if self.map_urls else self.urls
+        sources = (self.map_urls + self.urls) if self.map_urls else self.urls
         loaded_sources = await asyncio.gather(*(load_source(index, url) for index, url in enumerate(sources)))
         for source_chunks in loaded_sources:
             self.chunks.extend(source_chunks)
@@ -669,6 +671,10 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     # Fetch and retain all six parsed lecture sources at class start; signed
     # upload URLs can expire before a later turn in a 90-minute session.
     await material_bridge.preload()
+    if material_bridge.syllabus:
+        context.messages.insert(1, {"role":"system","content":
+            "SYLLABUS MAP (select only the active source chunk): " +
+            "; ".join(material_bridge.syllabus)[:1700]})
     # The one startup authorization occurs off the live voice turn path.
     await budget_gate.start()
     if budget_gate.available_turns <= 0:
