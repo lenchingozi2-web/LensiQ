@@ -31,6 +31,7 @@ from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.services.kokoro.tts import KokoroTTSService
 from pipecat.services.openai.llm import OpenAILLMService
+from pipecat.services.groq.llm import GroqLLMService
 from pipecat.services.whisper.stt import WhisperSTTService
 from pipecat.transports.livekit.transport import LiveKitParams, LiveKitTransport
 from pipecat.runner.livekit import generate_token_with_agent
@@ -538,9 +539,10 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     )
     llm_provider, llm_api_key, llm_base_url, llm_model = _select_live_class_llm()
     logger.info("Live Class LLM provider configured (%s/%s)", llm_provider, llm_model)
-    # Pipecat's OpenAILLMService is used only as an OpenAI-compatible protocol
-    # adapter; the endpoint guard above restricts the actual provider to Gemini/Groq.
-    llm = OpenAILLMService(
+    # Use the actual Groq service for streaming spoken responses; the Gemini
+    # branch uses Google's OpenAI-compatible protocol endpoint.
+    llm_class = GroqLLMService if llm_provider == "groq" else OpenAILLMService
+    llm = llm_class(
         api_key=llm_api_key,
         base_url=llm_base_url,
         model=llm_model,
