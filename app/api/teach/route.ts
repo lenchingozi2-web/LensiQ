@@ -22,19 +22,6 @@ export async function POST(req: Request) {
     }
     const userId = user.id;
 
-    const { data: adminSettings } = await supabase
-      .from('site_settings')
-      .select('is_ai_tutor_enabled')
-      .eq('id', 1)
-      .single();
-
-    if (adminSettings?.is_ai_tutor_enabled === false) {
-      return NextResponse.json(
-        { error: 'ai_paused', message: 'The AI Tutor is currently paused for maintenance. Please check back shortly.' },
-        { status: 503 },
-      );
-    }
-
     const contentLength = Number(req.headers.get('content-length') || 0);
     if (Number.isFinite(contentLength) && contentLength > 128 * 1024) {
       return NextResponse.json({ error: 'Teaching request is too large.' }, { status: 413 });

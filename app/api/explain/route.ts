@@ -15,23 +15,6 @@ export async function POST(req: Request) {
     const userId = user.id;
 
     // =========================================================================
-    // STEP 2: THE ADMIN BOUNCER - Check if the Admin Globally Paused AI
-    // =========================================================================
-    const { data: settings } = await supabase
-      .from('site_settings')
-      .select('is_ai_tutor_enabled')
-      .eq('id', 1)
-      .single();
-
-    if (settings?.is_ai_tutor_enabled === false) {
-      return NextResponse.json({ 
-        content: "✨ The AI Tutor is currently offline for maintenance. Check back soon!",
-        flagged: false
-      });
-    }
-    // =========================================================================
-
-    // =========================================================================
     // STEP 3: THE GATEKEEPER LOCK
     // =========================================================================
     const access = await checkAccess('explanation');
