@@ -44,7 +44,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unable to save the Live Class recording.' }, { status: 500 });
   }
 
-  if (conversation.recording_path) await supabase.storage.from('live-class-recordings').remove([conversation.recording_path]);
   const recordingCreatedAt = new Date();
   const recordingExpiresAt = new Date(recordingCreatedAt.getTime() + RECORDING_RETENTION_MS);
   const { error: updateError } = await supabase
@@ -55,6 +54,13 @@ export async function POST(req: Request) {
   if (updateError) {
     await supabase.storage.from('live-class-recordings').remove([storagePath]);
     return NextResponse.json({ error: 'Unable to attach the recording to History.' }, { status: 500 });
+  }
+  // Only delete the previous recording AFTER the new storage path is committed.
+  // A failed database update must not destroy the learner's last saved class.
+  if (conversation.recording_path && conversation.recording_path !== storagePath) {
+    const { error: previousRemovalError } = await supabase.storage.from('live-class-recordings')
+      .remove([conversation.recording_path]);
+    if (previousRemovalError) console.warn('Previous class recording cleanup deferred', previousRemovalError.code || 'unknown');
   }
 
   const { data: signedUrl } = await supabase.storage.from('live-class-recordings').createSignedUrl(storagePath, 60 * 60 * 24);
