@@ -65,16 +65,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'AI budget service is not configured.' }, { status: 503 });
   }
 
+  const isVoice = body.feature === 'voice';
   const { data: controls, error: controlError } = await admin
     .from('ai_runtime_controls')
     .select('is_paused')
     .eq('id', 1)
     .maybeSingle();
-
   if (controlError || !controls) {
     return NextResponse.json({ error: 'AI runtime control is not configured; failing closed.' }, { status: 503 });
   }
-  if (controls.is_paused || process.env.AI_PROVIDER_CALLS_ENABLED !== 'true') {
+  // The central admin switch controls every AI feature. Live Class remains
+  // exempt from spend-alert thresholds below, not from this emergency pause.
+  if (controls.is_paused) {
     const pausedEvent = await admin.from('ai_usage_events').insert({
       request_id: body.requestId,
       user_id: body.userId,
@@ -82,10 +84,10 @@ export async function POST(request: Request) {
       provider: 'voice-configured',
       status: 'denied',
       estimated_cost_microusd: 0,
-      error_code: controls.is_paused ? 'ai_globally_paused' : 'provider_calls_not_approved',
+      error_code: 'ai_globally_paused',
     });
     if (pausedEvent.error) console.error('Voice budget event write failed', { code: pausedEvent.error.code || 'unknown' });
-    return NextResponse.json({ allowed: false, reason: controls.is_paused ? 'ai_globally_paused' : 'provider_calls_not_approved' }, { status: 503 });
+    return NextResponse.json({ allowed: false, reason: 'ai_globally_paused' }, { status: 503 });
   }
 
   const reservation = body.feature === 'voice'
@@ -131,7 +133,7 @@ export async function POST(request: Request) {
     console.error('Voice budget event write failed', { code: usageEvent.error.code || 'unknown' });
     return NextResponse.json({ error: 'AI usage logging unavailable; failing closed.' }, { status: 503 });
   }
-  if (!(await evaluateAiBudgetAlerts(admin))) {
+  if (!isVoice && !(await evaluateAiBudgetAlerts(admin))) {
     return NextResponse.json({ error: 'AI budget alert monitoring unavailable; failing closed.' }, { status: 503 });
   }
 

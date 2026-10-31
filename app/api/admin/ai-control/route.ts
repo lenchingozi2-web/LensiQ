@@ -104,7 +104,6 @@ export async function GET() {
     configuration: {
       serviceRoleConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
       internalVoiceTokenConfigured: Boolean(process.env.AI_BUDGET_INTERNAL_TOKEN),
-      providerCallsApproved: process.env.AI_PROVIDER_CALLS_ENABLED === 'true',
       alertWebhookConfigured: Boolean(process.env.AI_BUDGET_ALERT_WEBHOOK_URL),
     },
     generatedAt: now.toISOString(),
@@ -139,9 +138,6 @@ export async function POST(request: Request) {
   }
 
   if (body.action === 'resume') {
-    if (process.env.AI_PROVIDER_CALLS_ENABLED !== 'true') {
-      return NextResponse.json({ error: 'Resume is locked. Set AI_PROVIDER_CALLS_ENABLED=true only after review, verified migrations, and provider limits are configured.' }, { status: 409 });
-    }
     const { data, error } = await admin.rpc('set_ai_runtime_pause', {
       p_is_paused: false,
       p_pause_reason: '',

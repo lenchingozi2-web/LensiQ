@@ -22,8 +22,7 @@ export async function reserveAiRequest(
   const admin = createAdminClient();
   if (!admin) return { allowed: false, reason: 'budget_unavailable' };
 
-  // Both gates must be explicitly opened: the database switch defaults to
-  // paused, and the server-side env flag prevents accidental reactivation.
+  // The database-backed admin switch is the single global pause control.
   const { data: controls, error: controlError } = await admin
     .from('ai_runtime_controls')
     .select('is_paused')
@@ -32,10 +31,6 @@ export async function reserveAiRequest(
   if (controlError || !controls || controls.is_paused !== false) {
     return { allowed: false, reason: 'ai_globally_paused' };
   }
-  if (process.env.AI_PROVIDER_CALLS_ENABLED !== 'true') {
-    return { allowed: false, reason: 'provider_calls_not_approved' };
-  }
-
   const reservationId = requestId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)
     ? requestId
     : randomUUID();

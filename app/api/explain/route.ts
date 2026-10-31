@@ -13,10 +13,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ content: "You must be logged in to use the AI Tutor." }, { status: 401 });
     }
     const userId = user.id;
-    return NextResponse.json(
-      { content: 'The AI Tutor is temporarily paused while service usage is reviewed.', flagged: false },
-      { status: 503 },
-    );
 
     // =========================================================================
     // STEP 2: THE ADMIN BOUNCER - Check if the Admin Globally Paused AI

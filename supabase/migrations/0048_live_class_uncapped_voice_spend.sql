@@ -1,6 +1,6 @@
 -- Live Class voice requests do not consume the shared dollar-denominated AI caps.
 -- Request-rate limits, service-role access, duplicate protection, event logging,
--- provider approval, and the global emergency pause remain in force.
+-- and the central admin-controlled global emergency pause remain in force.
 create or replace function public.reserve_live_class_ai_request(
   p_user_id uuid,
   p_request_id uuid

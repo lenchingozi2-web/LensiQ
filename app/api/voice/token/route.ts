@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { AccessToken, AgentDispatchClient, RoomServiceClient } from 'livekit-server-sdk';
 import { createClient } from '../../../../lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { logAuthRequestRejection } from '../../../../lib/auth/request-diagnostics';
 import { LIVE_CLASS_MODEL_ASSETS, LIVE_CLASS_MOLECULE_ASSETS } from '@/lib/voice/live-class-visuals';
 import { LIVE_CLASS_MODEL_CATALOG, LIVE_CLASS_MOLECULE_CATALOG } from '@/lib/voice/live-class-model-catalog';
@@ -42,6 +43,20 @@ export async function POST(req: Request) {
       error: 'live_class_plan_required',
       message: 'Live Class is not included with the free or Premium Study plans. All Access at ₦9,870/month unlocks the interactive voice and visual classroom.',
     }, { status: 403 });
+  }
+
+  const admin = createAdminClient();
+  if (!admin) return NextResponse.json({ error: 'ai_runtime_unavailable', message: 'Live Class is temporarily unavailable. Please try again later.' }, { status: 503 });
+  const { data: runtimeControls, error: runtimeControlError } = await admin
+    .from('ai_runtime_controls')
+    .select('is_paused')
+    .eq('id', 1)
+    .maybeSingle();
+  if (runtimeControlError || !runtimeControls) {
+    return NextResponse.json({ error: 'ai_runtime_unavailable', message: 'Live Class could not verify the administrator AI control. Please try again later.' }, { status: 503 });
+  }
+  if (runtimeControls.is_paused) {
+    return NextResponse.json({ error: 'ai_globally_paused', message: 'Live Class is temporarily paused by the administrator. Please try again later.' }, { status: 503 });
   }
 
   // The browser must join the same LiveKit Cloud deployment that the Modal

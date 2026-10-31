@@ -4,14 +4,13 @@ import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('paid web AI endpoints remain emergency-paused', async () => {
+test('paid web AI endpoints use the admin pause and budget guard instead of a hard-coded emergency pause', async () => {
   for (const path of ['app/api/teach/route.ts', 'app/api/explain/route.ts']) {
     const source = await read(path);
-    const pause = source.indexOf("status: 503");
     const provider = source.indexOf("https://api.deepseek.com/chat/completions");
-    assert.notEqual(pause, -1, `${path} must retain the emergency pause`);
+    assert.match(source, /reserveAiRequest\(userId, '(teach|explain)'/);
+    assert.doesNotMatch(source, /temporarily paused while service usage is reviewed/);
     assert.notEqual(provider, -1, `${path} must keep provider integration for a later reviewed restore`);
-    assert.ok(pause < provider, `${path} pause must precede provider call`);
   }
 });
 
@@ -62,7 +61,7 @@ test('voice model generation is budget-gated and restricted to Gemini or Groq', 
   assert.doesNotMatch(voice, /gpt-4o-mini|OPENAI_API_KEY|DEEPSEEK_API_KEY|api\.openai\.com/);
 });
 
-test('Live Class voice reservations are exempt from dollar caps but retain rate limits and safety pause', async () => {
+test('Live Class voice reservations are exempt from dollar caps but retain rate limits and the admin pause', async () => {
   const route = await read('app/api/internal/ai-budget/route.ts');
   const migration = await read('supabase/migrations/0048_live_class_uncapped_voice_spend.sql');
   assert.match(route, /body\.feature === 'voice'[\s\S]*?reserve_live_class_ai_request/);
@@ -84,7 +83,10 @@ test('Live Class is paid-tier gated and has a server-enforced 90-minute graceful
   assert.doesNotMatch(plans.slice(plans.indexOf('function includesLiveClass')), /premium_text_monthly/);
   assert.match(reservation, /least\(5400/);
   assert.match(reservation, /session_time_limit/);
+  assert.equal((reservation.match(/where user_id = v_user_id and status = 'active'/g) || []).length, 2);
+  assert.match(reservation, /v_reserved_minutes := least\(greatest\(v_voice_balance, 0\), 90\)/);
   assert.match(token, /Math\.min\(90 \* 60/);
+  assert.match(token, /runtimeControls\.is_paused[\s\S]*?ai_globally_paused/);
   assert.match(worker, /close_at_session_deadline/);
   assert.match(worker, /EndFrame\(\)/);
   assert.match(worker, /def build_wrapup/);
@@ -199,20 +201,27 @@ test('forward migration fixes ambiguous reserved_microusd output-variable refere
   assert.match(migration, /grant execute on function public\.reserve_ai_budget\(uuid, text, uuid\) to service_role/i);
 });
 
-test('voice reservation endpoint checks global pause and explicit provider approval', async () => {
+test('The central admin pause controls all AI; provider environment gates are removed', async () => {
   const route = await read('app/api/internal/ai-budget/route.ts');
-  assert.match(route, /from\('ai_runtime_controls'\)/);
+  const requestBudget = await read('lib/ai/request-budget.ts');
+  const adminControl = await read('app/api/admin/ai-control/route.ts');
   assert.match(route, /controls\.is_paused/);
-  assert.match(route, /AI_PROVIDER_CALLS_ENABLED !== 'true'/);
+  assert.match(route, /if \(controls\.is_paused\)/);
+  assert.match(route, /const isVoice = body\.feature === 'voice'/);
+  assert.match(route, /if \(!isVoice && !\(await evaluateAiBudgetAlerts\(admin\)\)\)/);
+  assert.doesNotMatch(route, /AI_PROVIDER_CALLS_ENABLED/);
+  assert.doesNotMatch(requestBudget, /AI_PROVIDER_CALLS_ENABLED/);
+  assert.doesNotMatch(adminControl, /AI_PROVIDER_CALLS_ENABLED/);
   assert.match(route, /ai_usage_events/);
   assert.match(route, /usage logging unavailable; failing closed/i);
 });
 
-test('admin AI control API requires an authenticated admin and locks resume behind explicit approval', async () => {
+test('admin AI control API requires an authenticated admin and keeps the global pause switch operable', async () => {
   const route = await read('app/api/admin/ai-control/route.ts');
   assert.match(route, /profile\?\.role !== 'admin'/);
-  assert.match(route, /AI_PROVIDER_CALLS_ENABLED !== 'true'/);
+  assert.doesNotMatch(route, /AI_PROVIDER_CALLS_ENABLED/);
   assert.match(route, /action === 'pause'/);
+  assert.match(route, /action === 'resume'/);
   assert.match(route, /action === 'limits'/);
   assert.match(route, /AI_BUDGET_ALERT_WEBHOOK_URL/);
   assert.match(route, /ai_budget_alerts/);

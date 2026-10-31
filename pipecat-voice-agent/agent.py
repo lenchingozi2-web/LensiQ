@@ -191,7 +191,7 @@ class AiBudgetGate(FrameProcessor):
                 reason = result.get("reason")
                 if reason in ("user_daily_spend_limit", "user_monthly_spend_limit", "global_daily_spend_limit", "global_monthly_spend_limit", "user_minute_limit", "user_hour_limit", "user_day_limit", "global_minute_limit", "global_hour_limit", "global_day_limit"):
                     return False, "The AI usage allowance has been reached. Please try again later."
-                if reason in ("ai_globally_paused", "provider_calls_not_approved"):
+                if reason == "ai_globally_paused":
                     return False, "AI voice responses are temporarily paused. Please try again later."
                 return False, "The tutor could not authorize this response. Please try again shortly."
         except urllib.error.HTTPError as error:

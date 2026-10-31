@@ -27,7 +27,6 @@ type MonitorData = {
   configuration: {
     serviceRoleConfigured: boolean;
     internalVoiceTokenConfigured: boolean;
-    providerCallsApproved: boolean;
     alertWebhookConfigured: boolean;
   };
   generatedAt: string;
@@ -148,9 +147,8 @@ export default function AiUsagePanel() {
               </div>
               <div className="mt-5 flex flex-wrap gap-3">
                 <button onClick={() => void action({ action: 'pause', reason: 'Emergency stop activated from LensiQ admin dashboard' }, 'Emergency stop activated. New guarded AI requests will be blocked.')} disabled={busy || data.controls.isPaused} className="rounded-xl bg-red-700 px-5 py-3 text-sm font-black text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40">⛔ Emergency stop all AI</button>
-                <button onClick={() => void action({ action: 'resume' }, 'Runtime switch updated.')} disabled={busy || !data.controls.isPaused || !data.configuration.providerCallsApproved} className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Resume AI (locked)</button>
+                <button onClick={() => void action({ action: 'resume' }, 'Runtime switch updated.')} disabled={busy || !data.controls.isPaused} className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Resume AI</button>
               </div>
-              {!data.configuration.providerCallsApproved && <p className="mt-3 text-xs font-semibold leading-5 text-amber-800">Resume is deliberately locked. AI_PROVIDER_CALLS_ENABLED is not explicitly approved, and the teaching/explanation emergency pause remains in code.</p>}
               <p className="mt-4 text-xs text-slate-500">Last control update: {time(data.controls.updatedAt)} · Turning the switch off blocks new guarded requests; it cannot cancel a provider request already in flight.</p>
             </article>
 
@@ -186,7 +184,6 @@ export default function AiUsagePanel() {
                 {[
                   ['Privileged Supabase key configured', data.configuration.serviceRoleConfigured],
                   ['Internal voice budget token configured', data.configuration.internalVoiceTokenConfigured],
-                  ['Paid provider calls explicitly approved', data.configuration.providerCallsApproved],
                   ['External alert webhook configured', data.configuration.alertWebhookConfigured],
                 ].map(([label, ok]) => <div key={String(label)} className="flex items-center justify-between gap-3"><span className="text-sm font-semibold text-slate-700">{label}</span><span className={`rounded-full px-2.5 py-1 text-xs font-black ${statusClass(Boolean(ok))}`}>{ok ? 'READY' : 'MISSING'}</span></div>)}
               </div>

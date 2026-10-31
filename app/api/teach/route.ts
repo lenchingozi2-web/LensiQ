@@ -21,10 +21,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'You must be logged in to use Teaching Mode.' }, { status: 401 });
     }
     const userId = user.id;
-    return NextResponse.json(
-      { error: 'ai_paused', message: 'The AI Tutor is temporarily paused while service usage is reviewed.' },
-      { status: 503 },
-    );
 
     const { data: adminSettings } = await supabase
       .from('site_settings')
