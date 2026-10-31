@@ -1,5 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 function siteOrigin(requestUrl: URL) {
   if (process.env.NODE_ENV !== 'production') return requestUrl.origin;
@@ -25,7 +25,7 @@ function safeNextPath(value: string | null) {
   } catch { return '/dashboard'; }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const origin = siteOrigin(requestUrl);
   const next = safeNextPath(requestUrl.searchParams.get('next'));
@@ -43,13 +43,7 @@ export async function GET(request: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.headers.get('cookie')?.split(';').map((part) => {
-            const split = part.trim().indexOf('=');
-            return split < 0 ? { name: '', value: '' } :
-              { name: part.trim().slice(0, split), value: part.trim().slice(split + 1) };
-          }).filter(({name}) => Boolean(name)) || [];
-        },
+        getAll() { return request.cookies.getAll(); },
         setAll(cookies) {
           for (const cookie of cookies) outgoingCookies.push(cookie);
         },
@@ -74,7 +68,7 @@ export async function GET(request: Request) {
 
   const response = NextResponse.redirect(data.url, { headers: { 'Cache-Control': 'no-store' } });
   for (const cookie of outgoingCookies) {
-    response.cookies.set(cookie.name, cookie.value, cookie.options);
+    response.cookies.set({ name: cookie.name, value: cookie.value, ...(cookie.options || {}) });
   }
   return response;
 }
