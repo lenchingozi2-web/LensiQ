@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     if (Buffer.byteLength(raw, 'utf8') > 2048) {
       return NextResponse.json({ error: 'Invalid recording request.' }, { status: 413 });
     }
-    let payload: { action?: string; conversationId?: string; path?: string };
+    let payload: { action?: string; conversationId?: string; path?: string; mimeType?: string };
     try { payload = JSON.parse(raw); } catch {
       return NextResponse.json({ error: 'Invalid JSON.' }, { status: 400 });
     }
@@ -38,7 +38,9 @@ export async function POST(req: Request) {
     if (!ownedConversation) return NextResponse.json({ error: 'Live Class conversation not found.' }, { status: 404 });
 
     if (payload.action === 'prepare') {
-      const path = `${user.id}/${requestedId}/${crypto.randomUUID()}.webm`;
+      const requestedMime = safeMimeType(typeof payload.mimeType === 'string' ? payload.mimeType : 'audio/webm');
+      const extension = requestedMime.includes('mp4') ? 'm4a' : requestedMime.includes('ogg') ? 'ogg' : requestedMime.includes('wav') ? 'wav' : 'webm';
+      const path = `${user.id}/${requestedId}/${crypto.randomUUID()}.${extension}`;
       const { data: signed, error } = await supabase.storage.from('live-class-recordings').createSignedUploadUrl(path);
       if (error || !signed?.token) {
         return NextResponse.json({ error: 'Unable to prepare the secure recording upload.' }, { status: 503 });
@@ -51,7 +53,7 @@ export async function POST(req: Request) {
     if (payload.action === 'complete') {
       const path = typeof payload.path === 'string' ? payload.path : '';
       const prefix = `${user.id}/${requestedId}/`;
-      if (!path.startsWith(prefix) || !/^[0-9a-f-]{36}\.webm$/i.test(path.slice(prefix.length))) {
+      if (!path.startsWith(prefix) || !/^[0-9a-f-]{36}\.(?:webm|m4a|ogg|wav)$/i.test(path.slice(prefix.length))) {
         return NextResponse.json({ error: 'Recording path is invalid.' }, { status: 400 });
       }
       const storage = supabase.storage.from('live-class-recordings');
