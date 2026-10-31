@@ -84,11 +84,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'The LiveKit server URL is invalid. It must be a LiveKit ws:// or wss:// endpoint.' }, { status: 503 });
   }
 
-  const body = await req.json().catch(() => ({}));
+  // Do not parse arbitrarily large JSON into serverless memory.
+  const advertisedLength = Number(req.headers.get('content-length') || 0);
+  if (Number.isFinite(advertisedLength) && advertisedLength > 40 * 1024) {
+    return NextResponse.json({ error: 'Live Class request is too large.' }, { status: 413 });
+  }
+  const rawBody = await req.text();
+  if (Buffer.byteLength(rawBody, 'utf8') > 40 * 1024) {
+    return NextResponse.json({ error: 'Live Class request is too large.' }, { status: 413 });
+  }
+  let body: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(rawBody);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid body');
+    body = parsed as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: 'Invalid Live Class request.' }, { status: 400 });
+  }
   const courseName = typeof body?.courseName === 'string' && body.courseName.trim() ? body.courseName.trim().slice(0, 120) : 'Live Class';
   const topicFocus = typeof body?.topicFocus === 'string' && body.topicFocus.trim() ? body.topicFocus.trim().slice(0, 300) : '';
   const focusText = typeof body?.focusText === 'string' && body.focusText.trim() ? body.focusText.trim().slice(0, 1200) : '';
   const conversationId = typeof body?.conversationId === 'string' && body.conversationId.trim() ? body.conversationId.trim() : null;
+  if (conversationId && !/^[0-9a-f]{8}-[0-9a-f-]{27,36}$/i.test(conversationId)) {
+    return NextResponse.json({ error: 'Invalid Live Class conversation.' }, { status: 400 });
+  }
   const safeUrl = (value: unknown): value is string => {
     if (typeof value !== 'string' || value.length > 4096) return false;
     try {
@@ -104,8 +123,8 @@ export async function POST(req: Request) {
   const rawMaterialContext = body?.materialContext && typeof body.materialContext === 'object' ? body.materialContext as { primaryBranch?: unknown; branches?: unknown; sources?: unknown } : null;
   const materialContext = rawMaterialContext ? {
     primaryBranch: typeof rawMaterialContext.primaryBranch === 'string' ? rawMaterialContext.primaryBranch.slice(0, 80) : null,
-    branches: Array.isArray(rawMaterialContext.branches) ? rawMaterialContext.branches.filter((value): value is string => typeof value === 'string').slice(0, 8) : [],
-    sources: Array.isArray(rawMaterialContext.sources) ? rawMaterialContext.sources.filter((value): value is string => typeof value === 'string').slice(0, 6) : [],
+    branches: Array.isArray(rawMaterialContext.branches) ? rawMaterialContext.branches.filter((value): value is string => typeof value === 'string').slice(0, 8).map((value) => value.slice(0, 80)) : [],
+    sources: Array.isArray(rawMaterialContext.sources) ? rawMaterialContext.sources.filter((value): value is string => typeof value === 'string').slice(0, 6).map((value) => value.slice(0, 120)) : [],
   } : null;
   const roomName = `lensiq-voice-${user.id.slice(0, 8)}-${crypto.randomUUID()}`;
 
@@ -153,6 +172,17 @@ export async function POST(req: Request) {
     }, { status: 403 });
   }
 
+  // Every failed LiveKit start must release its reserved room, otherwise a
+  // learner can lose available classroom access without ever connecting.
+  const releaseFailedStart = async () => {
+    const { error } = await supabase.rpc('charge_live_class_session', {
+      p_session_id: quota.session_id,
+      p_duration_seconds: 0,
+      p_end: true,
+    });
+    if (error) console.error('Unable to release failed Live Class start', error.code || 'unknown');
+  };
+
   const isUnlimited = Boolean(quota.is_unlimited);
   const maxDurationSeconds = Math.min(90 * 60, Math.max(60, Number(quota.max_duration_seconds ?? 90 * 60)));
   const sessionExpiresAt = typeof quota.expires_at === 'string' && Number.isFinite(Date.parse(quota.expires_at))
@@ -188,6 +218,7 @@ export async function POST(req: Request) {
   }
   if (!livekitUrl || !dispatchHost) {
     console.error('LiveKit credential handshake failed for configured URLs:', lastLivekitError);
+    await releaseFailedStart();
     return NextResponse.json({
       error: 'livekit_credentials_rejected',
       message: 'The configured LiveKit API credentials were rejected by every configured LiveKit project. Update Vercel and Modal to use the same LiveKit Cloud credentials.',
@@ -235,12 +266,7 @@ export async function POST(req: Request) {
       await roomService.createRoom({ name: roomName, metadata: dispatchMetadata });
     } catch (roomError) {
       console.error('Live Class room metadata initialization failed:', roomError);
-      const { error: releaseError } = await supabase.rpc('charge_live_class_session', {
-        p_session_id: quota.session_id,
-        p_duration_seconds: 0,
-        p_end: true,
-      });
-      if (releaseError) console.error('Live Class reservation cleanup failed:', releaseError.code || 'unknown');
+      await releaseFailedStart();
       return NextResponse.json({
         error: 'livekit_room_setup_failed',
         message: 'The Live Class room could not be prepared. Please try again.',
@@ -255,6 +281,7 @@ export async function POST(req: Request) {
       await dispatchClient.createDispatch(roomName, agentName, { metadata: dispatchMetadata });
     } catch (dispatchError) {
       console.error('Live Class agent dispatch failed:', dispatchError);
+      await releaseFailedStart();
       return NextResponse.json({ error: 'The Live Class tutor could not be dispatched. Please try again.' }, { status: 503 });
     }
   }
@@ -262,7 +289,7 @@ export async function POST(req: Request) {
   const token = new AccessToken(apiKey, apiSecret, {
     identity: user.id,
     name: user.email ?? 'LenxiQ AI learner',
-    metadata: JSON.stringify({}), // <-- THIS IS THE FIX (keeps token tiny to avoid 414 error)
+    metadata: '{}', // Keep the student token small; private context belongs in room metadata.
     ttl: `${maxDurationSeconds + 45}s`,
   });
 
