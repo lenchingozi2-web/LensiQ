@@ -375,6 +375,25 @@ class MaterialContextBridge(FrameProcessor):
         self.last_visual = self.visuals.get(selected[0][1]) if selected else None
         return "\n\n".join(f"[{source}]\n{chunk}" for source, chunk in selected)[:5_000]
 
+    async def publish_visual(self, query: str) -> None:
+        visual = self.last_visual
+        if not isinstance(visual, dict):
+            return
+        model_key = str(visual.get("modelKey") or "")
+        if visual.get("type") == "model" and model_key in self.approved_models:
+            command = {"type": "show_3d_model", "modelUrl": self.approved_models[model_key], "note": str(visual.get("note") or "")[:245]}
+        elif visual.get("type") == "molecule" and model_key in self.approved_molecules:
+            command = {"type": "show_molecular_model", "modelUrl": self.approved_molecules[model_key]["modelUrl"]}
+        else:
+            command = {"type": "show_whiteboard", "topic": str(visual.get("topic") or query)[:100], "markdown": str(visual.get("markdown") or "")[:1000]}
+        key = json.dumps(command, sort_keys=True)
+        if key == self.last_visual_key:
+            return
+        self.last_visual_key = key
+        client = getattr(self.transport, "_client", None)
+        if client:
+            await client.send_data(json.dumps(command).encode())
+
     def build_wrapup(self) -> str:
         if self.last_evidence:
             source, chunk = self.last_evidence
