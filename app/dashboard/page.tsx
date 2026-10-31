@@ -13,7 +13,10 @@ export default async function DashboardPage() {
     supabase.from('profiles').select('role, plan, plan_expires_at, wallet_reset_at, voice_minutes_balance, text_teaching_balance, storage_limit_bytes').eq('id', user.id).single(),
     supabase.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id }),
   ]);
-  const isAdmin = profile?.role === 'admin';
+  if (!profile) {
+    return <main className="min-h-[65dvh] bg-[#F6F8FB] px-5 py-16"><div className="mx-auto max-w-lg rounded-2xl border border-amber-200 bg-white p-8 text-center shadow-sm"><h1 className="text-xl font-black text-[#0B1220]">Your account status couldn't be loaded</h1><p className="mt-3 text-sm leading-6 text-slate-600">We couldn't verify your subscription right now. Your payment and learning records have not been changed.</p><Link href="/dashboard" className="mt-5 inline-flex rounded-xl bg-[#0B1220] px-4 py-3 text-sm font-bold text-white">Retry account check</Link></div></main>;
+  }
+  const isAdmin = profile.role === 'admin';
   const isPremium = isAdmin || (isPaidPlan(profile?.plan) && (!profile?.plan_expires_at || new Date(profile.plan_expires_at) > new Date()));
   const hasLiveClass = isAdmin || (isPremium && includesLiveClass(profile?.plan));
   const voiceMinutes = Number(profile?.voice_minutes_balance ?? 0);
@@ -30,7 +33,12 @@ export default async function DashboardPage() {
     <main className="min-h-[calc(100vh-64px)] bg-slate-50 px-4 py-8 sm:px-6 sm:py-12">
       <div className="mx-auto max-w-6xl">
         <header className="rounded-3xl bg-gradient-to-br from-[#0B1220] to-[#1c2d46] p-8 text-white shadow-xl sm:p-10">
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-[#E8A23D]">Learner dashboard</p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-[#E8A23D]">Learner dashboard</p>
+            <Link href="/subscription" className={`rounded-full border px-3 py-2 text-xs font-black transition-colors ${isPremium ? 'border-emerald-300/30 bg-emerald-200/15 text-emerald-100 hover:bg-emerald-200/25' : 'border-white/20 bg-white/10 text-slate-200 hover:bg-white/20'}`}>
+              {isAdmin ? '● Administrator access' : isPremium ? '● Subscription active' : 'View subscription options'}
+            </Link>
+          </div>
           <div className="mt-4 flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div>
               <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Welcome back to LenxiQ.</h1>
