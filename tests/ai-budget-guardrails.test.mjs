@@ -7,11 +7,11 @@ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 test('paid web AI endpoints use the request budget guard without a global pause', async () => {
   for (const path of ['app/api/teach/route.ts', 'app/api/explain/route.ts']) {
     const source = await read(path);
-    const provider = source.indexOf("https://api.deepseek.com/chat/completions");
+    const provider = source.indexOf("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
     assert.match(source, /reserveAiRequest\(userId, '(teach|explain)'/);
     assert.doesNotMatch(source, /is_paused|ai_globally_paused/);
     assert.doesNotMatch(source, /temporarily paused while service usage is reviewed/);
-    assert.notEqual(provider, -1, `${path} must keep provider integration for a later reviewed restore`);
+    assert.notEqual(provider, -1, `${path} must call the configured Gemini provider`);
   }
 });
 

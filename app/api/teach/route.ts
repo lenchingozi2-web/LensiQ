@@ -153,21 +153,20 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!process.env.DEEPSEEK_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json({ error: 'AI provider is not configured.' }, { status: 503 });
     }
 
-    const response = await fetch('https://api.deepseek.com/chat/completions', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
       method: 'POST',
       signal: AbortSignal.timeout(30000),
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+        Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: process.env.DEEPSEEK_TEACHING_MODEL || 'deepseek-v4-flash',
+        model: process.env.GEMINI_TEACHING_MODEL || 'gemini-2.5-flash',
         stream: true,
-        thinking: { type: 'disabled' },
         max_tokens: 1000,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -178,7 +177,7 @@ export async function POST(req: Request) {
 
     if (!response.ok || !response.body) {
       const errorText = await response.text();
-      throw new Error(`DeepSeek request failed: ${errorText}`);
+      throw new Error(`Gemini request failed: ${errorText}`);
     }
 
     return new Response(response.body, {

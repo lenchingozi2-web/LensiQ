@@ -95,7 +95,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // --- 5. If no cache exists, reserve a budget slot before calling DeepSeek ---
+    // --- 5. If no cache exists, reserve a budget slot before calling Gemini ---
     const budget = await reserveAiRequest(userId, 'explain', req.headers.get('idempotency-key') || undefined);
     if (!budget.allowed) {
       return NextResponse.json(
@@ -103,12 +103,12 @@ export async function POST(req: Request) {
         { status: budget.reason === 'budget_unavailable' ? 503 : 429 },
       );
     }
-    if (!process.env.DEEPSEEK_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json({ content: 'AI provider is not configured.', flagged: false }, { status: 503 });
     }
 
     // --- 6. Provider request ---
-    const apiUrl = 'https://api.deepseek.com/chat/completions';
+    const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
     const systemPrompt = `You are the LenxIQ tutor... 
     MODE: EXPLAIN — Give a deeper explanation.
     You MUST always respond in strictly valid JSON format matching this exact shape:
@@ -126,10 +126,10 @@ export async function POST(req: Request) {
       signal: AbortSignal.timeout(20000),
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
+        'Authorization': `Bearer ${process.env.GEMINI_API_KEY}`
       },
       body: JSON.stringify({
-        model: process.env.DEEPSEEK_EXPLAIN_MODEL || 'deepseek-v4-flash',
+        model: process.env.GEMINI_EXPLAIN_MODEL || 'gemini-2.5-flash',
         max_tokens: 800,
         response_format: { type: 'json_object' }, 
         messages: [
@@ -140,7 +140,7 @@ export async function POST(req: Request) {
       })
     });
 
-    if (!response.ok) throw new Error(`DeepSeek API error: ${response.status}`);
+    if (!response.ok) throw new Error(`Gemini API error: ${response.status}`);
 
     const data = await response.json();
     const aiResponseJson = JSON.parse(data.choices[0].message.content);
