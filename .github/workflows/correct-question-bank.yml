@@ -7,6 +7,8 @@ on:
       - 'scripts/test_repair_question_bank.py'
       - 'scripts/export_medical_review.py'
       - 'scripts/repair_reviewed_medical_items.py'
+      - 'scripts/repair_missing_medical_answers.py'
+      - 'scripts/apply_medical_corrections.py'
       - '.github/workflows/correct-question-bank.yml'
   workflow_dispatch:
 
@@ -45,8 +47,10 @@ jobs:
           fi
       - name: Apply reversible repairs directly to Supabase
         run: python scripts/repair_question_bank.py
-      - name: Correct and verify reviewed medical answers and classifications
-        run: python scripts/repair_reviewed_medical_items.py
+      - name: Validate compiled medical repair scripts
+        run: python -m py_compile scripts/repair_question_bank.py scripts/repair_reviewed_medical_items.py scripts/repair_missing_medical_answers.py scripts/apply_medical_corrections.py
+      - name: Apply reviewed clinical corrections in one guarded transaction
+        run: python scripts/apply_medical_corrections.py
       - name: Collect medical question review data (no account records)
         run: python scripts/export_medical_review.py
       - name: Save review securely for one day
