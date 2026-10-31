@@ -69,8 +69,19 @@ function getTheoryPresentation(rawQuestion: string, rawAnswer: string) {
   return { question, answer, mode: 'normal' as const };
 }
 
+function parseCorrectAnswers(value?: string) {
+  const raw = (value || '').trim().replace(/^answer\s*:\s*/i, '').replace(/^option\s+/i, '');
+  if (!/^[a-e](?:\s*[,;/&+]\s*[a-e])*\.?$/i.test(raw)) return [] as string[];
+  return Array.from(new Set(raw.replace(/\.$/, '').split(/\s*[,;/&+]\s*/).map((v) => v.toLowerCase())));
+}
+
 export default function StudyCard({ question, index }: { question: Question, index: number }) {
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [selectedAnswers, setSelectedAnswers] = useState<string[]>([]);
+  const [checked, setChecked] = useState(false);
+  const correctKeys = parseCorrectAnswers(question.correct_answer);
+  const multiSelect = correctKeys.length > 1;
+  const correctSelection = correctKeys.length > 0 && selectedAnswers.length === correctKeys.length &&
+    selectedAnswers.every((letter) => correctKeys.includes(letter));
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [isFlagged, setIsFlagged] = useState(false);
@@ -80,9 +91,13 @@ export default function StudyCard({ question, index }: { question: Question, ind
   const isPractical = question.type?.toLowerCase() === 'practical';
 
   const handleSelect = (letter: string) => {
-    // Lock in the answer on the first click (Only used for MCQ)
-    if (!selectedAnswer) {
-      setSelectedAnswer(letter);
+    if (checked) return;
+    if (multiSelect) {
+      setSelectedAnswers((old) => old.includes(letter)
+        ? old.filter((value) => value !== letter) : [...old, letter]);
+    } else {
+      setSelectedAnswers([letter]);
+      setChecked(true);
     }
   };
 
@@ -230,12 +245,12 @@ export default function StudyCard({ question, index }: { question: Question, ind
               const optionText = question[`option_${letter}` as keyof Question];
               if (!optionText) return null;
               
-              const isCorrectAnswer = question.correct_answer?.toLowerCase().trim() === letter;
-              const isSelected = selectedAnswer === letter;
+              const isCorrectAnswer = correctKeys.includes(letter);
+              const isSelected = selectedAnswers.includes(letter);
               
               let optionStyle = 'border-slate-200 bg-white hover:bg-slate-50 cursor-pointer';
               
-              if (selectedAnswer) {
+              if (checked) {
                 if (isCorrectAnswer) {
                   optionStyle = 'border-green-500 bg-green-50 ring-1 ring-green-500';
                 } else if (isSelected && !isCorrectAnswer) {
@@ -249,21 +264,37 @@ export default function StudyCard({ question, index }: { question: Question, ind
                 <button 
                   key={letter} 
                   onClick={() => handleSelect(letter)}
-                  disabled={!!selectedAnswer}
+                  disabled={checked}
+                   aria-pressed={isSelected}
                   className={`w-full text-left flex items-center gap-4 p-4 rounded-xl border transition-all ${optionStyle}`}
                 >
-                  <span className={`font-bold uppercase ${(selectedAnswer && isCorrectAnswer) ? 'text-green-600' : (isSelected && !isCorrectAnswer) ? 'text-red-500' : 'text-slate-400'}`}>{letter}.</span>
-                  <span className={`${(selectedAnswer && isCorrectAnswer) ? 'text-green-900 font-medium' : (isSelected && !isCorrectAnswer) ? 'text-red-900 font-medium' : 'text-slate-700'} leading-relaxed`}>{optionText}</span>
+                  <span className={`font-bold uppercase ${(checked && isCorrectAnswer) ? 'text-green-600' : (isSelected && !isCorrectAnswer) ? 'text-red-500' : 'text-slate-400'}`}>{letter}.</span>
+                  <span className={`${(checked && isCorrectAnswer) ? 'text-green-900 font-medium' : (isSelected && !isCorrectAnswer) ? 'text-red-900 font-medium' : 'text-slate-700'} leading-relaxed`}>{optionText}</span>
                   
-                  {selectedAnswer && isCorrectAnswer && <span className="ml-auto text-green-600 text-xl font-bold">✓</span>}
+                  {checked && isCorrectAnswer && <span className="ml-auto text-green-600 text-xl font-bold">✓</span>}
                   {isSelected && !isCorrectAnswer && <span className="ml-auto text-red-500 text-xl font-bold">✗</span>}
                 </button>
               );
             })}
           </div>
 
+          {multiSelect && !checked && (
+            <div className="mx-4 mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:mx-6">
+              <p className="text-sm font-semibold text-amber-950">Select every correct option before checking.</p>
+              <button type="button" disabled={selectedAnswers.length === 0} onClick={() => setChecked(true)}
+                className="mt-3 rounded-lg bg-[#0B1220] px-5 py-3 text-sm font-bold text-white disabled:opacity-50">
+                Check answers
+              </button>
+            </div>
+          )}
+          {checked && correctKeys.length > 0 && (
+            <p role="status" className={`mx-4 mb-4 rounded-xl border p-3 text-sm font-bold sm:mx-6 ${correctSelection ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+              {correctSelection ? 'Correct.' : `Correct answer${correctKeys.length > 1 ? 's' : ''}: ${correctKeys.map((letter) => letter.toUpperCase()).join(', ')}.`}
+            </p>
+          )}
+
           {/* Model Answer & AI Section (Only shows AFTER an MCQ option is clicked) */}
-          {selectedAnswer && (
+          {checked && (
             <div className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 animate-in fade-in slide-in-from-top-2 duration-300">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">Explanation</h3>
               <div className="prose prose-slate max-w-none mb-6">
