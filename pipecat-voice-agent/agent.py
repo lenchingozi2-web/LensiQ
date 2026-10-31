@@ -392,7 +392,10 @@ class MaterialContextBridge(FrameProcessor):
         self.last_visual_key = key
         client = getattr(self.transport, "_client", None)
         if client:
-            await client.send_data(json.dumps(command).encode())
+            try:
+                await client.send_data(json.dumps(command).encode())
+            except Exception as error:
+                logger.debug("Visual synchronization skipped (%s)", type(error).__name__)
 
     def build_wrapup(self) -> str:
         if self.last_evidence:
@@ -429,6 +432,7 @@ class MaterialContextBridge(FrameProcessor):
                 if notes:
                     insert_at = 1 if messages and messages[0].get("role") == "system" else 0
                     messages.insert(insert_at, {"role": "system", "content": "SOURCE NOTES: use only when relevant; do not quote this block.\n" + notes})
+                    await self.publish_visual(str(query))
         await self.push_frame(frame, direction)
 
 class ConversationalKokoroTTSService(KokoroTTSService):
