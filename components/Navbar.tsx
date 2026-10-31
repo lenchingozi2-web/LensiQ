@@ -7,18 +7,20 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { clearActiveSession } from '../lib/auth/active-session';
 import { primaryNavigation, secondaryNavigation } from '@/lib/navigation';
+import { getSubscriptionAccess } from '@/lib/subscription-access';
 
 export default async function Navbar() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   let userRole: 'admin' | 'user' = 'user';
+  let subscriptionLabel: string | null = null;
 
   if (user) {
     const cookieStore = await cookies();
     const activeSessionToken = cookieStore.get('session_token')?.value;
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role, session_token')
+      .select('role, session_token, plan, plan_expires_at')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -27,6 +29,8 @@ export default async function Navbar() {
       console.error('[Navbar] Profile role/session lookup failed:', profileError.message);
     } else {
       userRole = profile?.role === 'admin' ? 'admin' : 'user';
+      const access = getSubscriptionAccess(profile);
+      if (access.active) subscriptionLabel = access.admin ? 'Admin access' : `${access.planName} active`;
       const sessionWasReplaced = Boolean(profile?.session_token && activeSessionToken !== profile.session_token);
 
       if (sessionWasReplaced) {
@@ -70,6 +74,7 @@ export default async function Navbar() {
         />
 
         <div className="flex shrink-0 items-center gap-2">
+          {user && subscriptionLabel && <Link href="/subscription" className="hidden rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-black text-emerald-800 transition-colors hover:bg-emerald-100 sm:inline-flex" aria-label={`Subscription status: ${subscriptionLabel}`}>● {subscriptionLabel}</Link>}
           {user && <UserDropdown email={user.email || 'User'} role={userRole} />}
           <MobileNav links={user ? primaryNavigation : primaryNavigation.filter((link) => link.href !== '/dashboard')} secondaryLinks={secondaryNavigation} isAuthenticated={Boolean(user)} />
         </div>
