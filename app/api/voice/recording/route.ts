@@ -133,7 +133,7 @@ export async function POST(req: Request) {
   if (conversation.recording_path && conversation.recording_path !== storagePath) {
     const { error: previousRemovalError } = await supabase.storage.from('live-class-recordings')
       .remove([conversation.recording_path]);
-    if (previousRemovalError) console.warn('Previous class recording cleanup deferred', previousRemovalError.code || 'unknown');
+    if (previousRemovalError) console.warn('Previous class recording cleanup deferred');
   }
 
   const { data: signedUrl } = await supabase.storage.from('live-class-recordings').createSignedUrl(storagePath, 60 * 60 * 24);
