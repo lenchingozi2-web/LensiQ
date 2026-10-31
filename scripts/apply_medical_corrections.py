@@ -7,9 +7,10 @@ from repair_reviewed_medical_items import (
     MINOXIDIL_ID,MINOXIDIL_STEM,MINOXIDIL_ANSWER,
 )
 from repair_missing_medical_answers import ANSWERS
+from reviewed_defective_mcqs import REPAIRS
 
 COLS=('type','correct_answer','question_text','model_answer','option_a','option_b','option_c','option_d','option_e')
-ALL_IDS=sorted(set(KEYS)|set(OPEN_QUESTIONS)|set(EXACT)|set(TEXT_REPLACE)|set(ANSWERS)|{MINOXIDIL_ID})
+ALL_IDS=sorted(set(KEYS)|set(OPEN_QUESTIONS)|set(EXACT)|set(TEXT_REPLACE)|set(ANSWERS)|set(REPAIRS)|{MINOXIDIL_ID})
 
 def read_rows():
     ids=','.join(quote(ident)+'::uuid' for ident in ALL_IDS)
@@ -68,6 +69,15 @@ def main():
         if existing is not None and existing.strip() and existing.strip()!=str(rows[ident].get('question_text') or '').strip():
             raise RuntimeError('Source answer is not a placeholder: '+ident)
         set_value(ident,'model_answer',existing,answer)
+
+    for ident,repair in REPAIRS.items():
+        current=rows[ident]
+        stem=str(current.get('question_text') or '')
+        target_stem=repair['changes'].get('question_text')
+        if not stem.startswith(repair['stem']) and stem!=target_stem:
+            raise RuntimeError('Question wording differs from reviewed source: '+ident)
+        for field,new in repair['changes'].items():
+            set_value(ident,field,current.get(field),new)
 
     if not proposed:
         print('No outstanding reviewed medical corrections; live rows already match.')
