@@ -1,122 +1,115 @@
 import { revalidatePath } from 'next/cache';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
-import { BILLING_COSTS, estimateFinancials } from '../../lib/billing-costs';
 
-function naira(value: number) {
-  return `₦${Math.round(value).toLocaleString('en-NG')}`;
-}
+export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-  if (profile?.role !== 'admin') redirect('/');
+  const { data: admin } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  if (admin?.role !== 'admin') redirect('/dashboard');
 
-  const monthStart = new Date();
-  monthStart.setUTCDate(1);
-  monthStart.setUTCHours(0, 0, 0, 0);
-  const [{ data: settings }, { count: cacheCount }, { data: flaggedQuestions }, { data: summaryRows }, { data: adminStorageBytes }, { data: adminUsageEvents }] = await Promise.all([
-    supabase.from('site_settings').select('is_ai_tutor_enabled, is_practical_launched').eq('id', 1).single(),
-    supabase.from('question_explanations').select('*', { count: 'exact', head: true }),
-    supabase.from('answer_flags').select('id, flag_reason, status, created_at, questions ( text )').eq('status', 'pending').order('created_at', { ascending: false }).limit(50),
+  const [{ data: site }, { count: explanations }, { data: flags }, { data: retention }] = await Promise.all([
+    supabase.from('site_settings').select('is_practical_launched').eq('id', 1).maybeSingle(),
+    supabase.from('question_explanations').select('id', { count: 'exact', head: true }),
+    supabase.from('answer_flags').select('id, flag_reason, created_at, questions (text)')
+      .eq('status', 'pending').order('created_at', { ascending: false }).limit(30),
     supabase.rpc('get_admin_financial_summary'),
-    supabase.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id }),
-    supabase.from('billing_events').select('event_type, units, created_at').eq('user_id', user.id).gte('created_at', monthStart.toISOString()).in('event_type', ['voice_charge', 'text_teaching_charge']).limit(10000),
   ]);
-  const summary = Array.isArray(summaryRows) ? summaryRows[0] : summaryRows;
-  const subscriptionRevenue = Number(summary?.gross_subscription_revenue_ngn ?? 0);
-  const topupRevenue = Number(summary?.gross_topup_revenue_ngn ?? 0);
-  const voiceMinutes = Number(summary?.voice_minutes_consumed ?? 0);
-  const textCredits = Number(summary?.text_teaching_credits_consumed ?? 0);
-  const financials = estimateFinancials({ subscriptionRevenueNaira: subscriptionRevenue, topupRevenueNaira: topupRevenue, voiceMinutes, textTeachingCredits: textCredits });
-  const featureUsage = (summary?.feature_usage ?? {}) as Record<string, number>;
-  const monthlyRevenue = Array.isArray(summary?.revenue_by_month) ? summary.revenue_by_month as Array<{ month: string; subscriptions: number; topups: number }> : [];
-  const adminStorageUsed = Number(adminStorageBytes ?? 0);
-  const adminStorageLimit = 100 * 1024 * 1024;
-  const adminStorageRemaining = Math.max(0, adminStorageLimit - adminStorageUsed);
-  const adminVoiceMinutes = (adminUsageEvents ?? []).filter((event) => event.event_type === 'voice_charge').reduce((total, event) => total + Number(event.units ?? 0), 0);
-  const adminTextCredits = (adminUsageEvents ?? []).filter((event) => event.event_type === 'text_teaching_charge').reduce((total, event) => total + Number(event.units ?? 0), 0);
-  const adminMonthlyCosts = estimateFinancials({ subscriptionRevenueNaira: 0, topupRevenueNaira: 0, voiceMinutes: adminVoiceMinutes, textTeachingCredits: adminTextCredits });
-  const isAITutorEnabled = settings?.is_ai_tutor_enabled ?? false;
-  const isPracticalLaunched = settings?.is_practical_launched ?? false;
-
-  async function toggleAITutor() {
-    'use server';
-    const supabaseServer = await createClient();
-    const { data: { user: actionUser } } = await supabaseServer.auth.getUser();
-    const { data: actionProfile } = actionUser ? await supabaseServer.from('profiles').select('role').eq('id', actionUser.id).single() : { data: null };
-    if (actionProfile?.role !== 'admin') return;
-    await supabaseServer.from('site_settings').update({ is_ai_tutor_enabled: !isAITutorEnabled }).eq('id', 1);
-    revalidatePath('/admin');
-  }
+  const summary = Array.isArray(retention) ? retention[0] : retention;
+  const practicalLaunched = site?.is_practical_launched === true;
 
   async function togglePracticals() {
     'use server';
-    const supabaseServer = await createClient();
-    const { data: { user: actionUser } } = await supabaseServer.auth.getUser();
-    const { data: actionProfile } = actionUser ? await supabaseServer.from('profiles').select('role').eq('id', actionUser.id).single() : { data: null };
-    if (actionProfile?.role !== 'admin') return;
-    await supabaseServer.from('site_settings').update({ is_practical_launched: !isPracticalLaunched }).eq('id', 1);
+    const client = await createClient();
+    const { data: { user: operator } } = await client.auth.getUser();
+    if (!operator) return;
+    const { data: role } = await client.from('profiles').select('role')
+      .eq('id', operator.id).maybeSingle();
+    if (role?.role !== 'admin') return;
+    const { data: current } = await client.from('site_settings')
+      .select('is_practical_launched').eq('id', 1).maybeSingle();
+    if (!current) return;
+    const { error } = await client.from('site_settings')
+      .update({ is_practical_launched: !current.is_practical_launched }).eq('id', 1);
+    if (error) throw new Error('Unable to update practicals availability.');
     revalidatePath('/admin');
     revalidatePath('/pricing');
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f7fb] px-4 py-8 sm:px-8 lg:px-12">
-      <div className="mx-auto max-w-7xl">
-        <header className="rounded-[2rem] bg-gradient-to-br from-[#0b1220] via-[#17263e] to-[#243b5a] p-8 text-white shadow-xl sm:p-10">
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-[#e8a23d]">LenxiQ AI · Admin</p>
-          <div className="mt-4 flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-            <div>
-              <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Financial Intelligence Dashboard</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">A server-calculated view of cash received, measured feature usage, estimated provider spend, wallet health, and retention risk.</p>
-            </div>
-            <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-5 py-4 text-sm font-bold text-emerald-100">Admin access: unlimited learning and platform control · storage cap applies</div>
+    <main className="min-h-screen bg-[#F6F8FB] px-4 py-8 sm:px-7 sm:py-10">
+      <div className="mx-auto max-w-6xl">
+        <header className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#0B1220] via-[#182a44] to-[#263e59] p-7 text-white shadow-xl sm:p-10">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-14 -top-20 h-60 w-60 rounded-full bg-[#E8A23D]/15 blur-3xl" />
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#E8A23D]">LenxiQ AI · Administration</p>
+          <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Platform control centre</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">Monitor learning infrastructure, review flagged content, and manage access to practical learning resources.</p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link href="/admin/ai-usage" className="rounded-xl bg-[#E8A23D] px-4 py-3 text-sm font-black text-[#0B1220] hover:bg-amber-400">AI usage and safeguards</Link>
+            <Link href="/dashboard" className="rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-bold text-white hover:bg-white/20">Learner dashboard</Link>
           </div>
         </header>
 
-        <section className="mt-5 flex flex-col justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:flex-row sm:items-center">
-          <div>
-            <p className="text-sm font-black text-blue-950">AI provider safety controls</p>
-            <p className="mt-1 text-sm text-blue-800">Monitor reserved spend, budget alerts, and the global emergency stop.</p>
-          </div>
-          <a href="/admin/ai-usage" className="inline-flex w-fit items-center rounded-xl bg-blue-900 px-4 py-3 text-sm font-black text-white hover:bg-blue-800">Open AI usage monitor →</a>
-        </section>
-
-        <section className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <section aria-label="Platform overview" className="mt-6 grid gap-4 sm:grid-cols-3">
           {[
-            { label: 'Gross revenue', value: naira(financials.grossRevenueNaira), detail: `${naira(subscriptionRevenue)} subscriptions · ${naira(topupRevenue)} legacy purchases`, tone: 'text-[#0b1220]' },
-            { label: 'Estimated total cost', value: naira(financials.estimatedTotalCostNaira), detail: `${financials.estimatedApiCostUsd.toFixed(2)} USD API estimate + payment fees`, tone: 'text-amber-700' },
-            { label: 'Estimated net gain', value: naira(financials.estimatedNetGainNaira), detail: 'Directional estimate; not a provider invoice', tone: financials.estimatedNetGainNaira >= 0 ? 'text-emerald-700' : 'text-red-700' },
-            { label: 'Active Premium users', value: String(summary?.active_premium_users ?? 0), detail: 'Unexpired non-admin plans', tone: 'text-indigo-700' },
-          ].map((card) => <article key={card.label} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{card.label}</p><p className={`mt-3 text-3xl font-black ${card.tone}`}>{card.value}</p><p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{card.detail}</p></article>)}
+            { name: 'Pending content flags', value: flags?.length ?? 0, detail: 'Most recent 30 submitted flags' },
+            { name: 'Cached explanations', value: explanations ?? 0, detail: 'Stored question explanations' },
+            { name: 'Recording maintenance', value: Number(summary?.recordings_expiring_7d ?? 0), detail: 'Scheduled to expire within 7 days' },
+          ].map((card) => (
+            <article key={card.name} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">{card.name}</p>
+              <p className="mt-3 text-3xl font-black text-[#0B1220]">{card.value.toLocaleString()}</p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">{card.detail}</p>
+            </article>
+          ))}
         </section>
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+        <section className="mt-6 grid gap-5 lg:grid-cols-2">
           <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#9a5d00]">Revenue mix</p><h2 className="mt-2 text-xl font-black text-[#0b1220]">Subscriptions versus wallet legacy purchases</h2></div><p className="text-xs font-semibold text-slate-400">Last 12 months · NGN</p></div>
-            <div className="mt-6 overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm"><thead className="border-b border-slate-200 text-xs uppercase tracking-[0.12em] text-slate-400"><tr><th className="px-3 py-3">Month</th><th className="px-3 py-3">Subscriptions</th><th className="px-3 py-3">Legacy purchases</th><th className="px-3 py-3 text-right">Total</th></tr></thead><tbody className="divide-y divide-slate-100">{monthlyRevenue.map((month) => <tr key={month.month}><td className="px-3 py-3 font-bold text-slate-700">{month.month}</td><td className="px-3 py-3 text-slate-600">{naira(Number(month.subscriptions))}</td><td className="px-3 py-3 text-slate-600">{naira(Number(month.topups))}</td><td className="px-3 py-3 text-right font-black text-slate-900">{naira(Number(month.subscriptions) + Number(month.topups))}</td></tr>)}</tbody></table></div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#9A5D00]">Content availability</p>
+            <h2 className="mt-2 text-xl font-black text-[#0B1220]">Practical learning</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Control whether the interactive practical catalogue is launched. This does not modify existing subscriptions or study records.</p>
+            <form action={togglePracticals} className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-4">
+              <span className={`text-sm font-black ${practicalLaunched ? 'text-emerald-700' : 'text-slate-600'}`}>
+                {practicalLaunched ? 'Available to eligible students' : 'Not launched'}
+              </span>
+              <button type="submit" className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-black text-slate-800 hover:border-amber-300">Change status</button>
+            </form>
           </article>
-          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.16em] text-[#9a5d00]">Measured consumption</p><h2 className="mt-2 text-xl font-black text-[#0b1220]">Feature usage</h2><div className="mt-6 space-y-4">{[['voice_charge', 'Voice minutes', voiceMinutes], ['text_teaching_charge', 'Text-teaching credits', textCredits], ['monthly_grant', 'Wallet grants', Number(featureUsage.monthly_grant ?? 0)]].map(([key, label, value]) => <div key={String(key)} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3"><span className="text-sm font-bold text-slate-600">{String(label)}</span><span className="text-lg font-black text-[#0b1220]">{Number(value).toLocaleString()}</span></div>)}</div><p className="mt-5 text-xs leading-5 text-slate-400">Usage is based on append-only billing events, not current balances alone.</p></article>
+          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#9A5D00]">AI operations</p>
+            <h2 className="mt-2 text-xl font-black text-[#0B1220]">Tutor and infrastructure</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Review AI usage, request limits and configuration alerts. The previous global pause switch is no longer presented as a functioning access control.</p>
+            <Link href="/admin/ai-usage" className="mt-6 inline-flex rounded-xl bg-[#0B1220] px-4 py-3 text-sm font-bold text-white hover:bg-slate-800">Open monitoring panel</Link>
+          </article>
         </section>
 
-        <section className="mt-6 rounded-2xl border border-[#e8a23d]/40 bg-[#fffaf0] p-6 shadow-sm"><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#9a5d00]">Administrator usage cost</p><h2 className="mt-2 text-xl font-black text-[#0b1220]">Your estimated consumption this month</h2></div><p className="text-xs font-bold text-[#7a5a24]">Since {monthStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p></div><div className="mt-5 grid gap-4 sm:grid-cols-3"><div className="rounded-xl bg-white/80 p-4"><p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Voice</p><p className="mt-2 text-2xl font-black text-[#0b1220]">{naira(adminMonthlyCosts.voiceProviderCostUsd * BILLING_COSTS.usdToNaira)}</p><p className="mt-1 text-xs font-semibold text-slate-500">{adminVoiceMinutes.toFixed(1)} minutes · {adminMonthlyCosts.voiceProviderCostUsd.toFixed(4)} USD</p></div><div className="rounded-xl bg-white/80 p-4"><p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Text teaching</p><p className="mt-2 text-2xl font-black text-[#0b1220]">{naira(adminMonthlyCosts.textProviderCostUsd * BILLING_COSTS.usdToNaira)}</p><p className="mt-1 text-xs font-semibold text-slate-500">{adminTextCredits.toFixed(0)} credits · {adminMonthlyCosts.textProviderCostUsd.toFixed(4)} USD</p></div><div className="rounded-xl bg-white/80 p-4"><p className="text-xs font-black uppercase tracking-[0.14em] text-[#9a5d00]">Total estimated cost</p><p className="mt-2 text-2xl font-black text-[#0b1220]">{naira(adminMonthlyCosts.estimatedApiCostNaira)}</p><p className="mt-1 text-xs font-semibold text-slate-500">{adminMonthlyCosts.estimatedApiCostUsd.toFixed(4)} USD · provider estimate</p></div></div><p className="mt-4 text-xs leading-5 text-[#7a5a24]">The administrator is not charged a subscription. This total is the estimated API consumption generated by the admin’s own recorded activity, using the same configurable unit-cost assumptions as the platform margin model.</p></section>
-
-        <section className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Global Teaching storage</p><p className="mt-3 text-2xl font-black text-[#0b1220]">{(Number(summary?.retained_teaching_storage_bytes ?? 0) / (1024 * 1024)).toFixed(1)} MB</p><p className="mt-2 text-sm font-semibold text-slate-500">Retained lecture files across all accounts</p></article>
-          <article className="rounded-2xl border border-[#e8a23d]/40 bg-[#fffaf0] p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.16em] text-[#9a5d00]">Your admin storage</p><p className="mt-3 text-2xl font-black text-[#0b1220]">{(adminStorageUsed / (1024 * 1024)).toFixed(1)} / 100 MB</p><div className="mt-3 h-2 rounded-full bg-[#eadfc9]"><div className="h-2 rounded-full bg-[#e8a23d]" style={{ width: `${Math.min(100, (adminStorageUsed / adminStorageLimit) * 100)}%` }} /></div><p className="mt-2 text-xs font-bold text-[#7a5a24]">{(adminStorageRemaining / (1024 * 1024)).toFixed(1)} MB remaining</p></article>
-          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Recording retention</p><p className="mt-3 text-2xl font-black text-[#0b1220]">{Number(summary?.recordings_expiring_7d ?? 0)}</p><p className="mt-2 text-sm font-semibold text-slate-500">Recordings expiring within 7 days</p></article>
-          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">System health</p><p className="mt-3 text-2xl font-black text-[#0b1220]">{flaggedQuestions?.length ?? 0} flags</p><p className="mt-2 text-sm font-semibold text-slate-500">{cacheCount ?? 0} cached explanations</p></article>
+        <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <header className="border-b border-slate-100 px-6 py-5">
+            <h2 className="text-xl font-black text-[#0B1220]">Flagged study content</h2>
+            <p className="mt-1 text-xs text-slate-500">Review learner-reported questions before applying editorial corrections.</p>
+          </header>
+          {!flags?.length ? (
+            <p className="p-8 text-center text-sm font-semibold text-slate-500">No pending content flags.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {flags.map((flag) => (
+                <li key={flag.id} className="p-5 sm:px-6">
+                  <p className="text-sm font-bold leading-6 text-slate-800">
+                    {flag.questions && typeof flag.questions === 'object' &&
+                     'text' in flag.questions && typeof flag.questions.text === 'string'
+                      ? flag.questions.text : 'Question details unavailable'}
+                  </p>
+                  <p className="mt-2 text-xs font-semibold text-amber-800">{flag.flag_reason}</p>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
-
-        <section className="mt-6 grid gap-6 lg:grid-cols-2">
-          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-lg font-black text-slate-900">Platform controls</h2><div className="mt-5 grid gap-4 sm:grid-cols-2">{[['AI Tutor', isAITutorEnabled, toggleAITutor], ['Practicals', isPracticalLaunched, togglePracticals]].map(([label, enabled, action]) => <div key={String(label)} className="flex items-center justify-between rounded-xl bg-slate-50 p-4"><div><p className="font-black text-slate-800">{String(label)}</p><p className="mt-1 text-xs font-semibold text-slate-500">{enabled ? 'Active' : 'Paused'}</p></div><form action={action as () => Promise<void>}><button type="submit" className={`h-7 w-14 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}><span className={`block h-5 w-5 rounded-full bg-white transition-transform ${enabled ? 'translate-x-8' : 'translate-x-1'}`} /></button></form></div>)}</div></article>
-          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-lg font-black text-slate-900">Cost assumptions</h2><p className="mt-3 text-sm leading-6 text-slate-500">The cost model uses configurable unit assumptions for Flutterwave fees, the self-hosted Pipecat voice agent, and DeepSeek. It is intended for financial planning and margin monitoring, not as a replacement for provider invoices.</p><div className="mt-4 grid grid-cols-2 gap-3 text-xs font-bold text-slate-600"><div className="rounded-xl bg-slate-50 p-3">Voice: {financials.voiceProviderCostUsd.toFixed(2)} USD</div><div className="rounded-xl bg-slate-50 p-3">Teaching: {financials.textProviderCostUsd.toFixed(2)} USD</div></div></article>
-        </section>
-
-        <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-200 bg-slate-50 p-6"><h2 className="text-lg font-black text-slate-900">Flagged content queue</h2></div>{!flaggedQuestions?.length ? <p className="p-8 text-center text-sm font-semibold text-slate-400">No pending flags.</p> : <ul className="divide-y divide-slate-100">{flaggedQuestions.map((flag) => <li key={flag.id} className="p-5"><p className="text-sm font-bold text-slate-800">{flag.questions && typeof flag.questions === 'object' && 'text' in flag.questions && typeof flag.questions.text === 'string' ? flag.questions.text : 'Unknown question'}</p><p className="mt-2 text-sm text-red-700">{flag.flag_reason}</p></li>)}</ul>}</section>
       </div>
     </main>
   );
