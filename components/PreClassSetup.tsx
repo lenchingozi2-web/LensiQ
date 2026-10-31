@@ -6,7 +6,7 @@ import JSZip from 'jszip';
 import { isLegacyWordDocument, isSupportedLectureFile, LECTURE_FILE_ACCEPT, normalizeLectureFileName } from '@/lib/curriculum/file-types';
 import type { MaterialProfile } from '@/lib/curriculum/material-profile';
 
-const MAX_FILES = 20;
+const MAX_FILES = 6;
 const MAX_TOTAL_BYTES = 50 * 1024 * 1024;
 
 type PreClassSetupProps = {
@@ -186,7 +186,7 @@ export default function PreClassSetup({
       >
         <div className="w-full">
           <p className="text-sm font-black text-white/90">{uploadProgress === null ? 'Drop lecture files here or browse' : `Uploading... ${uploadProgress}%`}</p>
-          <p className="mt-1 text-xs font-semibold leading-5 text-white/45">PDF, DOC, DOCX, PPTX, and TXT · 50 MB combined maximum</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-white/45">PDF, DOC, DOCX, PPTX, and TXT · up to 6 files · 50 MB combined maximum</p>
           {uploadProgress !== null && <div className="mx-auto mt-3 h-2 w-full max-w-sm overflow-hidden rounded-full bg-white/10" aria-hidden="true"><div className="h-full rounded-full bg-[#E8A23D] transition-[width] duration-300" style={{ width: `${uploadProgress}%` }} /></div>}
         </div>
         <input

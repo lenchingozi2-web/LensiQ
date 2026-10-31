@@ -4,7 +4,7 @@ import { extractLectureText } from '@/lib/curriculum/extract-text';
 import { getLectureFileExtension, normalizeLectureMimeType } from '@/lib/curriculum/file-types';
 
 const STORAGE_BUCKET = 'teaching-attachments';
-const MAX_FILES = 20;
+const MAX_FILES = 6;
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_STORAGE_BYTES = 100 * 1024 * 1024;
 const SUPPORTED_EXTENSIONS = new Set(['pdf', 'doc', 'docx']);

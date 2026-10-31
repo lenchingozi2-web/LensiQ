@@ -4,6 +4,7 @@ import { createClient } from '../../../../lib/supabase/server';
 import { logAuthRequestRejection } from '../../../../lib/auth/request-diagnostics';
 import { LIVE_CLASS_MODEL_ASSETS, LIVE_CLASS_MOLECULE_ASSETS } from '@/lib/voice/live-class-visuals';
 import { LIVE_CLASS_MODEL_CATALOG, LIVE_CLASS_MOLECULE_CATALOG } from '@/lib/voice/live-class-model-catalog';
+import { includesLiveClass } from '@/lib/plans';
 
 function normalizeLiveKitUrl(value: string) {
   const trimmed = value.trim().replace(/^['"]|['"]$/g, '').replace(/\/$/, '');
@@ -25,6 +26,20 @@ export async function POST(req: Request) {
   if (!user) {
     logAuthRequestRejection(req, 'voice-token', authError);
     return NextResponse.json({ error: 'Not authenticated.', message: 'Sign in to start your Live Class.' }, { status: 401 });
+  }
+
+  const { data: voiceProfile } = await supabase
+    .from('profiles')
+    .select('role, plan, plan_expires_at')
+    .eq('id', user.id)
+    .maybeSingle();
+  const activePaidPlan = Boolean(voiceProfile?.plan && voiceProfile.plan !== 'free'
+    && (!voiceProfile.plan_expires_at || new Date(voiceProfile.plan_expires_at) > new Date()));
+  if (activePaidPlan && voiceProfile?.role !== 'admin' && !includesLiveClass(voiceProfile.plan)) {
+    return NextResponse.json({
+      error: 'live_class_plan_required',
+      message: 'Live Class is included with All Access at ₦9,870/month. Your Premium Study plan includes the full text and catalogue experience.',
+    }, { status: 403 });
   }
 
   // The browser must join the same LiveKit Cloud deployment that the Modal
@@ -68,12 +83,12 @@ export async function POST(req: Request) {
   const topicFocus = typeof body?.topicFocus === 'string' && body.topicFocus.trim() ? body.topicFocus.trim().slice(0, 300) : '';
   const focusText = typeof body?.focusText === 'string' && body.focusText.trim() ? body.focusText.trim().slice(0, 1200) : '';
   const conversationId = typeof body?.conversationId === 'string' && body.conversationId.trim() ? body.conversationId.trim() : null;
-  const materialUrls = Array.isArray(body?.fileUrls) ? body.fileUrls.filter((value: unknown): value is string => typeof value === 'string' && value.startsWith('http')).slice(0, 20) : [];
+  const materialUrls = Array.isArray(body?.fileUrls) ? body.fileUrls.filter((value: unknown): value is string => typeof value === 'string' && value.startsWith('http')).slice(0, 6) : [];
   const rawMaterialContext = body?.materialContext && typeof body.materialContext === 'object' ? body.materialContext as { primaryBranch?: unknown; branches?: unknown; sources?: unknown } : null;
   const materialContext = rawMaterialContext ? {
     primaryBranch: typeof rawMaterialContext.primaryBranch === 'string' ? rawMaterialContext.primaryBranch.slice(0, 80) : null,
     branches: Array.isArray(rawMaterialContext.branches) ? rawMaterialContext.branches.filter((value): value is string => typeof value === 'string').slice(0, 8) : [],
-    sources: Array.isArray(rawMaterialContext.sources) ? rawMaterialContext.sources.filter((value): value is string => typeof value === 'string').slice(0, 20) : [],
+    sources: Array.isArray(rawMaterialContext.sources) ? rawMaterialContext.sources.filter((value): value is string => typeof value === 'string').slice(0, 6) : [],
   } : null;
   const roomName = `lensiq-voice-${user.id.slice(0, 8)}-${crypto.randomUUID()}`;
 

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 import { getOrCreateProfile } from '../../lib/profile';
 import { issueActiveSession } from '../../lib/auth/active-session';
+import GoogleSignInButton from '../../components/GoogleSignInButton';
 
 function safeNextPath(value: string | null | undefined) {
   if (!value?.startsWith('/') || value.startsWith('//')) return '/dashboard';
@@ -134,10 +135,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           Create Account
         </button>
         <div className="my-3 flex items-center gap-3 text-xs font-semibold text-slate-400"><span className="h-px flex-1 bg-slate-200" /><span>OR</span><span className="h-px flex-1 bg-slate-200" /></div>
-        <a href={`/auth/google?next=${encodeURIComponent(next)}`} className="flex items-center justify-center gap-3 rounded-md border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-800 shadow-sm hover:bg-slate-50">
-          <span aria-hidden="true" className="text-base font-black">G</span>
-          Continue with Google
-        </a>
+        <GoogleSignInButton next={next} className="rounded-md border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-800 shadow-sm hover:bg-slate-50" />
       </form>
     </main>
   );

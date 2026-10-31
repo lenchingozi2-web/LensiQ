@@ -1,5 +1,7 @@
 export const PAID_PLANS = [
-  { id: 'premium_monthly', durationMonths: 1, amountNaira: 6000, label: 'Monthly Premium' },
+  { id: 'premium_text_monthly', durationMonths: 1, amountNaira: 4570, label: 'Premium Study · Text & Catalogue' },
+  // Keep this identifier for existing subscribers and make it the new all-access tier.
+  { id: 'premium_monthly', durationMonths: 1, amountNaira: 9870, label: 'Premium All Access · Live Class' },
   { id: 'premium_3mo', durationMonths: 3, amountNaira: 18000, label: '3-Month Premium' },
   { id: 'premium_6mo', durationMonths: 6, amountNaira: 32400, label: '6-Month Premium' },
   // Legacy terms remain valid for existing subscribers and verified renewals.
@@ -9,7 +11,7 @@ export const PAID_PLANS = [
   { id: '12mo', durationMonths: 12, amountNaira: 20000, label: 'Legacy 12 Months' },
 ] as const;
 
-export const PUBLIC_PAID_PLANS = [PAID_PLANS[0], PAID_PLANS[1], PAID_PLANS[2]] as const;
+export const PUBLIC_PAID_PLANS = [PAID_PLANS[0], PAID_PLANS[1]] as const;
 
 
 export type PaidPlanId = (typeof PAID_PLANS)[number]['id'];
@@ -29,4 +31,9 @@ export function isPaidPlan(planId: unknown): planId is PaidPlanId {
 
 export function isHybridPremiumPlan(planId: unknown) {
   return isPaidPlan(planId);
+}
+
+export function includesLiveClass(planId: unknown) {
+  return planId === 'premium_monthly' || planId === 'premium_3mo' || planId === 'premium_6mo'
+    || planId === '3mo' || planId === '6mo' || planId === '9mo' || planId === '12mo';
 }

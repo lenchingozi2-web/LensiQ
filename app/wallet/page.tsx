@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import { includesLiveClass } from '@/lib/plans';
 
 type WalletEvent = {
   id: string;
@@ -81,8 +82,8 @@ export default function WalletPage() {
   }, [loadWallet]);
 
   const storagePercent = Math.min(100, Math.round((wallet.storageUsedBytes / Math.max(wallet.storageLimitBytes, 1)) * 100));
-  const paidLabel = loading ? 'Checking access…' : wallet.isAdmin ? 'Administrator access' : wallet.isPremium ? 'Hybrid Premium' : 'Foundation Scholar';
-  const liveClassAccess = wallet.isAdmin ? 'Unlimited' : wallet.isPremium ? `${wallet.voiceMinutes} min` : `${wallet.freeLiveClassMinutes} min`;
+  const paidLabel = loading ? 'Checking access…' : wallet.isAdmin ? 'Administrator access' : wallet.isPremium ? (includesLiveClass(wallet.plan) ? 'All Access' : 'Premium Study') : 'Foundation Scholar';
+  const liveClassAccess = wallet.isAdmin ? 'Unlimited' : wallet.isPremium && includesLiveClass(wallet.plan) ? `${wallet.voiceMinutes} min` : wallet.isPremium ? 'Not included' : `${wallet.freeLiveClassMinutes} min`;
 
   return (
     <main className="min-h-screen bg-[#f6f7fb] px-4 py-8 sm:px-6 lg:px-8">
@@ -100,7 +101,7 @@ export default function WalletPage() {
         {loading ? <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm font-semibold text-slate-500">Loading your wallet…</div> : (
           <>
             <section className="mt-6 grid gap-5 md:grid-cols-3">
-              <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">AI Tutor access</p><p className="mt-3 text-4xl font-black text-[#0B1220]">{liveClassAccess}</p><p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{wallet.isAdmin ? 'Administrator voice sessions are unmetered.' : wallet.isPremium ? 'Live Class voice minutes refresh each billing cycle. Your current balance remains usable.' : `${wallet.freeLiveClassMinutes} free Live Class minutes remain this month.`}</p></article>
+              <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Live Class access</p><p className="mt-3 text-4xl font-black text-[#0B1220]">{liveClassAccess}</p><p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{wallet.isAdmin ? 'Administrator voice sessions are unmetered.' : wallet.isPremium && includesLiveClass(wallet.plan) ? 'Live Class voice minutes refresh each billing cycle. Your current balance remains usable.' : wallet.isPremium ? 'Live Class is available on the All Access plan.' : `${wallet.freeLiveClassMinutes} free Live Class minutes remain this month.`}</p></article>
               <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Text-teaching credits</p><p className="mt-3 text-4xl font-black text-[#0B1220]">{wallet.isAdmin ? 'Unlimited' : wallet.textTeachingCredits}</p><p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{wallet.isAdmin ? 'Administrator usage is recorded but never deducted.' : 'Premium monthly credits reset to 50; unused credits do not roll over.'}</p></article>
               <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Retained Teaching storage</p><p className="mt-3 text-3xl font-black text-[#0B1220]">{formatBytes(wallet.storageUsedBytes)} <span className="text-base text-slate-400">/ {formatBytes(wallet.storageLimitBytes)}</span></p><div className="mt-4 h-2 rounded-full bg-slate-100"><div className={`h-2 rounded-full ${storagePercent >= 90 ? 'bg-red-500' : 'bg-[#E8A23D]'}`} style={{ width: `${storagePercent}%` }} /></div><Link href="/files" className="mt-3 inline-flex text-xs font-black text-[#9A5D00]">Manage retained files →</Link></article>
             </section>
@@ -114,11 +115,11 @@ export default function WalletPage() {
               <aside className="space-y-6">
                 <article className="rounded-2xl border border-[#E8A23D]/40 bg-[#FFF8E9] p-6">
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#9A5D00]">Included AI Tutor access</p>
-                  <h2 className="mt-2 text-xl font-black text-[#0B1220]">{wallet.isPremium ? 'Monthly Premium allowance' : wallet.isAdmin ? 'Administrator wallet' : 'Free Live Class allowance'}</h2>
-                  <p className="mt-3 text-sm font-semibold leading-6 text-[#6E501E]">{wallet.isAdmin ? 'Administrators have unlimited Live Class access. Usage is tracked internally for cost intelligence.' : wallet.isPremium ? 'Premium includes 6 hours of Live Class and 50 text-teaching credits per monthly billing cycle. Unused monthly allowances do not roll over.' : `${wallet.freeLiveClassMinutes} free Live Class minutes remain this month. Upgrade to Hybrid Premium for 6 hours per billing month.`}</p>
+                  <h2 className="mt-2 text-xl font-black text-[#0B1220]">{wallet.isPremium ? (includesLiveClass(wallet.plan) ? 'All Access allowance' : 'Premium Study allowance') : wallet.isAdmin ? 'Administrator wallet' : 'Free Live Class allowance'}</h2>
+                  <p className="mt-3 text-sm font-semibold leading-6 text-[#6E501E]">{wallet.isAdmin ? 'Administrators have unlimited Live Class access. Usage is tracked internally for cost intelligence.' : wallet.isPremium && includesLiveClass(wallet.plan) ? 'All Access includes 6 hours of Live Class and 50 text-teaching credits per monthly billing cycle.' : wallet.isPremium ? 'Premium Study includes the full catalogue and text tutoring. Upgrade to All Access for Live Class.' : `${wallet.freeLiveClassMinutes} free Live Class minutes remain this month. Upgrade to All Access for Live Class.`}</p>
                   {!wallet.isAdmin && <Link href="/pricing" className="mt-5 inline-flex rounded-xl bg-[#0B1220] px-4 py-3 text-sm font-black text-white">{wallet.isPremium ? 'View plan details' : 'View Premium plans'}</Link>}
                 </article>
-                <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Billing cycle</p><p className="mt-3 text-sm font-bold text-slate-700">{wallet.isAdmin ? 'Not applicable to administrators' : wallet.walletResetAt ? `Next reset: ${new Date(wallet.walletResetAt).toLocaleDateString()}` : 'Monthly allowances begin after Premium payment'}</p><p className="mt-2 text-xs leading-5 text-slate-500">Premium voice and text allowances reset to 6 hours and 50 credits monthly. Free Live Class minutes reset monthly as well. Unused monthly allowances do not roll over.{wallet.planExpiresAt ? ` Subscription ends ${new Date(wallet.planExpiresAt).toLocaleDateString()}.` : ''}</p></article>
+                <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Billing cycle</p><p className="mt-3 text-sm font-bold text-slate-700">{wallet.isAdmin ? 'Not applicable to administrators' : wallet.walletResetAt ? `Next reset: ${new Date(wallet.walletResetAt).toLocaleDateString()}` : 'Monthly allowances begin after Premium payment'}</p><p className="mt-2 text-xs leading-5 text-slate-500">All Access voice and text allowances reset to 6 hours and 50 credits monthly. Premium Study text credits reset monthly. Free Live Class minutes reset monthly as well. Unused allowances do not roll over.{wallet.planExpiresAt ? ` Subscription ends ${new Date(wallet.planExpiresAt).toLocaleDateString()}.` : ''}</p></article>
               </aside>
             </section>
           </>

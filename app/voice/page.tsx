@@ -878,7 +878,13 @@ function VoiceTutorContent() {
             if (!(data.state in RUNTIME_COPY)) return;
             runtimeStateRef.current = data.state;
             setRuntimeState(data.state);
-            if (data.state === 'THINKING') setError('');
+            if (data.state === 'THINKING') {
+              setError('');
+              // A new learner turn may choose a new model, simulation, or board.
+              // Without this reset, one explicit visual command permanently
+              // suppressed all later transcript-driven visual updates.
+              explicitVisualThisTurnRef.current = false;
+            }
             if (data.state === 'TEACHING' && messagesRef.current.length === 0) {
               updateVisualContext({
                 type: 'whiteboard',

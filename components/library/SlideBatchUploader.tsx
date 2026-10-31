@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 
-const MAX_FILES = 20;
+const MAX_FILES = 6;
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 type SlideBatchUploaderProps = {
@@ -73,7 +73,7 @@ export default function SlideBatchUploader({ onFilesChange }: SlideBatchUploader
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-[#9A5D00]">Lecture library</p>
           <h2 id="slide-upload-title" className="mt-2 text-2xl font-black tracking-tight text-[#0B1220]">Add a slide batch</h2>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">Upload up to 20 PDF lecture decks together. We will parse each deck into searchable slide content for Studio sessions and past-question mapping.</p>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">Upload up to 6 PDF lecture decks together. We will parse each deck into searchable slide content for Studio sessions and past-question mapping.</p>
         </div>
         <span className="shrink-0 rounded-full bg-[#FFF8E9] px-3 py-1.5 text-xs font-black text-[#8B5709]">{files.length} / {MAX_FILES} files</span>
       </div>
@@ -90,7 +90,7 @@ export default function SlideBatchUploader({ onFilesChange }: SlideBatchUploader
         <input ref={inputRef} type="file" accept="application/pdf,.pdf" multiple className="sr-only" onChange={(event) => { addFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }} />
         <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0B1220] text-2xl text-[#E8A23D]" aria-hidden="true">↑</span>
         <span className="mt-4 text-sm font-black text-[#0B1220]">{isDragging ? 'Drop your PDFs here' : 'Drag and drop PDF lecture decks'}</span>
-        <span className="mt-2 text-xs font-semibold text-slate-500">or click to browse · maximum 20 files · 20 MB per file</span>
+        <span className="mt-2 text-xs font-semibold text-slate-500">or click to browse · maximum 6 files · 20 MB per file</span>
       </button>
 
       {errors.length > 0 && (
