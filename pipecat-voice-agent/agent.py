@@ -241,7 +241,75 @@ class AiBudgetGate(FrameProcessor):
                         "message": denial_message,
                     }
                     await client.send_data(json.dumps(message).encode("utf-8"))
+                # Surface the denial to the pipeline error handler so the
+                # learner receives a spoken wrap-up rather than a silent stop.
+                await self.push_frame(ErrorFrame(error=denial_message), direction)
                 return
+        await self.push_frame(frame, direction)
+
+
+class MaterialContextBridge(FrameProcessor):
+    """Retrieve only the most relevant excerpts from uploaded lecture text."""
+
+    def __init__(self, room_metadata: str | None):
+        super().__init__(name="live-class-material-context")
+        self.urls: list[str] = []
+        self.chunks: list[tuple[str, str]] = []
+        self._loaded = False
+        try:
+            metadata = json.loads(room_metadata or "{}")
+            self.urls = [value for value in (metadata.get("materialUrls") or []) if isinstance(value, str)][:6]
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+
+    def _download(self, url: str) -> str:
+        request = urllib.request.Request(url, headers={"User-Agent": "LenxiQ-Live-Class/1.0"})
+        with urllib.request.urlopen(request, timeout=15) as response:
+            return response.read(2_000_000).decode("utf-8", "replace")
+
+    async def preload(self) -> None:
+        if self._loaded:
+            return
+        self._loaded = True
+        for index, url in enumerate(self.urls):
+            try:
+                text = await asyncio.to_thread(self._download, url)
+                # 1,600-character windows preserve headings and nearby facts;
+                # overlap prevents page-boundary concepts from being lost.
+                for offset in range(0, min(len(text), 220_000), 1_400):
+                    chunk = text[offset:offset + 1_700].strip()
+                    if chunk:
+                        self.chunks.append((f"uploaded source {index + 1}", chunk))
+            except (OSError, UnicodeError, TimeoutError) as error:
+                logger.warning("Unable to load uploaded source %d: %s", index + 1, type(error).__name__)
+        logger.info("Loaded %d compact lecture excerpts from %d uploaded sources", len(self.chunks), len(self.urls))
+
+    def _relevant(self, query: str) -> str:
+        if not self.chunks:
+            return ""
+        terms = {term for term in query.lower().split() if len(term) > 3}
+        ranked = sorted(
+            self.chunks,
+            key=lambda item: sum(1 for term in terms if term in item[1].lower()),
+            reverse=True,
+        )
+        selected = [item for item in ranked[:3] if any(term in item[1].lower() for term in terms)] or ranked[:2]
+        return "\n\n".join(f"[{source}]\n{chunk}" for source, chunk in selected)[:5_000]
+
+    async def process_frame(self, frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+        if isinstance(frame, (LLMContextFrame, OpenAILLMContextFrame)):
+            await self.preload()
+            context = getattr(frame, "context", None)
+            messages = getattr(context, "messages", None)
+            if isinstance(messages, list):
+                query = next((message.get("content", "") for message in reversed(messages)
+                              if isinstance(message, dict) and message.get("role") == "user"), "")
+                notes = self._relevant(str(query))
+                messages[:] = [message for message in messages if not (isinstance(message, dict) and message.get("role") == "system" and str(message.get("content", "")).startswith("SOURCE NOTES:"))]
+                if notes:
+                    insert_at = 1 if messages and messages[0].get("role") == "system" else 0
+                    messages.insert(insert_at, {"role": "system", "content": "SOURCE NOTES (use only when relevant; do not quote this block):\n" + notes})
         await self.push_frame(frame, direction)
 
 class ConversationalKokoroTTSService(KokoroTTSService):
@@ -361,6 +429,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     assistant_aggregator = context_aggregators.assistant()
     user_bridge = LiveClassDataBridge(transport, "user")
     assistant_bridge = LiveClassDataBridge(transport, "assistant")
+    material_bridge = MaterialContextBridge(room_metadata)
     try:
         room_data = json.loads(room_metadata or "{}")
     except (TypeError, ValueError, json.JSONDecodeError):
@@ -372,18 +441,34 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         os.getenv("AI_BUDGET_INTERNAL_TOKEN", "").strip(),
     )
     pipeline = Pipeline([
-        transport.input(), stt, user_bridge, user_aggregator, budget_gate, llm,
+        transport.input(), stt, user_bridge, user_aggregator, material_bridge, budget_gate, llm,
         assistant_bridge, tts, transport.output(), assistant_aggregator,
     ])
     task = PipelineTask(pipeline, params=PipelineParams(allow_interruptions=True, enable_metrics=True))
+    wrapup_queued = False
 
     @task.event_handler("on_pipeline_error")
     async def on_pipeline_error(_task: PipelineTask, frame: ErrorFrame):
+        nonlocal wrapup_queued
         message = str(frame.error or "The tutor could not complete that response.")
         if "402" in message or "Insufficient Balance" in message:
             message = "The tutor service is temporarily unavailable. Please try again in a moment."
         logger.error("Live Class pipeline error: %s", frame.error)
-        await assistant_bridge.publish({"type": "live_class_state", "state": "ERROR", "message": message})
+        if "usage allowance" in message.lower() or "budget" in message.lower() or "temporarily paused" in message.lower():
+            if wrapup_queued:
+                return
+            wrapup_queued = True
+            wrapup = (
+                "We are closing this protected lesson segment now. Before you leave, solve these two puzzles: "
+                "first, predict what would happen if the key mechanism we discussed were blocked; "
+                "second, name one clinical clue that would distinguish it from its closest look-alike. "
+                "Keep your answers in mind and we will continue from this exact point next time."
+            )
+            await assistant_bridge.publish({"type": "live_class_state", "state": "WRAPPING", "message": wrapup})
+            await assistant_bridge.publish({"type": "live_class_transcript", "role": "assistant", "content": wrapup, "final": True})
+            await _task.queue_frame(TTSSpeakFrame(wrapup))
+        else:
+            await assistant_bridge.publish({"type": "live_class_state", "state": "ERROR", "message": message})
 
     @transport.event_handler("on_data_received")
     async def on_data_received(_transport: LiveKitTransport, payload: bytes, _participant_id: str):

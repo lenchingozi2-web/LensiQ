@@ -35,10 +35,12 @@ export async function POST(req: Request) {
     .maybeSingle();
   const activePaidPlan = Boolean(voiceProfile?.plan && voiceProfile.plan !== 'free'
     && (!voiceProfile.plan_expires_at || new Date(voiceProfile.plan_expires_at) > new Date()));
-  if (activePaidPlan && voiceProfile?.role !== 'admin' && !includesLiveClass(voiceProfile.plan)) {
+  const hasLiveClassEntitlement = voiceProfile?.role === 'admin'
+    || (activePaidPlan && includesLiveClass(voiceProfile?.plan));
+  if (!hasLiveClassEntitlement) {
     return NextResponse.json({
       error: 'live_class_plan_required',
-      message: 'Live Class is included with All Access at ₦9,870/month. Your Premium Study plan includes the full text and catalogue experience.',
+      message: 'Live Class is not included with the free or Premium Study plans. All Access at ₦9,870/month unlocks the interactive voice and visual classroom.',
     }, { status: 403 });
   }
 
@@ -121,9 +123,9 @@ export async function POST(req: Request) {
 
   if (!quota.allowed) {
     const limitMessage = quota.reason === 'premium_required'
-      ? 'Your free Live Class allowance is used for this month. It refreshes next month, or upgrade to Hybrid Premium for 6 hours each billing month.'
+      ? 'Live Class is included with All Access only. Upgrade to unlock the interactive voice and visual classroom.'
       : quota.reason === 'free_monthly_exhausted'
-        ? 'Your free Live Class allowance is used for this month. It refreshes next month, or upgrade to Hybrid Premium for 6 hours each billing month.'
+        ? 'Live Class is included with All Access only. Upgrade to unlock the interactive voice and visual classroom.'
         : quota.reason === 'voice_balance_empty'
           ? 'Your Premium Live Class allowance is used. Minutes refresh on your next monthly billing date; additional minute purchases are not available.'
           : quota.reason === 'active_session'
