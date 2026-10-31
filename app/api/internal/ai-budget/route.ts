@@ -93,7 +93,7 @@ export async function POST(request: Request) {
   // awaiting access to the medical Supabase project. This charges one legacy
   // voice reservation per 15-minute lease, not one network call per sentence.
   let legacyLease = false;
-  if (isLease && reservation.error?.code === '42883') {
+  if (isLease && ['42883', 'PGRST202'].includes(reservation.error?.code || '')) {
     legacyLease = true;
     reservation = await admin.rpc('reserve_live_class_ai_request', {
       p_user_id: body.userId, p_request_id: body.requestId,
