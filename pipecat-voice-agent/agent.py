@@ -542,14 +542,20 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     # Use the actual Groq service for streaming spoken responses; the Gemini
     # branch uses Google's OpenAI-compatible protocol endpoint.
     llm_class = GroqLLMService if llm_provider == "groq" else OpenAILLMService
-    llm = llm_class(
-        api_key=llm_api_key,
-        base_url=llm_base_url,
-        model=llm_model,
-        params=OpenAILLMService.InputParams(max_completion_tokens=220, temperature=0.35),
-        max_retries=0,
-        timeout=25,
-    )
+    if llm_provider == "groq" and llm_model.startswith("qwen/"):
+        # Groq Qwen streams its chain-of-thought unless explicitly disabled.
+        llm = GroqLLMService(
+            api_key=llm_api_key, base_url=llm_base_url,
+            settings=GroqLLMService.Settings(model=llm_model, reasoning_effort="none",
+                                            max_tokens=220, temperature=0.35),
+            max_retries=0, timeout=25,
+        )
+    else:
+        llm = llm_class(
+            api_key=llm_api_key, base_url=llm_base_url, model=llm_model,
+            params=OpenAILLMService.InputParams(max_completion_tokens=220, temperature=0.35),
+            max_retries=0, timeout=25,
+        )
     context = OpenAILLMContext(messages=[{"role": "system", "content": _system_prompt(room_name, room_metadata)}])
     context_aggregators = llm.create_context_aggregator(context)
     user_aggregator = context_aggregators.user()
