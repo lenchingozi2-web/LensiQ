@@ -96,6 +96,18 @@ REPAIRS = {
       'model_answer':'NSAIDs inhibit cyclooxygenase-dependent synthesis of prostaglandin E2 in the hypothalamus, reducing the elevated thermoregulatory set point produced by pyrogenic cytokines.',
     },
   },
+  'bd1af79d-7dfe-4af4-8734-e22753c9fbf5':{
+    'stem':'Chylomicrons is made up of:',
+    'changes':{'option_c':'30% triglyceride and 30% apoprotein'},
+  },
+  'f9e90652-14fb-4ff4-aab3-fb1ceab3f5ee':{
+    'stem':'VLDL is made up of:',
+    'changes':{
+      'option_c':'30% triglyceride and 30% apoprotein',
+      'option_d':'50% triglyceride and approximately 10% apoprotein',
+      'model_answer':'VLDL particles are triglyceride-rich lipoproteins synthesised primarily by the liver. Their composition is approximately 50–70% triglyceride and 7–10% protein by mass, with the remainder mainly cholesterol and phospholipids. Option D is the closest composition.',
+    },
+  },
   'eac3ca91-b90c-4644-aafe-98cf40e226dc':{
     'stem':'The Zygomycota: which is correct?',
     'changes':{'option_b':'Have regularly septate, dichotomously branching hyphae.'},
