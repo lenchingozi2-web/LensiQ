@@ -65,14 +65,34 @@ def key(value,choices):
     return matches[0] if len(matches)==1 else None
 
 def medical_key(row,choices):
-    # Single, tightly matched clinical fact from standard Medical Microbiology:
-    # genetic material moves from donor to recipient in a transfer event.
+    """Only narrowly matched, textbook-level answer corrections."""
     stem=' '.join(str(row.get('question_text') or '').lower().split())
-    if 'genetic transfer' not in stem or 'bacteria' not in stem:return None
-    if not re.search(r'\b(false|incorrect|not true)\b',stem):return None
-    letters=lambda t:re.sub('[^a-z]','',t.lower())
-    if 'unidirectional' in letters(choices.get('A','')) and 'bidirectional' in letters(choices.get('B','')):
-        return 'B'
+    norm=lambda t:re.sub(r'\s+',' ',re.sub(r'^[a-e][.)]\s*','',t.lower())).strip(' .;:')
+    values={letter:norm(answer) for letter,answer in choices.items()}
+    def one_of(*terms):
+        hits=[letter for letter,answer in values.items() if answer in terms]
+        return hits[0] if len(hits)==1 else None
+    # Never infer a positive answer from a negative stem.
+    negative=bool(re.search(r'\b(?:false|incorrect|except|not|least|never)\b',stem))
+    if 'genetic transfer' in stem and 'bacteria' in stem and re.search(r'\b(false|incorrect|not true)\b',stem):
+        letters=lambda t:re.sub('[^a-z]','',t.lower())
+        if 'unidirectional' in letters(choices.get('A','')) and 'bidirectional' in letters(choices.get('B','')):
+            return 'B'
+    if negative:return None
+    if not re.search(r'\b(?:which|what)\b',stem):return None
+    if re.search(r'(?:cross(?:es|ing)?|pass(?:es|ing)?)\s+(?:the\s+)?placenta',stem) and ('antibod' in stem or 'immunoglobulin' in stem):
+        return one_of('igg','ig g','immunoglobulin g')
+    if ('type i hypersensitivity' in stem or 'type 1 hypersensitivity' in stem or
+        'immediate hypersensitivity' in stem) and ('antibod' in stem or 'immunoglobulin' in stem):
+        return one_of('ige','ig e','immunoglobulin e')
+    if ('hpv' in stem or 'papilloma' in stem) and 'p53' in stem and re.search(r'degrad|inactivat|bind|target',stem):
+        return one_of('e6','e6 protein','hpv e6')
+    if ('hpv' in stem or 'papilloma' in stem) and re.search(r'\brb\b|retinoblastoma',stem) and re.search(r'degrad|inactivat|bind|target',stem):
+        return one_of('e7','e7 protein','hpv e7')
+    if re.search(r'ha?emophilia a\b',stem) and ('factor' in stem or 'deficien' in stem):
+        return one_of('factor viii','factor 8','fviii')
+    if re.search(r'ha?emophilia b\b',stem) and ('factor' in stem or 'deficien' in stem):
+        return one_of('factor ix','factor 9','fix')
     return None
 
 def transform(row):
@@ -93,7 +113,12 @@ def transform(row):
         actual=key(row.get('correct_answer'),choices)
         if not actual:warnings.append('unrecognized_answer')
         corrected=medical_key(row,choices)
-        if corrected and actual!=corrected:changes['correct_answer']=corrected
+        if corrected and actual!=corrected:
+            source=row.get('correct_answer')
+            if isinstance(source,str) and re.fullmatch(r'(?:option\s*)?[A-E]\s*[.):]?',source.strip(),re.I):
+                changes['correct_answer']=corrected
+            else:
+                warnings.append('clinical_key_format_needs_review')
         marked=[(letter,MARKER.sub('',answer).strip()) for letter,answer in options.items() if MARKER.search(answer)]
         if len(marked)==1:
             letter,clean=marked[0]
