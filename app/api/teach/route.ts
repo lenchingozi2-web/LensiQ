@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
 import { checkAccess } from '../../../lib/gatekeeper';
-import { isPaidPlan } from '../../../lib/plans';
+import { includesLiveClass } from '../../../lib/plans';
 import { getOrCreateProfile } from '../../../lib/profile';
 import { buildTeachingContext } from '../../../lib/ai/teaching-context';
 import { buildTeachingSystemPrompt } from '../../../lib/ai/teaching-prompt';
@@ -122,11 +122,12 @@ export async function POST(req: Request) {
       const { data: profile, error: profileError } = await getOrCreateProfile(supabase, user!);
       if (profileError || !profile) return NextResponse.json({ error: 'Your account profile could not be loaded.' }, { status: 503 });
       const isAdmin = profile.role === 'admin';
-      const isPremiumVoice = isPaidPlan(profile.plan) && (!profile.plan_expires_at || new Date(profile.plan_expires_at) > new Date());
+      const hasLiveClassPlan = includesLiveClass(profile.plan)
+        && (!profile.plan_expires_at || new Date(profile.plan_expires_at) > new Date());
       const isFreeTrial = liveSession?.is_free_trial === true;
-      if (!isAdmin && !isPremiumVoice && !isFreeTrial) {
+      if (!isAdmin && (!hasLiveClassPlan || isFreeTrial)) {
         await supabase.from('live_class_sessions').update({ status: 'expired', ended_at: new Date().toISOString() }).eq('id', liveClassSessionId).eq('user_id', userId);
-        return NextResponse.json({ error: 'Your free Live Class allowance is used for this month. It refreshes next month, or you can upgrade to Hybrid Premium.' }, { status: 403 });
+        return NextResponse.json({ error: 'Live Class is available only with an active All Access plan.' }, { status: 403 });
       }
       if (!isAdmin) {
         const { data: chargeRows, error: chargeError } = await supabase.rpc('charge_live_class_session', {

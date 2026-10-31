@@ -142,6 +142,7 @@ function VoiceTutorContent() {
   const playbackContextRef = useRef<AudioContext | null>(null);
   const micMonitorRef = useRef<MicMonitor | null>(null);
   const sessionStartedAtRef = useRef<number | null>(null);
+  const sessionDeadlineAtRef = useRef<number | null>(null);
   const elapsedSecondsRef = useRef(0);
   const runtimeStateRef = useRef<LiveRuntimeState>('READY');
   const runtimeStateBeforeReconnectRef = useRef<LiveRuntimeState>('READY');
@@ -150,6 +151,7 @@ function VoiceTutorContent() {
   const recordingRef = useRef<RecordingBundle | null>(null);
   const recordingDownloadUrlRef = useRef<string | null>(null);
   const endingRef = useRef(false);
+  const wrapupTimeoutRef = useRef<number | null>(null);
   const endSessionRef = useRef<(message?: string) => Promise<void>>(async () => undefined);
   const uploadedMaterialPathsRef = useRef<string[]>([]);
   const visualContextRef = useRef<VisualContext>(visualContext);
@@ -158,6 +160,18 @@ function VoiceTutorContent() {
   const pendingHighlightRef = useRef<{ structureId: string; color?: string } | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
   const ambience = useMemo(() => SOUNDSCAPES.find((item) => item.id === ambienceId) ?? SOUNDSCAPES[0], [ambienceId]);
+
+  const startWrapupGrace = useCallback((message: string) => {
+    if (endingRef.current || wrapupTimeoutRef.current !== null) return;
+    runtimeStateRef.current = 'WRAPPING';
+    setRuntimeState('WRAPPING');
+    setStatus('The tutor is closing with the final puzzle questions.');
+    setError('');
+    wrapupTimeoutRef.current = window.setTimeout(() => {
+      wrapupTimeoutRef.current = null;
+      if (!endingRef.current) void endSessionRef.current(message);
+    }, 35_000);
+  }, []);
 
   const updateVisualContext = (next: VisualContext) => {
     visualContextRef.current = next;
@@ -256,11 +270,17 @@ function VoiceTutorContent() {
           remainingSecondsRef.current = remaining;
           setRemainingSeconds(remaining);
         }
-        if (data.shouldEnd && !endingRef.current) void endSessionRef.current(data.message || 'Your Live Class allowance has ended.');
+        if (data.shouldEnd && !endingRef.current) {
+          if (data.reason === 'session_time_limit' || data.reason === 'voice_balance_empty') {
+            startWrapupGrace(data.message || 'The Live Class has ended after its final puzzle questions.');
+          } else {
+            void endSessionRef.current(data.message || 'Your Live Class access has ended.');
+          }
+        }
       }).catch(() => undefined);
     }, 30000);
     return () => window.clearInterval(heartbeat);
-  }, [connected, liveStarted, sessionId]);
+  }, [connected, liveStarted, sessionId, startWrapupGrace]);
 
   useEffect(() => {
     if (!connected) return;
@@ -274,15 +294,15 @@ function VoiceTutorContent() {
   }, [connected, liveStarted]);
 
   useEffect(() => {
-    if (!connected || !liveStarted || quota?.isUnlimited || remainingSecondsRef.current === null) return;
+    if (!connected || !liveStarted || sessionDeadlineAtRef.current === null) return;
     const timer = window.setInterval(() => {
-      const next = Math.max(0, (remainingSecondsRef.current ?? 0) - 1);
+      const next = Math.max(0, Math.ceil((sessionDeadlineAtRef.current! - Date.now()) / 1000));
       remainingSecondsRef.current = next;
       setRemainingSeconds(next);
-      if (next === 0 && !endingRef.current) void endSessionRef.current('Your Live Class access time has ended. The session is saved in History.');
+      if (next === 0) startWrapupGrace('Your Live Class has ended after its final puzzle questions. The session is saved in History.');
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [connected, liveStarted, quota?.isUnlimited]);
+  }, [connected, liveStarted, startWrapupGrace]);
 
   const persistMessage = async (id: string, message: Message) => {
     await fetch('/api/teaching/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversationId: id, role: message.role, content: message.content }) });
@@ -642,6 +662,10 @@ function VoiceTutorContent() {
   const endSession = useCallback(async (message = 'Live Class ended. Your spoken lesson is saved in History.') => {
     if (endingRef.current) return;
     endingRef.current = true;
+    if (wrapupTimeoutRef.current !== null) {
+      window.clearTimeout(wrapupTimeoutRef.current);
+      wrapupTimeoutRef.current = null;
+    }
     setRuntimeState('ENDING');
     const activeSessionId = sessionIdRef.current;
     const activeConversationId = conversationIdRef.current;
@@ -675,6 +699,7 @@ function VoiceTutorContent() {
     window.dispatchEvent(new CustomEvent('lensiq:clear-uploaded-materials'));
     setSessionSummary({ topic: topicFocus || courseName, durationSeconds, turns: messagesRef.current.filter((item) => item.role === 'user').length, recordingAvailable: Boolean(recordingBlob?.size) });
     sessionStartedAtRef.current = null;
+    sessionDeadlineAtRef.current = null;
     setLiveStarted(false);
     setStudioOpen(false);
     ambienceAudioRef.current?.pause();
@@ -711,6 +736,7 @@ function VoiceTutorContent() {
     explicitVisualThisTurnRef.current = false;
     pendingHighlightRef.current = null;
     elapsedSecondsRef.current = 0;
+    sessionDeadlineAtRef.current = null;
     setElapsedSeconds(0);
     setRuntimeState('INITIALIZING');
     setRecordingReady(false);
@@ -750,7 +776,9 @@ function VoiceTutorContent() {
       const linkResponse = await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: tokenData.sessionId, action: 'link', conversationId: activeConversation.id }) });
       if (!linkResponse.ok) throw new Error('Unable to save this Live Class history.');
       setQuota(tokenData.quota ?? null);
-      const initialRemainingSeconds = tokenData.quota?.isUnlimited ? null : Math.max(0, Number(tokenData.quota?.maxDurationSeconds ?? 1800));
+      const parsedDeadline = typeof tokenData.quota?.expiresAt === 'string' ? Date.parse(tokenData.quota.expiresAt) : NaN;
+      sessionDeadlineAtRef.current = Number.isFinite(parsedDeadline) ? parsedDeadline : null;
+      const initialRemainingSeconds = Math.max(0, Number(tokenData.quota?.maxDurationSeconds ?? 90 * 60));
       remainingSecondsRef.current = initialRemainingSeconds;
       setRemainingSeconds(initialRemainingSeconds);
       setMessages([]);
@@ -872,11 +900,7 @@ function VoiceTutorContent() {
             if (data.state === 'ERROR') {
               const message = data.message || 'The tutor could not complete that response. Please try speaking again.';
               if (/usage allowance|budget|temporarily paused/i.test(message)) {
-                runtimeStateRef.current = 'WRAPPING';
-                setRuntimeState('WRAPPING');
-                setStatus('The tutor is closing this lesson with two final puzzle questions.');
-                setError('');
-                window.setTimeout(() => { if (!endingRef.current) void endSession('The lesson ended gracefully after the protected AI segment. Your puzzle questions are saved in History.'); }, 7000);
+                startWrapupGrace('The lesson ended gracefully after the protected AI segment. Your puzzle questions are saved in History.');
                 return;
               }
               runtimeStateRef.current = 'ERROR';
@@ -891,9 +915,7 @@ function VoiceTutorContent() {
             if (data.state === 'WRAPPING') {
               setError('');
               setStatus(data.message || RUNTIME_COPY.WRAPPING.detail);
-              window.setTimeout(() => {
-                if (!endingRef.current) void endSession('The lesson ended gracefully after the protected AI segment. Your puzzle questions are saved in History.');
-              }, 7000);
+              startWrapupGrace('The lesson ended gracefully after its final puzzle questions. Your session is saved in History.');
               return;
             }
             if (data.state === 'THINKING') {

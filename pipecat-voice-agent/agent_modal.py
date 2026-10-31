@@ -82,7 +82,7 @@ def _is_closed_room_error(error: Exception) -> bool:
     secrets=[livekit_credentials, llm_fallback, ai_budget_secret],
     cpu=2.0,
     memory=4096,
-    timeout=60 * 60,
+    timeout=95 * 60,
     # Keep a warm container with Whisper/Kokoro loaded for the premium
     # experience; otherwise the first greeting waits for a full cold start.
     scaledown_window=300,

@@ -54,10 +54,13 @@ export async function POST(req: Request) {
     remainingVoiceMinutes: charge.remaining_voice_minutes ?? null,
     shouldEnd: Boolean(charge.should_end),
     chargedMinutes: charge.charged_minutes ?? 0,
+    reason: charge.reason ?? null,
     message: charge.should_end
-      ? charge.reason === 'free_monthly_exhausted'
-        ? 'Your free Live Class allowance has ended for this month. It refreshes next month.'
-        : 'Your Premium Live Class allowance has ended. Minutes refresh on your next monthly billing date.'
+      ? charge.reason === 'session_time_limit'
+        ? 'The 90-minute Live Class has reached its protected end. Listen to the final puzzle questions before the room closes.'
+        : charge.reason === 'voice_balance_empty'
+          ? 'Your All Access Live Class minutes are used. The tutor is closing with a final puzzle.'
+          : 'This Live Class has ended.'
       : null,
   });
 }

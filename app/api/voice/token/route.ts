@@ -99,21 +99,8 @@ export async function POST(req: Request) {
     p_course_name: courseName,
     p_conversation_id: conversationId,
   });
-  let { data: reservation, error: reservationError } = await reserveSession();
-  let quota = Array.isArray(reservation) ? reservation[0] : reservation;
-
-  // Some deployments still expose the pre-monthly quota RPC. Clear its consumed
-  // marker once, then retry so an account is not blocked by the stale rule.
-  if (!reservationError && quota?.reason === 'free_trial_used') {
-    const { error: legacyMarkerError } = await supabase
-      .from('profiles')
-      .update({ free_live_class_trial_used_at: null })
-      .eq('id', user.id);
-    if (!legacyMarkerError) {
-      ({ data: reservation, error: reservationError } = await reserveSession());
-      quota = Array.isArray(reservation) ? reservation[0] : reservation;
-    }
-  }
+  const { data: reservation, error: reservationError } = await reserveSession();
+  const quota = Array.isArray(reservation) ? reservation[0] : reservation;
 
   if (reservationError || !quota) {
     console.error('Live Class reservation failed:', reservationError);
@@ -152,7 +139,10 @@ export async function POST(req: Request) {
   }
 
   const isUnlimited = Boolean(quota.is_unlimited);
-  const maxDurationSeconds = isUnlimited ? 86400 : Math.max(60, Number(quota.max_duration_seconds ?? 1800));
+  const maxDurationSeconds = Math.min(90 * 60, Math.max(60, Number(quota.max_duration_seconds ?? 90 * 60)));
+  const sessionExpiresAt = typeof quota.expires_at === 'string' && Number.isFinite(Date.parse(quota.expires_at))
+    ? quota.expires_at
+    : new Date(Date.now() + maxDurationSeconds * 1000).toISOString();
   const internalHost = internalLivekitUrl?.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:').replace(/\/$/, '');
   // Validate the exact Cloud project/key pairing before minting a browser
   // token. A token can be signed locally with any key, but the browser then
@@ -195,6 +185,7 @@ export async function POST(req: Request) {
     topicFocus,
     focusText,
     sessionType: 'live_class',
+    sessionExpiresAt,
     contextEndpoint: `${new URL(req.url).origin}/api/voice/context`,
     materialUrls,
     materialContext,
@@ -255,7 +246,7 @@ export async function POST(req: Request) {
     identity: user.id,
     name: user.email ?? 'LenxiQ AI learner',
     metadata: JSON.stringify({}), // <-- THIS IS THE FIX (keeps token tiny to avoid 414 error)
-    ttl: isUnlimited ? '24h' : `${maxDurationSeconds}s`,
+    ttl: `${maxDurationSeconds + 45}s`,
   });
 
   token.addGrant({
@@ -271,7 +262,7 @@ export async function POST(req: Request) {
     url: livekitUrl,
     roomName,
     sessionId: quota.session_id,
-    expiresInSeconds: maxDurationSeconds,
+    expiresInSeconds: maxDurationSeconds + 45,
     quota: {
       isUnlimited,
       usedSessions: quota.used_sessions ?? null,

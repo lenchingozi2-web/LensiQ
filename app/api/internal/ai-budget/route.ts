@@ -88,11 +88,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ allowed: false, reason: controls.is_paused ? 'ai_globally_paused' : 'provider_calls_not_approved' }, { status: 503 });
   }
 
-  const { data, error } = await admin.rpc('reserve_ai_budget', {
-    p_user_id: body.userId,
-    p_feature: body.feature,
-    p_request_id: body.requestId,
-  });
+  const reservation = body.feature === 'voice'
+    ? await admin.rpc('reserve_live_class_ai_request', {
+        p_user_id: body.userId,
+        p_request_id: body.requestId,
+      })
+    : await admin.rpc('reserve_ai_budget', {
+        p_user_id: body.userId,
+        p_feature: body.feature,
+        p_request_id: body.requestId,
+      });
+  const { data, error } = reservation;
 
   if (error) {
     console.error('Internal AI budget reservation failed', {

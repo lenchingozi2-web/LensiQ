@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { extractLectureText } from '@/lib/curriculum/extract-text';
 import { getLectureFileExtension, isSupportedLectureFile, normalizeLectureFileName, normalizeLectureMimeType } from '@/lib/curriculum/file-types';
 import { detectMaterialBranches } from '@/lib/curriculum/material-profile';
+import { includesLiveClass } from '@/lib/plans';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,6 +19,12 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Sign in before uploading Live Class material.' }, { status: 401 });
+  const { data: accessProfile } = await supabase.from('profiles').select('role, plan, plan_expires_at').eq('id', user.id).maybeSingle();
+  const activePlan = Boolean(accessProfile?.plan && includesLiveClass(accessProfile.plan)
+    && (!accessProfile.plan_expires_at || new Date(accessProfile.plan_expires_at) > new Date()));
+  if (accessProfile?.role !== 'admin' && !activePlan) {
+    return NextResponse.json({ error: 'Lecture uploads for Live Class require an active All Access plan.' }, { status: 403 });
+  }
 
   let formData: FormData;
   try {
@@ -50,7 +57,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'The extracted lecture text could not be saved for this class. Please try again.' }, { status: 500 });
   }
 
-  const { data: signedData, error: signedError } = await supabase.storage.from(STORAGE_BUCKET).createSignedUrl(storagePath, 60 * 60);
+  const { data: signedData, error: signedError } = await supabase.storage.from(STORAGE_BUCKET).createSignedUrl(storagePath, 2 * 60 * 60);
   if (signedError || !signedData?.signedUrl) {
     await supabase.storage.from(STORAGE_BUCKET).remove([storagePath]);
     return NextResponse.json({ error: 'The tutor could not be given temporary access to this lecture file. Please retry.' }, { status: 500 });

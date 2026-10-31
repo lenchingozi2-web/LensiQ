@@ -39,7 +39,7 @@ export default function PricingClient() {
           <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg">One AI Tutor, in voice or visual Live Class mode. Choose the access level that fits your study routine.</p>
           <div className="mt-7 flex flex-wrap justify-center gap-3 text-xs font-bold text-slate-600">
             <span className="rounded-full border border-slate-200 bg-white px-4 py-2">Secure Flutterwave checkout</span>
-            <span className="rounded-full border border-slate-200 bg-white px-4 py-2">One free Live Class trial</span>
+            <span className="rounded-full border border-slate-200 bg-white px-4 py-2">Interactive Live Class is exclusive to All Access</span>
             <span className="rounded-full border border-slate-200 bg-white px-4 py-2">Existing wallet minutes remain usable</span>
           </div>
         </header>
@@ -58,7 +58,7 @@ export default function PricingClient() {
                 <li>✓ 30 AI explanations per month</li>
                 <li>✓ 6 text-teaching starts per month</li>
                 <li>✓ 3 quiz attempts per month</li>
-                <li>✓ 30 Live Class minutes each month</li>
+                <li>✓ Text-based study tools (Live Class not included)</li>
                 <li>✓ One free Anatomical Pathology organ/system</li>
               </ul>
             </div>
@@ -74,18 +74,16 @@ export default function PricingClient() {
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 {PUBLIC_PAID_PLANS.map((plan) => {
                   const isLiveClassPlan = plan.id === 'premium_monthly';
-                  const isSixMonth = plan.durationMonths === 6;
                   const prepaid = plan.durationMonths > 1;
                   const monthlyEquivalent = Math.round(plan.amountNaira / plan.durationMonths);
                   return (
-                    <article key={plan.id} className={`flex flex-col rounded-2xl border p-5 ${isSixMonth ? 'border-[#e8a23d] bg-[#e8a23d]/10 shadow-[0_0_0_1px_rgba(232,162,61,0.18)]' : 'border-white/10 bg-white/5'}`}>
+                    <article key={plan.id} className={`flex flex-col rounded-2xl border p-5 ${isLiveClassPlan ? 'border-[#e8a23d] bg-[#e8a23d]/10 shadow-[0_0_0_1px_rgba(232,162,61,0.18)]' : 'border-white/10 bg-white/5'}`}>
                       <div className="flex min-h-12 items-start justify-between gap-2">
                         <div><p className="text-lg font-black text-white">{plan.label}</p><p className="mt-1 text-xs font-semibold text-slate-400">{prepaid ? `${plan.durationMonths} monthly cycles prepaid` : 'Billed monthly'}</p></div>
-                        {isSixMonth && <span className="shrink-0 rounded-full bg-[#e8a23d] px-2 py-1 text-[10px] font-black uppercase tracking-wide text-[#0b1220]">Save 10%</span>}
+                        {isLiveClassPlan && <span className="shrink-0 rounded-full bg-[#e8a23d] px-2 py-1 text-[10px] font-black uppercase tracking-wide text-[#0b1220]">Live Class</span>}
                       </div>
                       <p className="mt-5 text-3xl font-black text-white">₦{plan.amountNaira.toLocaleString()} <span className="text-sm font-bold text-slate-300">{prepaid ? 'total' : 'per month'}</span></p>
                       {prepaid && <p className="mt-1 text-xs font-semibold text-slate-400">₦{monthlyEquivalent.toLocaleString()} per month equivalent</p>}
-                      {isSixMonth && <p className="mt-1 text-xs font-bold text-[#ffe2a8]">Save ₦3,600 versus six monthly payments.</p>}
                       <p className="mt-4 min-h-12 text-xs font-semibold leading-5 text-[#ffe2a8]">{isLiveClassPlan ? 'All catalogue, practical systems, text tutoring, and 6 hours of Live Class each month.' : 'All catalogue, practical systems, AI explanations, quizzes, and 50 text-teaching credits each month. Live Class is not included.'}</p>
                       <button type="button" onClick={() => void handleCheckout(plan.id)} disabled={Boolean(loading)} className="mt-auto w-full rounded-xl bg-[#e8a23d] px-3 py-3 text-center text-sm font-bold text-slate-900 shadow-lg shadow-amber-500/20 transition-colors hover:bg-amber-500 disabled:opacity-50">
                         {loading === plan.id ? 'Connecting secure gateway…' : prepaid ? `Subscribe for ${plan.durationMonths} months` : 'Subscribe monthly'}

@@ -11,14 +11,17 @@ import asyncio
 import json
 import logging
 import os
+import re
+import time
 import urllib.error
 import urllib.request
 import uuid
+from datetime import datetime
 from typing import Any, AsyncGenerator
 from urllib.parse import urlparse
 
 from livekit import api
-from pipecat.frames.frames import ErrorFrame, Frame, InputTextRawFrame, LLMContextFrame, TTSAudioRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
+from pipecat.frames.frames import EndFrame, ErrorFrame, Frame, InputTextRawFrame, LLMContextFrame, TTSAudioRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -147,7 +150,7 @@ def _select_live_class_llm() -> tuple[str, str, str, str]:
 
 
 class AiBudgetGate(FrameProcessor):
-    """Reserve shared global spend capacity before each paid LLM generation."""
+    """Reserve a voice-rate-limited, dollar-cap-exempt request before each turn."""
 
     def __init__(self, transport: LiveKitTransport, user_id: str, endpoint: str, token: str):
         super().__init__(name="ai-budget-gate")
@@ -207,9 +210,9 @@ class AiBudgetGate(FrameProcessor):
         messages = getattr(context, "messages", None)
         if not isinstance(messages, list):
             return
-        system_message = next((message for message in messages if isinstance(message, dict) and message.get("role") == "system"), None)
-        recent = messages[-8:]
-        bounded = ([system_message] if system_message else []) + [message for message in recent if message is not system_message]
+        system_messages = [message for message in messages if isinstance(message, dict) and message.get("role") == "system"]
+        recent_conversation = [message for message in messages if not (isinstance(message, dict) and message.get("role") == "system")][-8:]
+        bounded = system_messages + recent_conversation
         for message in bounded:
             if not isinstance(message, dict):
                 continue
@@ -217,7 +220,7 @@ class AiBudgetGate(FrameProcessor):
             if isinstance(content, str) and len(content) > 6000:
                 message["content"] = content[-6000:]
         while len(bounded) > 1 and sum(len(message.get("content", "")) for message in bounded if isinstance(message, dict) and isinstance(message.get("content"), str)) > 12000:
-            removable = next((index for index, message in enumerate(bounded) if message is not system_message and isinstance(message, dict)), None)
+            removable = len(system_messages) if len(bounded) > len(system_messages) else None
             if removable is None:
                 break
             bounded.pop(removable)
@@ -254,34 +257,50 @@ class MaterialContextBridge(FrameProcessor):
     def __init__(self, room_metadata: str | None):
         super().__init__(name="live-class-material-context")
         self.urls: list[str] = []
+        self.source_labels: list[str] = []
         self.chunks: list[tuple[str, str]] = []
+        self.last_user_query = ""
+        self.last_evidence: tuple[str, str] | None = None
         self._loaded = False
         try:
             metadata = json.loads(room_metadata or "{}")
             self.urls = [value for value in (metadata.get("materialUrls") or []) if isinstance(value, str)][:6]
+            material_context = metadata.get("materialContext") or {}
+            if isinstance(material_context, dict):
+                self.source_labels = [value.strip()[:100] for value in material_context.get("sources", [])
+                                      if isinstance(value, str) and value.strip()][:6]
         except (TypeError, ValueError, json.JSONDecodeError):
             pass
 
     def _download(self, url: str) -> str:
         request = urllib.request.Request(url, headers={"User-Agent": "LenxiQ-Live-Class/1.0"})
         with urllib.request.urlopen(request, timeout=15) as response:
-            return response.read(2_000_000).decode("utf-8", "replace")
+            return response.read(4_000_000).decode("utf-8", "replace")
 
     async def preload(self) -> None:
         if self._loaded:
             return
         self._loaded = True
-        for index, url in enumerate(self.urls):
+
+        async def load_source(index: int, url: str) -> list[tuple[str, str]]:
             try:
                 text = await asyncio.to_thread(self._download, url)
-                # 1,600-character windows preserve headings and nearby facts;
-                # overlap prevents page-boundary concepts from being lost.
-                for offset in range(0, min(len(text), 220_000), 1_400):
+                # Keep every parsed character (up to the 4 MB/source download
+                # bound); overlapping windows avoid silently dropping later pages.
+                label = self.source_labels[index] if index < len(self.source_labels) else f"uploaded source {index + 1}"
+                chunks: list[tuple[str, str]] = []
+                for offset in range(0, len(text), 1_400):
                     chunk = text[offset:offset + 1_700].strip()
                     if chunk:
-                        self.chunks.append((f"uploaded source {index + 1}", chunk))
+                        chunks.append((label, chunk))
+                return chunks
             except (OSError, UnicodeError, TimeoutError) as error:
                 logger.warning("Unable to load uploaded source %d: %s", index + 1, type(error).__name__)
+                return []
+
+        loaded_sources = await asyncio.gather(*(load_source(index, url) for index, url in enumerate(self.urls)))
+        for source_chunks in loaded_sources:
+            self.chunks.extend(source_chunks)
         logger.info("Loaded %d compact lecture excerpts from %d uploaded sources", len(self.chunks), len(self.urls))
 
     def _relevant(self, query: str) -> str:
@@ -294,7 +313,28 @@ class MaterialContextBridge(FrameProcessor):
             reverse=True,
         )
         selected = [item for item in ranked[:3] if any(term in item[1].lower() for term in terms)] or ranked[:2]
+        self.last_evidence = selected[0] if selected else None
         return "\n\n".join(f"[{source}]\n{chunk}" for source, chunk in selected)[:5_000]
+
+    def build_wrapup(self) -> str:
+        if self.last_evidence:
+            source, chunk = self.last_evidence
+            clean = re.sub(r"\s+", " ", chunk).strip()
+            sentences = re.split(r"(?<=[.!?])\s+", clean)
+            excerpt = next((sentence for sentence in sentences if len(sentence) >= 45), clean)
+            excerpt = excerpt[:220].rstrip(" ,;:")
+            return (
+                f"Let us finish with two quick puzzles from {source}. Keep this note in mind: {excerpt}. "
+                "First, what would change if the main driver in that statement were reversed, and why? "
+                "Second, which nearby idea from the same lecture would help you predict the result? "
+                "Save your answers; next time we can continue from these notes."
+            )
+        focus = self.last_user_query.strip()[:160] or "the main idea we just reviewed"
+        return (
+            f"Let us finish with two quick retrieval puzzles on {focus}. First, explain its cause-and-effect chain without looking at your notes. "
+            "Second, change one condition in that chain: what result should change, and what evidence would support your prediction? "
+            "Save your answers; next time we can continue from this lesson."
+        )
 
     async def process_frame(self, frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
@@ -305,11 +345,12 @@ class MaterialContextBridge(FrameProcessor):
             if isinstance(messages, list):
                 query = next((message.get("content", "") for message in reversed(messages)
                               if isinstance(message, dict) and message.get("role") == "user"), "")
+                self.last_user_query = str(query)
                 notes = self._relevant(str(query))
                 messages[:] = [message for message in messages if not (isinstance(message, dict) and message.get("role") == "system" and str(message.get("content", "")).startswith("SOURCE NOTES:"))]
                 if notes:
                     insert_at = 1 if messages and messages[0].get("role") == "system" else 0
-                    messages.insert(insert_at, {"role": "system", "content": "SOURCE NOTES (use only when relevant; do not quote this block):\n" + notes})
+                    messages.insert(insert_at, {"role": "system", "content": "SOURCE NOTES: use only when relevant; do not quote this block.\n" + notes})
         await self.push_frame(frame, direction)
 
 class ConversationalKokoroTTSService(KokoroTTSService):
@@ -421,7 +462,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         model=llm_model,
         params=OpenAILLMService.InputParams(max_completion_tokens=220, temperature=0.35),
         max_retries=0,
-        timeout=8,
+        timeout=25,
     )
     context = OpenAILLMContext(messages=[{"role": "system", "content": _system_prompt(room_name, room_metadata)}])
     context_aggregators = llm.create_context_aggregator(context)
@@ -434,6 +475,16 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         room_data = json.loads(room_metadata or "{}")
     except (TypeError, ValueError, json.JSONDecodeError):
         room_data = {}
+    session_deadline = time.time() + 90 * 60
+    raw_session_deadline = room_data.get("sessionExpiresAt")
+    if isinstance(raw_session_deadline, str):
+        try:
+            session_deadline = min(
+                session_deadline,
+                datetime.fromisoformat(raw_session_deadline.replace("Z", "+00:00")).timestamp(),
+            )
+        except ValueError:
+            logger.warning("Ignoring malformed Live Class deadline metadata")
     budget_gate = AiBudgetGate(
         transport,
         str(room_data.get("userId") or ""),
@@ -447,6 +498,13 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     task = PipelineTask(pipeline, params=PipelineParams(allow_interruptions=True, enable_metrics=True))
     wrapup_queued = False
 
+    async def end_after_wrapup() -> None:
+        await asyncio.sleep(35)
+        try:
+            await task.queue_frame(EndFrame())
+        except Exception as error:
+            logger.info("Live Class pipeline already ended after wrap-up (%s)", type(error).__name__)
+
     @task.event_handler("on_pipeline_error")
     async def on_pipeline_error(_task: PipelineTask, frame: ErrorFrame):
         nonlocal wrapup_queued
@@ -458,15 +516,11 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
             if wrapup_queued:
                 return
             wrapup_queued = True
-            wrapup = (
-                "We are closing this protected lesson segment now. Before you leave, solve these two puzzles: "
-                "first, predict what would happen if the key mechanism we discussed were blocked; "
-                "second, name one clinical clue that would distinguish it from its closest look-alike. "
-                "Keep your answers in mind and we will continue from this exact point next time."
-            )
+            wrapup = material_bridge.build_wrapup()
             await assistant_bridge.publish({"type": "live_class_state", "state": "WRAPPING", "message": wrapup})
             await assistant_bridge.publish({"type": "live_class_transcript", "role": "assistant", "content": wrapup, "final": True})
             await _task.queue_frame(TTSSpeakFrame(wrapup))
+            asyncio.create_task(end_after_wrapup())
         else:
             await assistant_bridge.publish({"type": "live_class_state", "state": "ERROR", "message": message})
 
@@ -515,9 +569,30 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     async def on_first_participant_joined(_transport: LiveKitTransport, _participant_id: str):
         await queue_initial_greeting("first_participant")
 
+    async def close_at_session_deadline() -> None:
+        nonlocal wrapup_queued
+        await asyncio.sleep(max(0, session_deadline - time.time()))
+        if not wrapup_queued:
+            wrapup_queued = True
+            wrapup = material_bridge.build_wrapup()
+            await assistant_bridge.publish({"type": "live_class_state", "state": "WRAPPING", "message": wrapup})
+            await assistant_bridge.publish({"type": "live_class_transcript", "role": "assistant", "content": wrapup, "final": True})
+            try:
+                await task.queue_frame(TTSSpeakFrame(wrapup))
+            except Exception as error:
+                logger.warning("Unable to queue 90-minute Live Class wrap-up (%s)", type(error).__name__)
+        await end_after_wrapup()
+
+    # Fetch and retain all six parsed lecture sources at class start; signed
+    # upload URLs can expire before a later turn in a 90-minute session.
+    await material_bridge.preload()
     await queue_initial_greeting("pipeline_start")
     logger.info("Joining Live Class room %s", room_name)
-    await PipelineRunner().run(task)
+    deadline_task = asyncio.create_task(close_at_session_deadline())
+    try:
+        await PipelineRunner().run(task)
+    finally:
+        deadline_task.cancel()
 
 
 async def _list_rooms(client: api.LiveKitAPI) -> list[Any]:

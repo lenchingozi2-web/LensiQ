@@ -52,7 +52,7 @@ test('voice model generation is budget-gated and restricted to Gemini or Groq', 
   const voice = await read('pipecat-voice-agent/agent.py');
   assert.match(voice, /class AiBudgetGate/);
   assert.match(voice, /AI_BUDGET_INTERNAL_TOKEN/);
-  assert.match(voice, /user_aggregator, budget_gate, llm/);
+  assert.match(voice, /user_aggregator, material_bridge, budget_gate, llm/);
   assert.match(voice, /GEMINI_API_KEY/);
   assert.match(voice, /GROQ_API_KEY/);
   assert.match(voice, /def _provider_for_endpoint/);
@@ -60,6 +60,38 @@ test('voice model generation is budget-gated and restricted to Gemini or Groq', 
   assert.match(voice, /api\.groq\.com/);
   assert.match(voice, /GPT\/OpenAI fallback is disabled/);
   assert.doesNotMatch(voice, /gpt-4o-mini|OPENAI_API_KEY|DEEPSEEK_API_KEY|api\.openai\.com/);
+});
+
+test('Live Class voice reservations are exempt from dollar caps but retain rate limits and safety pause', async () => {
+  const route = await read('app/api/internal/ai-budget/route.ts');
+  const migration = await read('supabase/migrations/0048_live_class_uncapped_voice_spend.sql');
+  assert.match(route, /body\.feature === 'voice'[\s\S]*?reserve_live_class_ai_request/);
+  assert.match(migration, /user_minute_limit/);
+  assert.match(migration, /global_day_count >= 5000/);
+  assert.match(migration, /ai_spend_reservations/);
+  assert.doesNotMatch(migration, /insert\s+into\s+public\.ai_spend_windows/i);
+  assert.match(route, /controls\.is_paused/);
+});
+
+test('Live Class is paid-tier gated and has a server-enforced 90-minute graceful close', async () => {
+  const plans = await read('lib/plans.ts');
+  const reservation = await read('supabase/migrations/0047_live_class_90_minute_cap.sql');
+  const token = await read('app/api/voice/token/route.ts');
+  const session = await read('app/voice/page.tsx');
+  const worker = await read('pipecat-voice-agent/agent.py');
+  const modal = await read('pipecat-voice-agent/agent_modal.py');
+  assert.match(plans, /function includesLiveClass[\s\S]*?premium_monthly/);
+  assert.doesNotMatch(plans.slice(plans.indexOf('function includesLiveClass')), /premium_text_monthly/);
+  assert.match(reservation, /least\(5400/);
+  assert.match(reservation, /session_time_limit/);
+  assert.match(token, /Math\.min\(90 \* 60/);
+  assert.match(worker, /close_at_session_deadline/);
+  assert.match(worker, /EndFrame\(\)/);
+  assert.match(worker, /def build_wrapup/);
+  assert.match(worker, /self\.source_labels/);
+  assert.match(session, /Math\.ceil\(\(sessionDeadlineAtRef\.current! - Date\.now\(\)\) \/ 1000\)/);
+  assert.match(session, /35_000/);
+  assert.match(modal, /timeout=95 \* 60/);
 });
 
 test('Live Class leaves Thinking on assistant text and surfaces bounded greeting/answer timeouts', async () => {

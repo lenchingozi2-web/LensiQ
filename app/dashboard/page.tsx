@@ -38,7 +38,7 @@ export default async function DashboardPage() {
             </div>
             <div className="flex flex-wrap gap-3">
               <Link href="/teach" className="rounded-xl bg-[#E8A23D] px-5 py-3 text-sm font-black text-[#0B1220] hover:bg-amber-500">Open teaching room</Link>
-              <Link href="/voice?mode=class" className="rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-bold text-white hover:bg-white/15">Live Class</Link>
+              {hasLiveClass ? <Link href="/voice?mode=class" className="rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-bold text-white hover:bg-white/15">Live Class</Link> : <Link href="/pricing" className="rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-bold text-white hover:bg-white/15">Unlock Live Class</Link>}
             </div>
           </div>
         </header>
