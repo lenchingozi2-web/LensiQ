@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 concurrency:
   group: lenxiq-medical-question-content-edit
@@ -42,3 +43,17 @@ jobs:
           fi
       - name: Apply reversible repairs directly to Supabase
         run: python scripts/repair_question_bank.py
+      - name: Mark the verified database repair on its GitHub commit
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA"             -f state=success -f context=lenxiq/question-bank-repair             -f description="Medical question-bank corrections executed and verified"             -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+      - name: Mark database repair failure on its GitHub commit
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA"             -f state=failure -f context=lenxiq/question-bank-repair             -f description="Database corrections incomplete; inspect workflow log"             -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
