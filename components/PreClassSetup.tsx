@@ -47,6 +47,7 @@ export default function PreClassSetup({
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadedUrlsRef = useRef(new Map<string, string>());
   const uploadedPathsRef = useRef(new Map<string, string>());
+  const uploadedMapUrlsRef = useRef(new Map<string, string>());
   const materialProfilesRef = useRef(new Map<string, MaterialProfile>());
   const totalBytes = files.reduce((total, file) => total + file.size, 0);
 
@@ -56,12 +57,13 @@ export default function PreClassSetup({
     const profiles = Array.from(materialProfilesRef.current.values());
     setParsedProfileCount(profiles.length);
     onMaterialProfilesChange?.(profiles);
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lensiq:uploaded-materials', { detail: { urls, paths: Array.from(uploadedPathsRef.current.values()), profiles } }));
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lensiq:uploaded-materials', { detail: { urls, mapUrls: Array.from(uploadedMapUrlsRef.current.values()), paths: Array.from(uploadedPathsRef.current.values()), profiles } }));
   };
   useEffect(() => {
     const clearMaterials = () => {
       uploadedUrlsRef.current.clear();
       uploadedPathsRef.current.clear();
+      uploadedMapUrlsRef.current.clear();
       materialProfilesRef.current.clear();
       setParsedProfileCount(0);
       onFilesChange([]);
@@ -143,6 +145,7 @@ export default function PreClassSetup({
         if (!response.ok || !result.signedUrl || !result.path) throw new Error(result.error || `Unable to parse ${file.name} for Live Class.`);
         uploadedUrlsRef.current.set(fileKey(file), result.signedUrl);
         uploadedPathsRef.current.set(fileKey(file), result.path);
+        if (typeof result.materialMapUrl === 'string') uploadedMapUrlsRef.current.set(fileKey(file), result.materialMapUrl);
         if (result.materialProfile) materialProfilesRef.current.set(fileKey(file), result.materialProfile as MaterialProfile);
         uploadedFiles.push(file);
         setUploadProgress(Math.round(((index + 1) / newFiles.length) * 100));
@@ -212,7 +215,7 @@ export default function PreClassSetup({
             <li key={fileKey(file)} className="flex w-full flex-col gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-3 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <span className="min-w-0 truncate font-bold text-white/80">{file.name}</span>
               <span className="shrink-0 font-semibold text-white/40">{formatMegabytes(file.size)}</span>
-              <button type="button" disabled={uploadProgress !== null} onClick={() => { uploadedUrlsRef.current.delete(fileKey(file)); onFilesChange(files.filter((item) => item !== file)); publishUploadedUrls(); }} className="min-h-11 shrink-0 self-start px-2 text-left font-black text-rose-300 hover:underline disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto sm:text-right">Remove</button>
+              <button type="button" disabled={uploadProgress !== null} onClick={() => { uploadedUrlsRef.current.delete(fileKey(file)); uploadedMapUrlsRef.current.delete(fileKey(file)); uploadedPathsRef.current.delete(fileKey(file)); materialProfilesRef.current.delete(fileKey(file)); onFilesChange(files.filter((item) => item !== file)); publishUploadedUrls(); }} className="min-h-11 shrink-0 self-start px-2 text-left font-black text-rose-300 hover:underline disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto sm:text-right">Remove</button>
             </li>
           ))}
         </ul>
