@@ -147,7 +147,7 @@ def main():
     # Targeted pharmacology correction; no arbitrary replacement of an option.
     row=snapshot(MINOXIDIL_ID)
     if row.get('question_text')=='Potassium channel blocker used for treating androgenic alopecia':
-        count+=apply_one(MINOXIDIL_ID,{'question_text':row['question_text'],'model_answer':None},
+        count+=apply_one(MINOXIDIL_ID,{'question_text':row['question_text'],'model_answer':'Minoxidil'},
             {'question_text':MINOXIDIL_STEM,'model_answer':MINOXIDIL_ANSWER})
     elif row.get('question_text')!=MINOXIDIL_STEM:
         raise RuntimeError('Minoxidil source has changed')
