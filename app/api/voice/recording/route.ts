@@ -19,6 +19,77 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
 
+  if (req.headers.get('content-type')?.includes('application/json')) {
+    const raw = await req.text();
+    if (Buffer.byteLength(raw, 'utf8') > 2048) {
+      return NextResponse.json({ error: 'Invalid recording request.' }, { status: 413 });
+    }
+    let payload: { action?: string; conversationId?: string; path?: string };
+    try { payload = JSON.parse(raw); } catch {
+      return NextResponse.json({ error: 'Invalid JSON.' }, { status: 400 });
+    }
+    const requestedId = typeof payload?.conversationId === 'string' ? payload.conversationId : '';
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedId)) {
+      return NextResponse.json({ error: 'A valid Live Class conversation is required.' }, { status: 400 });
+    }
+    const { data: ownedConversation } = await supabase.from('teaching_conversations')
+      .select('id, recording_path').eq('id', requestedId).eq('user_id', user.id)
+      .eq('session_type', 'live_class').is('deleted_at', null).maybeSingle();
+    if (!ownedConversation) return NextResponse.json({ error: 'Live Class conversation not found.' }, { status: 404 });
+
+    if (payload.action === 'prepare') {
+      const path = `${user.id}/${requestedId}/${crypto.randomUUID()}.webm`;
+      const { data: signed, error } = await supabase.storage.from('live-class-recordings').createSignedUploadUrl(path);
+      if (error || !signed?.token) {
+        return NextResponse.json({ error: 'Unable to prepare the secure recording upload.' }, { status: 503 });
+      }
+      return NextResponse.json({ path, token: signed.token, bucket: 'live-class-recordings' }, {
+        headers: { 'Cache-Control': 'no-store' },
+      });
+    }
+
+    if (payload.action === 'complete') {
+      const path = typeof payload.path === 'string' ? payload.path : '';
+      const prefix = `${user.id}/${requestedId}/`;
+      if (!path.startsWith(prefix) || !/^[0-9a-f-]{36}\.webm$/i.test(path.slice(prefix.length))) {
+        return NextResponse.json({ error: 'Recording path is invalid.' }, { status: 400 });
+      }
+      const storage = supabase.storage.from('live-class-recordings');
+      const { data: info, error: infoError } = await storage.info(path);
+      if (infoError || !info || typeof info.size !== 'number' ||
+          info.size <= 0 || info.size > MAX_RECORDING_SIZE) {
+        return NextResponse.json({ error: 'Recording upload was not found or is too large.' }, { status: 422 });
+      }
+      const mimeType = safeMimeType(typeof info.contentType === 'string' ? info.contentType : 'audio/webm');
+      const createdAt = new Date();
+      const expiresAt = new Date(createdAt.getTime() + RECORDING_RETENTION_MS);
+      const { error } = await supabase.from('teaching_conversations')
+        .update({
+          recording_path: path, recording_mime_type: mimeType,
+          recording_size_bytes: info.size,
+          recording_created_at: createdAt.toISOString(),
+          recording_expires_at: expiresAt.toISOString(),
+        }).eq('id', requestedId).eq('user_id', user.id);
+      if (error) return NextResponse.json({ error: 'Unable to save recording metadata.' }, { status: 503 });
+      if (ownedConversation.recording_path && ownedConversation.recording_path !== path) {
+        const { error: cleanupError } = await storage.remove([ownedConversation.recording_path]);
+        if (cleanupError) console.warn('Previous recording cleanup postponed');
+      }
+      const { data: signed } = await storage.createSignedUrl(path, 60 * 60);
+      return NextResponse.json({
+        ok: true,
+        recording: {
+          signedUrl: signed?.signedUrl || null,
+          sizeBytes: info.size, mimeType,
+          createdAt: createdAt.toISOString(), expiresAt: expiresAt.toISOString(),
+          daysRemaining: daysRemaining(expiresAt.toISOString()),
+        },
+      }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    return NextResponse.json({ error: 'Unknown recording action.' }, { status: 400 });
+  }
+
   const formData = await req.formData();
   const conversationId = String(formData.get('conversationId') || '').trim();
   const file = formData.get('file');
