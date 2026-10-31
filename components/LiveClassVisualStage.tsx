@@ -94,6 +94,7 @@ export default function LiveClassVisualStage({ visualContext, selectedStructure,
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#ffd68d]">Interactive 3D {modelCategory}</p>
           <h2 className="mt-1 text-lg font-black tracking-tight text-white sm:text-2xl">{modelName}{focusedStructure && <span className="text-white/60"> · {focusedStructure}</span>}</h2>
           <p className="mt-1 text-[10px] font-semibold text-white/55 sm:text-xs">Drag to rotate · pinch or scroll to zoom · tap a structure to focus</p>
+          {visualContext.note && <p className="mt-3 max-h-28 overflow-y-auto border-l-2 border-[#E8A23D]/60 pl-3 text-xs leading-5 text-white/75">{visualContext.note}</p>}
           {catalogEntry?.source && <p className="mt-1 text-[9px] font-medium leading-4 text-white/45">{catalogEntry.source}</p>}
           {(sourceLinkUrl || licenseLabel) && (
             <div className="pointer-events-auto mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[9px] font-bold uppercase tracking-[0.12em]">
