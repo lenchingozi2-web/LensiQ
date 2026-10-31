@@ -40,7 +40,7 @@ export default function PricingClient() {
           <div className="mt-7 flex flex-wrap justify-center gap-3 text-xs font-bold text-slate-600">
             <span className="rounded-full border border-slate-200 bg-white px-4 py-2">Secure Flutterwave checkout</span>
             <span className="rounded-full border border-slate-200 bg-white px-4 py-2">Interactive Live Class is exclusive to All Access</span>
-            <span className="rounded-full border border-slate-200 bg-white px-4 py-2">Existing wallet minutes remain usable</span>
+            <span className="rounded-full border border-slate-200 bg-white px-4 py-2">Paid access is activated after verified payment</span>
           </div>
         </header>
 
@@ -104,7 +104,7 @@ export default function PricingClient() {
           </section>
         </div>
 
-        <p className="mx-auto mt-8 max-w-4xl text-center text-xs leading-5 text-slate-500">Any Live Class minutes already in your wallet remain available until used. Additional pay-as-you-go voice-minute purchases are no longer offered.</p>
+        <p className="mx-auto mt-8 max-w-4xl text-center text-xs leading-5 text-slate-500">Remaining Live Class minutes on active All Access subscriptions stay available for their billing cycle. Additional pay-as-you-go voice-minute purchases are no longer offered.</p>
       </div>
     </main>
   );
