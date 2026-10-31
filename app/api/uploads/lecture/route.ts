@@ -6,6 +6,18 @@ const BUCKET = 'teaching-attachments';
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_STORAGE_BYTES = 100 * 1024 * 1024;
 
+async function readSmallJson(request: Request): Promise<Record<string, unknown> | null> {
+  const length = Number(request.headers.get('content-length') || 0);
+  if (Number.isFinite(length) && length > 8 * 1024) return null;
+  const raw = await request.text();
+  if (Buffer.byteLength(raw, 'utf8') > 8 * 1024) return null;
+  try {
+    const value: unknown = JSON.parse(raw);
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown> : null;
+  } catch { return null; }
+}
+
 function safeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 160) || 'lecture-file';
 }
@@ -14,12 +26,13 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
-  const body = await request.json().catch(() => ({}));
+  const body = await readSmallJson(request);
+  if (!body) return NextResponse.json({ error: 'Invalid lecture upload request.' }, { status: 400 });
   const scope = body?.scope === 'teaching' || body?.scope === 'search' ? body.scope : null;
   const fileName = typeof body?.fileName === 'string' ? body.fileName : '';
   const mimeType = typeof body?.mimeType === 'string' ? body.mimeType : '';
   const sizeBytes = Number(body?.sizeBytes);
-  if (!scope || !fileName || !Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_FILE_SIZE) {
+  if (!scope || !fileName || fileName.length > 200 || mimeType.length > 160 || !Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_FILE_SIZE) {
     return NextResponse.json({ error: 'Lecture files must be between 1 byte and 20 MB.' }, { status: 413 });
   }
   if (!isSupportedLectureFile(fileName, mimeType)) return NextResponse.json({ error: 'Use a PDF, DOC, DOCX, PPTX, or plain-text lecture file.' }, { status: 415 });
@@ -46,7 +59,7 @@ export async function DELETE(request: Request) {
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
   const body = await request.json().catch(() => ({}));
   const storagePath = typeof body?.storagePath === 'string' ? body.storagePath : '';
-  if (!storagePath.startsWith(`${user.id}/search/`)) return NextResponse.json({ error: 'Temporary search upload does not belong to your account.' }, { status: 403 });
+  if (storagePath.length > 600 || !storagePath.startsWith(`${user.id}/search/`)) return NextResponse.json({ error: 'Temporary search upload does not belong to your account.' }, { status: 403 });
   const { error } = await supabase.storage.from(BUCKET).remove([storagePath]);
   if (error) return NextResponse.json({ error: 'Unable to remove the temporary search upload.' }, { status: 500 });
   return NextResponse.json({ ok: true, storagePath });
