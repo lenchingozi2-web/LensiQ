@@ -67,7 +67,7 @@ EXACT = {
 }
 TEXT_REPLACE = {
     '0cf244e9-b88e-49a0-b672-b2bfccee23af': {
-        'model_answer': ('every 7 hours for P. malariae', 'every 72 hours for P. malariae'),
+        'model_answer': ('every 7\nhours for P. malariae', 'every 72 hours for P. malariae'),
     },
     '4f155dd3-6845-485c-b4d4-157d6bd45d94': {
         'question_text': ('Alvimopam','Alvimopan'),
