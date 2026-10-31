@@ -69,10 +69,10 @@ TEXT_REPLACE = {
     '82dd20a5-fb25-4134-bf85-6b68c571d7ea': {
         'question_text': ('Mifeprostone','mifepristone'),
     },
-    'c7f795b3-35ba-4b42-8539-ef72abe38e4f': {
+    'c7f795b3-c87b-4fbe-a817-18011c6a31fa': {
         'question_text': ("Chron’s Disease","Crohn's disease"),
     },
-    '9e89b939-90bc-482d-bb3f-aa899aab322a': {
+    '9e89b939-5d15-4aad-959b-3677d5dba88f': {
         'question_text': ('benzodiazepenes','benzodiazepines'),
     },
 }
