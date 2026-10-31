@@ -89,7 +89,18 @@ export async function POST(req: Request) {
   const topicFocus = typeof body?.topicFocus === 'string' && body.topicFocus.trim() ? body.topicFocus.trim().slice(0, 300) : '';
   const focusText = typeof body?.focusText === 'string' && body.focusText.trim() ? body.focusText.trim().slice(0, 1200) : '';
   const conversationId = typeof body?.conversationId === 'string' && body.conversationId.trim() ? body.conversationId.trim() : null;
-  const materialUrls = Array.isArray(body?.fileUrls) ? body.fileUrls.filter((value: unknown): value is string => typeof value === 'string' && value.startsWith('http')).slice(0, 6) : [];
+  const safeUrl = (value: unknown): value is string => {
+    if (typeof value !== 'string' || value.length > 4096) return false;
+    try {
+      const parsed = new URL(value);
+      const expected = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://hixvbcrrklyajhkyliay.supabase.co');
+      const prefix = '/storage/v1/object/sign/ephemeral_class_materials/' + user.id + '/';
+      return parsed.protocol === 'https:' && parsed.origin === expected.origin &&
+        parsed.pathname.startsWith(prefix) && parsed.searchParams.has('token');
+    } catch { return false; }
+  };
+  const materialUrls = Array.isArray(body?.fileUrls) ? body.fileUrls.filter(safeUrl).slice(0, 6) : [];
+  const materialMapUrls = Array.isArray(body?.materialMapUrls) ? body.materialMapUrls.filter(safeUrl).slice(0, 6) : [];
   const rawMaterialContext = body?.materialContext && typeof body.materialContext === 'object' ? body.materialContext as { primaryBranch?: unknown; branches?: unknown; sources?: unknown } : null;
   const materialContext = rawMaterialContext ? {
     primaryBranch: typeof rawMaterialContext.primaryBranch === 'string' ? rawMaterialContext.primaryBranch.slice(0, 80) : null,
@@ -193,6 +204,7 @@ export async function POST(req: Request) {
     sessionExpiresAt,
     contextEndpoint: `${new URL(req.url).origin}/api/voice/context`,
     materialUrls,
+    materialMapUrls,
     materialContext,
     visualInstructions: 'You are teaching inside an interactive visual medical classroom, not an audio-only call. The visual stage is a first-class part of the lesson and is already available to you through the LiveKit data channel. Keep it synchronized with the exact concept being explained: before or as a new concept begins, publish the smallest useful approved visual command on lensiq.live_class.visual. The uploaded material is parsed text and is the primary source for this class. If the selected course toggle conflicts with the detected uploaded branch, explicitly say you are switching context and follow the uploaded material for the current lesson; do not blend Pharmacology and Pathology evidence without labelling the switch. If the learner changes subject, ask one short clarifying question or state the new context before continuing. You have a finite model inventory: use only the approved catalog below and be honest when a requested structure is not available. Use the approved 3D anatomy model for renal anatomy; use the labelled drug-target PDB model for its exact pharmacology concept; use the supplied original 3D schematics for pathology, histology, and cytology; use the matching interactive physiology simulation for cardiac output, mean arterial pressure, or alveolar ventilation; use medical media only when an actual supplied URL is relevant. If no suitable model exists for a non-visual mechanism, switch to a concise show_whiteboard mechanism/sequence/equation card, and keep it tied to what you are saying. Do not claim to display a micrograph, image, model, ligand, or simulation that is not in the catalogs. These cytology/histology/pathology schematics are simplified teaching aids, not clinical-grade or diagnostic imagery. For the beta-2 receptor structure, the bound ligand is carazolol (PDB 2RH1); never describe it as propranolol or carvedilol. The acetylcholinesterase model is bound to donepezil (4EY7), and the DHFR model to methotrexate (1U72). Use highlight_structure only with a matching structure name when useful. The learner can rotate/zoom the models and sends selection events on lensiq.live_class.visual_feedback; when a structure_selected event arrives, answer from that selected model/structure before broadening. Continue speaking after each visual change. Treat simulations as simplified education, never clinical decision support.',
     visualProtocol: {
