@@ -3,14 +3,17 @@
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
-const AnatomyViewer = dynamic(() => import('@/components/AnatomyViewer'), { ssr: false });
+const AnatomyViewer = dynamic(() => import('@/components/AnatomyViewer'), {
+  ssr: false,
+  loading: () => <div className="flex min-h-[18rem] items-center justify-center rounded-2xl bg-slate-100 text-sm font-semibold text-slate-500" role="status">Preparing the interactive anatomy model…</div>,
+});
 
 const journeys = [
   {
     href: '/curriculum',
     label: 'Study path',
     title: 'Follow the curriculum',
-    description: 'Move from the Year 4 timetable into a topic, then launch teaching and connected questions from one place.',
+    description: 'Pick an available course pathway, explore each topic, and jump into related teaching and questions.',
     tone: 'gold',
     icon: '01',
   },
@@ -34,8 +37,7 @@ const journeys = [
 
 const teachingModes = [
   { href: '/teach', eyebrow: 'Text teaching', title: 'Ask LenxiQ AI anything', description: 'A persistent teaching room grounded in your course material and past questions.', icon: 'Aa' },
-  { href: '/voice', eyebrow: 'Voice Tutor', title: 'Learn by speaking', description: 'Start a secure realtime voice session with the medical tutor.', icon: '◉' },
-  { href: '/voice?mode=class', eyebrow: 'Live Class', title: 'Enter the live room', description: 'A focused live-teaching foundation for guided classroom-style sessions.', icon: '▶' },
+  { href: '/voice?mode=class', eyebrow: 'Live Class', title: 'Enter the live room', description: 'Join a conversational medical classroom with live voice, an evolving whiteboard and interactive 3D models.', icon: '▶' },
 ];
 
 export default function Home() {
@@ -44,7 +46,7 @@ export default function Home() {
       <section className="mx-auto grid w-full max-w-[1440px] gap-8 px-4 pb-12 pt-8 sm:px-6 sm:pt-12 lg:grid-cols-[1.18fr_0.82fr] lg:px-8 lg:pb-16 lg:pt-16">
         <div className="flex flex-col justify-center">
           <div className="mb-5 flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-[#9A5D00]">
-            <span className="h-2 w-2 rounded-full bg-[#E8A23D]" /> Year 4 medical learning platform
+            <span className="h-2 w-2 rounded-full bg-[#E8A23D]" /> Medical study hub · Learn at your pace
           </div>
           <h1 className="max-w-3xl text-4xl font-black leading-[1.02] tracking-[-0.055em] text-[#0B1220] sm:text-6xl lg:text-7xl">Study with a plan. Practise with purpose.</h1>
           <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">LenxiQ AI brings your curriculum, preserved past questions, grounded AI teaching, and realtime voice learning into one focused study system.</p>
@@ -53,7 +55,7 @@ export default function Home() {
             <Link href="/teach" className="rounded-xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-black text-[#0B1220] shadow-sm hover:border-slate-400 hover:bg-slate-50">Start AI teaching</Link>
           </div>
           <div className="mt-9 flex flex-wrap gap-x-6 gap-y-2 text-sm font-bold text-slate-500">
-            <span>5 course pathways</span><span>Complete MCQ options</span><span>Persistent teaching sessions</span>
+            <span>Structured course pathways</span><span>Referenced practice questions</span><span>Saved teaching sessions</span>
           </div>
         </div>
 
@@ -109,7 +111,7 @@ export default function Home() {
 
       <section className="mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-6 lg:px-8">
         <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8"><div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Teaching modes</p><h2 className="mt-2 text-2xl font-black tracking-tight text-[#0B1220]">Learn in the mode that suits the moment.</h2></div><Link href="/pricing" className="text-sm font-black text-[#9A5D00] hover:text-[#0B1220]">See premium access →</Link></div>
-          <div className="grid gap-3 md:grid-cols-3">{teachingModes.map((mode) => <Link key={mode.href} href={mode.href} className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 hover:border-[#E8A23D] hover:bg-white"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0B1220] text-sm font-black text-[#E8A23D]">{mode.icon}</span><span className="text-xs font-black uppercase tracking-[0.15em] text-slate-400">{mode.eyebrow}</span></div><h3 className="mt-5 text-lg font-black text-[#0B1220]">{mode.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{mode.description}</p><span className="mt-4 block text-sm font-black text-[#9A5D00]">Enter →</span></Link>)}</div>
+          <div className="grid gap-3 md:grid-cols-2">{teachingModes.map((mode) => <Link key={mode.href} href={mode.href} className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 hover:border-[#E8A23D] hover:bg-white"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0B1220] text-sm font-black text-[#E8A23D]">{mode.icon}</span><span className="text-xs font-black uppercase tracking-[0.15em] text-slate-400">{mode.eyebrow}</span></div><h3 className="mt-5 text-lg font-black text-[#0B1220]">{mode.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{mode.description}</p><span className="mt-4 block text-sm font-black text-[#9A5D00]">Enter →</span></Link>)}</div>
         </div>
       </section>
     </div>
