@@ -93,8 +93,6 @@ def _provider_for_endpoint(base_url: str, model: str) -> str:
             raise RuntimeError("The Google Live Class endpoint must use a Gemini model.")
         return "gemini"
     if host == "api.groq.com":
-        if "gpt" in normalized_model:
-            raise RuntimeError("GPT models are not permitted for Live Class.")
         return "groq"
     raise RuntimeError("Live Class accepts only Gemini or Groq model endpoints; GPT/OpenAI fallback is disabled.")
 
@@ -109,7 +107,7 @@ def _select_live_class_llm() -> tuple[str, str, str, str]:
     # model, but a provisioned GROQ_API_KEY is the approved active path.
     gemini_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
     groq_key = os.getenv("GROQ_API_KEY", "").strip()
-    provider = requested_provider or ("gemini" if gemini_key else "groq" if groq_key else "")
+    provider = requested_provider or ("groq" if groq_key else "gemini" if gemini_key else "")
     if provider:
         if provider == "gemini":
             api_key = gemini_key
@@ -124,7 +122,7 @@ def _select_live_class_llm() -> tuple[str, str, str, str]:
             api_key = groq_key
             base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").strip()
             model = (os.getenv("GROQ_MODEL") or "").strip()
-            if not model or "gpt" in model.lower():
+            if not model:
                 model = "qwen/qwen3.8-27b"
         if not api_key:
             raise RuntimeError(f"The selected {provider} Live Class provider is missing its API key.")
@@ -150,18 +148,24 @@ def _select_live_class_llm() -> tuple[str, str, str, str]:
 
 
 class AiBudgetGate(FrameProcessor):
-    """Reserve a voice-rate-limited, dollar-cap-exempt request before each turn."""
+    """Atomic lease at room start and periodic renewals, never on the speech hot path."""
 
-    def __init__(self, transport: LiveKitTransport, user_id: str, endpoint: str, token: str):
+    def __init__(self, transport: LiveKitTransport, user_id: str, session_id: str, endpoint: str, token: str):
         super().__init__(name="ai-budget-gate")
         self.transport = transport
         self.user_id = user_id
+        self.session_id = session_id
         self.endpoint = endpoint
         self.token = token
+        self.available_turns = 0
+        self.last_renewal_attempt = 0.0
+        self.renewal_task: asyncio.Task | None = None
+        self.lease_lock = asyncio.Lock()
 
     def _reserve_sync(self) -> tuple[bool, str]:
         missing = [name for name, value in (
             ("user_id", self.user_id),
+            ("session_id", self.session_id),
             ("endpoint", self.endpoint),
             ("shared_token", self.token),
         ) if not value]
@@ -172,6 +176,9 @@ class AiBudgetGate(FrameProcessor):
             "userId": self.user_id,
             "requestId": str(uuid.uuid4()),
             "feature": "voice",
+            "action": "lease",
+            "sessionId": self.session_id,
+            "turns": 128,
         }).encode("utf-8")
         request = urllib.request.Request(
             self.endpoint,
@@ -186,7 +193,9 @@ class AiBudgetGate(FrameProcessor):
             with urllib.request.urlopen(request, timeout=4) as response:
                 result = json.loads(response.read(4096).decode("utf-8"))
                 if response.status == 200 and result.get("allowed") is True:
-                    logger.info("Voice AI budget reservation authorized")
+                    if result.get("leaseTurns") != 128:
+                        return False, "The tutor lease server returned an invalid authorization."
+                    logger.info("Voice AI budget reservation authorized (128-turn lease)")
                     return True, ""
                 reason = result.get("reason")
                 if reason in ("user_daily_spend_limit", "user_monthly_spend_limit", "global_daily_spend_limit", "global_monthly_spend_limit", "user_minute_limit", "user_hour_limit", "user_day_limit", "global_minute_limit", "global_hour_limit", "global_day_limit"):
@@ -204,6 +213,28 @@ class AiBudgetGate(FrameProcessor):
         except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
             logger.error("Voice AI budget service unavailable (%s); blocking provider call", type(error).__name__)
             return False, "The tutor budget service is temporarily unavailable. Please try again shortly."
+
+    async def renew(self) -> bool:
+        async with self.lease_lock:
+            # Backoff on transient failures, but retain previously granted turns.
+            if time.monotonic() - self.last_renewal_attempt < 45:
+                return self.available_turns > 0
+            self.last_renewal_attempt = time.monotonic()
+            allowed, message = await asyncio.to_thread(self._reserve_sync)
+            if allowed:
+                self.available_turns += 128
+                return True
+            logger.warning("Voice lease renewal failed: %s", message)
+            return False
+
+    async def start(self) -> None:
+        await self.renew()
+
+    async def periodic_renewal(self) -> None:
+        while True:
+            await asyncio.sleep(15 * 60)
+            if self.available_turns < 192:
+                await self.renew()
 
     def _bound_context(self, frame) -> None:
         context = getattr(frame, "context", None)
@@ -234,8 +265,8 @@ class AiBudgetGate(FrameProcessor):
         await super().process_frame(frame, direction)
         if isinstance(frame, (LLMContextFrame, OpenAILLMContextFrame)):
             self._bound_context(frame)
-            allowed, denial_message = await asyncio.to_thread(self._reserve_sync)
-            if not allowed:
+            if self.available_turns <= 0:
+                denial_message = "The tutor has reached its authorized turn allowance. Let us finish this concept and continue in another class."
                 client = getattr(self.transport, "_client", None)
                 if client is not None:
                     message = {
@@ -248,6 +279,9 @@ class AiBudgetGate(FrameProcessor):
                 # learner receives a spoken wrap-up rather than a silent stop.
                 await self.push_frame(ErrorFrame(error=denial_message), direction)
                 return
+            self.available_turns -= 1
+            if self.available_turns < 40 and (self.renewal_task is None or self.renewal_task.done()):
+                self.renewal_task = asyncio.create_task(self.renew())
         await self.push_frame(frame, direction)
 
 
@@ -488,6 +522,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     budget_gate = AiBudgetGate(
         transport,
         str(room_data.get("userId") or ""),
+        str(room_data.get("sessionId") or ""),
         os.getenv("AI_BUDGET_ENDPOINT", "https://www.lenxiq.online/api/internal/ai-budget").strip(),
         os.getenv("AI_BUDGET_INTERNAL_TOKEN", "").strip(),
     )
@@ -586,13 +621,22 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     # Fetch and retain all six parsed lecture sources at class start; signed
     # upload URLs can expire before a later turn in a 90-minute session.
     await material_bridge.preload()
+    # The one startup authorization occurs off the live voice turn path.
+    await budget_gate.start()
+    if budget_gate.available_turns <= 0:
+        logger.error("Live Class could not obtain an initial voice lease for %s", room_name)
+        return
     await queue_initial_greeting("pipeline_start")
     logger.info("Joining Live Class room %s", room_name)
     deadline_task = asyncio.create_task(close_at_session_deadline())
+    renewal_task = asyncio.create_task(budget_gate.periodic_renewal())
     try:
         await PipelineRunner().run(task)
     finally:
         deadline_task.cancel()
+        renewal_task.cancel()
+        if budget_gate.renewal_task:
+            budget_gate.renewal_task.cancel()
 
 
 async def _list_rooms(client: api.LiveKitAPI) -> list[Any]:

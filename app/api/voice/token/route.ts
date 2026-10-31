@@ -189,6 +189,7 @@ export async function POST(req: Request) {
     topicFocus,
     focusText,
     sessionType: 'live_class',
+    sessionId: quota.session_id,
     sessionExpiresAt,
     contextEndpoint: `${new URL(req.url).origin}/api/voice/context`,
     materialUrls,

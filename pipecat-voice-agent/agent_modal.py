@@ -12,12 +12,12 @@ The mounted ``livekit-credentials`` and ``lensiq-llm-fallback`` secrets must
 collectively provide LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET, and
 either a complete LLM_BASE_URL / LLM_API_KEY / LLM_MODEL contract pointing to
 Gemini or Groq, or a direct GEMINI_API_KEY + GEMINI_MODEL or GROQ_API_KEY +
-GROQ_MODEL pair. When both direct keys exist Gemini is selected by default;
+GROQ_MODEL pair. When both direct keys exist Groq is selected by default;
 LIVE_CLASS_LLM_PROVIDER=groq selects Groq. GPT/OpenAI and DeepSeek fallbacks
 are disabled.
 The ``ai-budget-secret`` Modal secret must contain ``AI_BUDGET_INTERNAL_TOKEN``,
-matching the Vercel environment variable. The voice worker fails closed and
-will not call the LLM when shared budget checks fail.
+matching the Vercel environment variable. The worker reserves voice turns
+at startup and renews asynchronously every fifteen minutes; no per-turn HTTP waits.
 LIVEKIT_URL may be wss:// or https://; this module normalizes it for the
 LiveKit server API and WebRTC transport.
 """
@@ -87,7 +87,7 @@ def _is_closed_room_error(error: Exception) -> bool:
     # experience; otherwise the first greeting waits for a full cold start.
     scaledown_window=300,
     min_containers=1,
-    max_containers=20,
+    max_containers=5,
 )
 def run_voice_room(room_name: str, room_metadata: str = "") -> None:
     """Run one Pipecat pipeline until the learner leaves the LiveKit room."""

@@ -55,7 +55,8 @@ export async function POST(request: Request) {
     !body ||
     !validUuid(body.userId) ||
     !validUuid(body.requestId) ||
-    !['teach', 'explain', 'voice'].includes(String(body.feature))
+    !['teach', 'explain', 'voice'].includes(String(body.feature)) ||
+    (body.action === 'lease' && (body.feature !== 'voice' || !validUuid(body.sessionId) || !Number.isInteger(body.turns) || Number(body.turns) < 1 || Number(body.turns) > 128))
   ) {
     return NextResponse.json({ error: 'Invalid budget request.' }, { status: 400 });
   }
@@ -66,16 +67,38 @@ export async function POST(request: Request) {
   }
 
   const isVoice = body.feature === 'voice';
-  const reservation = body.feature === 'voice'
-    ? await admin.rpc('reserve_live_class_ai_request', {
+  const isLease = isVoice && body.action === 'lease';
+  if (isLease) {
+    // Bind a trusted worker's request to an actual active, paid session.
+    const { data: session, error: sessionError } = await admin.from('live_class_sessions')
+      .select('id, user_id, started_at, status').eq('id', body.sessionId)
+      .eq('user_id', body.userId).eq('status', 'active').maybeSingle();
+    if (sessionError || !session || Date.now() >= new Date(session.started_at).getTime() + 90 * 60_000) {
+      return NextResponse.json({ allowed: false, reason: 'session_ended' }, { status: 403 });
+    }
+  }
+  let reservation = isLease
+    ? await admin.rpc('reserve_live_class_ai_lease', {
         p_user_id: body.userId,
+        p_session_id: body.sessionId,
         p_request_id: body.requestId,
+        p_turns: body.turns,
       })
-    : await admin.rpc('reserve_ai_budget', {
-        p_user_id: body.userId,
-        p_feature: body.feature,
-        p_request_id: body.requestId,
-      });
+    : isVoice
+      ? await admin.rpc('reserve_live_class_ai_request', { p_user_id: body.userId, p_request_id: body.requestId })
+      : await admin.rpc('reserve_ai_budget', {
+          p_user_id: body.userId, p_feature: body.feature, p_request_id: body.requestId,
+        });
+  // Backward-compatible rollout: keep the classroom available while 0050 is
+  // awaiting access to the medical Supabase project. This charges one legacy
+  // voice reservation per 15-minute lease, not one network call per sentence.
+  let legacyLease = false;
+  if (isLease && reservation.error?.code === '42883') {
+    legacyLease = true;
+    reservation = await admin.rpc('reserve_live_class_ai_request', {
+      p_user_id: body.userId, p_request_id: body.requestId,
+    });
+  }
   const { data, error } = reservation;
 
   if (error) {
@@ -117,5 +140,6 @@ export async function POST(request: Request) {
     allowed: row.allowed,
     reason: row.reason || null,
     reservedUsd: Number(row.reserved_microusd || 0) / 1_000_000,
+    ...(isLease && row.allowed ? { leaseTurns: Number(body.turns), leaseSeconds: 15 * 60, legacyLease } : {}),
   }, { status: row.allowed ? 200 : row.reason === 'duplicate_request' ? 409 : 429 });
 }
