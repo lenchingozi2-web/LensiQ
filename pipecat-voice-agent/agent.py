@@ -334,7 +334,12 @@ class MaterialContextBridge(FrameProcessor):
     def _download(self, url: str) -> str:
         request = urllib.request.Request(url, headers={"User-Agent": "LenxiQ-Live-Class/1.0"})
         with urllib.request.urlopen(request, timeout=15) as response:
-            return response.read(4_000_000).decode("utf-8", "replace")
+            # A source-preserving map can exceed 4 MB for multiple lecture PDFs.
+            # Fail clearly on an oversized body instead of truncating JSON mid-chunk.
+            payload = response.read(26_000_001)
+            if len(payload) > 26_000_000:
+                raise ValueError("Lecture map exceeds the worker's 26 MB safety limit")
+            return payload.decode("utf-8", "replace")
 
     async def preload(self) -> None:
         if self._loaded:
@@ -554,12 +559,22 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     # branch uses Google's OpenAI-compatible protocol endpoint.
     llm_class = GroqLLMService if llm_provider == "groq" else OpenAILLMService
     if llm_provider == "groq" and llm_model.startswith("qwen/"):
-        # Groq Qwen streams its chain-of-thought unless explicitly disabled.
+        # reasoning_effort entered Pipecat after the pinned v0.0.108 image.
+        # Prefer disabling visible reasoning when supported, but never crash
+        # a paid class solely because the deployed SDK predates that option.
+        try:
+            groq_settings = GroqLLMService.Settings(
+                model=llm_model, reasoning_effort="none",
+                max_tokens=220, temperature=0.35,
+            )
+        except TypeError:
+            logger.warning("Pinned Pipecat Groq settings lack reasoning_effort; using compatible settings")
+            groq_settings = GroqLLMService.Settings(
+                model=llm_model, max_tokens=220, temperature=0.35,
+            )
         llm = GroqLLMService(
             api_key=llm_api_key, base_url=llm_base_url,
-            settings=GroqLLMService.Settings(model=llm_model, reasoning_effort="none",
-                                            max_tokens=220, temperature=0.35),
-            max_retries=0, timeout=25,
+            settings=groq_settings, max_retries=0, timeout=25,
         )
     else:
         llm = llm_class(
