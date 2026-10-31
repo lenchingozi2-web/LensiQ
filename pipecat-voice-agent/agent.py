@@ -332,6 +332,16 @@ class MaterialContextBridge(FrameProcessor):
         async def load_source(index: int, url: str) -> list[tuple[str, str]]:
             try:
                 text = await asyncio.to_thread(self._download, url)
+                if url in self.map_urls:
+                    material = json.loads(text)
+                    if material.get("version") == 1:
+                        segments = []
+                        for entry in material.get("chunks", []):
+                            if isinstance(entry, dict) and isinstance(entry.get("content"), str):
+                                segments.append((str(entry.get("title") or "lecture"), entry["content"]))
+                                if isinstance(entry.get("visual"), dict):
+                                    self.visuals[entry["content"]] = entry["visual"]
+                        return segments
                 # Keep every parsed character (up to the 4 MB/source download
                 # bound); overlapping windows avoid silently dropping later pages.
                 label = self.source_labels[index] if index < len(self.source_labels) else f"uploaded source {index + 1}"
@@ -345,7 +355,8 @@ class MaterialContextBridge(FrameProcessor):
                 logger.warning("Unable to load uploaded source %d: %s", index + 1, type(error).__name__)
                 return []
 
-        loaded_sources = await asyncio.gather(*(load_source(index, url) for index, url in enumerate(self.urls)))
+        sources = self.map_urls if self.map_urls else self.urls
+        loaded_sources = await asyncio.gather(*(load_source(index, url) for index, url in enumerate(sources)))
         for source_chunks in loaded_sources:
             self.chunks.extend(source_chunks)
         logger.info("Loaded %d compact lecture excerpts from %d uploaded sources", len(self.chunks), len(self.urls))
@@ -361,6 +372,7 @@ class MaterialContextBridge(FrameProcessor):
         )
         selected = [item for item in ranked[:3] if any(term in item[1].lower() for term in terms)] or ranked[:2]
         self.last_evidence = selected[0] if selected else None
+        self.last_visual = self.visuals.get(selected[0][1]) if selected else None
         return "\n\n".join(f"[{source}]\n{chunk}" for source, chunk in selected)[:5_000]
 
     def build_wrapup(self) -> str:
