@@ -4,6 +4,7 @@ import { extractLectureText } from '@/lib/curriculum/extract-text';
 import { getLectureFileExtension, isSupportedLectureFile, normalizeLectureFileName, normalizeLectureMimeType } from '@/lib/curriculum/file-types';
 import { detectMaterialBranches } from '@/lib/curriculum/material-profile';
 import { includesLiveClass } from '@/lib/plans';
+import { createClassMaterialMap } from '@/lib/ai/live-class-material-map';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,9 +64,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'The tutor could not be given temporary access to this lecture file. Please retry.' }, { status: 500 });
   }
 
+  let materialMapUrl: string | null = null;
+  try {
+    const materialMap = await createClassMaterialMap(extractedText, value.name);
+    const mapPath = storagePath.replace(/\.parsed\.txt$/, '.class-map.json');
+    const { error: mapError } = await supabase.storage.from(STORAGE_BUCKET)
+      .upload(mapPath, Buffer.from(JSON.stringify(materialMap), 'utf8'), {contentType:'application/json',upsert:false});
+    if (!mapError) {
+      const {data: mapLink} = await supabase.storage.from(STORAGE_BUCKET).createSignedUrl(mapPath, 2 * 60 * 60);
+      materialMapUrl = mapLink?.signedUrl || null;
+    }
+  } catch {
+    console.warn('Structured class mapping unavailable; extracted lecture text remains accessible.');
+  }
   const profile = detectMaterialBranches(extractedText, value.name, extractedText.length);
   return NextResponse.json({
     path: storagePath,
+    materialMapUrl,
     signedUrl: signedData.signedUrl,
     parsed: true,
     sourceFileName: value.name,
