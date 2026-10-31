@@ -6,6 +6,12 @@ from repair_question_bank import query, quote, PROJECT
 # These key combinations are independently confirmed by the complete answer
 # explanations and the corresponding answer choices in the medical database.
 KEYS = {
+    '0c71602d-5be4-40ca-a211-49a1bc43f5fa':('B,A,D,C','B,C'),
+    '6dfc5ffa-95b0-4677-a545-244e8164ac88':('B,A,D,E','B,E'),
+    '78f82ff4-7f44-425b-bd22-bc8fbcca015e':('B,A,D,C','B,C'),
+    'e2a5b756-7a2d-465b-b9b8-9a8f1bbf331c':('C,A,D,E','C,E'),
+    'e8b784fe-7884-4354-9311-158717365319':('B,A,D,E','B,E'),
+    'fc79584b-db97-486b-88ea-079f4801eb87':('B,A,D,C','B,C'),
     '0e4efbc1-56e6-4a7d-81aa-0e7f33de7c12':('A,A,D,B','A,B'),
     '39421ae4-4ce6-40a6-bb91-2e28d01d2e12':('D,A,D,E','D,E'),
     '3a1c37b8-aeb5-4e30-acc9-bf317f42f705':('C,A,D,D','C,D'),
