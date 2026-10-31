@@ -22,15 +22,6 @@ export async function reserveAiRequest(
   const admin = createAdminClient();
   if (!admin) return { allowed: false, reason: 'budget_unavailable' };
 
-  // The database-backed admin switch is the single global pause control.
-  const { data: controls, error: controlError } = await admin
-    .from('ai_runtime_controls')
-    .select('is_paused')
-    .eq('id', 1)
-    .maybeSingle();
-  if (controlError || !controls || controls.is_paused !== false) {
-    return { allowed: false, reason: 'ai_globally_paused' };
-  }
   const reservationId = requestId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)
     ? requestId
     : randomUUID();

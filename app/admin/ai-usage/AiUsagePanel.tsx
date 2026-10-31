@@ -4,8 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 
 type MonitorData = {
   controls: {
-    isPaused: boolean;
-    pauseReason: string;
     globalDailyLimitUsd: number;
     globalMonthlyLimitUsd: number;
     userDailyLimitUsd: number;
@@ -115,8 +113,8 @@ export default function AiUsagePanel() {
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-300">LensiQ · AI operations</p>
-              <h1 className="mt-3 text-3xl font-black sm:text-4xl">AI usage & emergency control</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">Monitor reserved provider spend, request volume, guardrail alerts, and the global AI pause. No API keys are displayed here.</p>
+              <h1 className="mt-3 text-3xl font-black sm:text-4xl">AI usage monitoring</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">Monitor reserved provider spend, request volume, budget limits, and guardrail alerts. No API keys are displayed here.</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <a href="/admin" className="rounded-xl border border-white/20 px-4 py-2 text-sm font-bold hover:bg-white/10">← Admin dashboard</a>
@@ -139,19 +137,7 @@ export default function AiUsagePanel() {
             ].map(card => <article key={card.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-xs font-black uppercase tracking-widest text-slate-500">{card.label}</p><p className="mt-3 text-3xl font-black">{card.value}</p><p className="mt-2 text-xs font-semibold text-slate-500">{card.detail}</p></article>)}
           </section>
 
-          <section className="mt-6 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-            <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div><p className="text-xs font-black uppercase tracking-widest text-slate-500">Master kill switch</p><h2 className="mt-2 text-2xl font-black">{data.controls.isPaused ? 'ALL AI PAUSED' : 'Runtime switch enabled'}</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">{data.controls.pauseReason || 'No pause reason recorded.'}</p></div>
-                <span className={`rounded-full px-3 py-2 text-xs font-black ${data.controls.isPaused ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}`}>{data.controls.isPaused ? 'SAFE · PAUSED' : 'SWITCH ON'}</span>
-              </div>
-              <div className="mt-5 flex flex-wrap gap-3">
-                <button onClick={() => void action({ action: 'pause', reason: 'Emergency stop activated from LensiQ admin dashboard' }, 'Emergency stop activated. New guarded AI requests will be blocked.')} disabled={busy || data.controls.isPaused} className="rounded-xl bg-red-700 px-5 py-3 text-sm font-black text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40">⛔ Emergency stop all AI</button>
-                <button onClick={() => void action({ action: 'resume' }, 'Runtime switch updated.')} disabled={busy || !data.controls.isPaused} className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Resume AI</button>
-              </div>
-              <p className="mt-4 text-xs text-slate-500">Last control update: {time(data.controls.updatedAt)} · Turning the switch off blocks new guarded requests; it cannot cancel a provider request already in flight.</p>
-            </article>
-
+          <section className="mt-6 grid gap-5 lg:grid-cols-1">
             <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">Budget consumption</p>
               <h2 className="mt-2 text-xl font-black">Hard spending guardrails</h2>

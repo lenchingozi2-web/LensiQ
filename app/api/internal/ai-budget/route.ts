@@ -66,30 +66,6 @@ export async function POST(request: Request) {
   }
 
   const isVoice = body.feature === 'voice';
-  const { data: controls, error: controlError } = await admin
-    .from('ai_runtime_controls')
-    .select('is_paused')
-    .eq('id', 1)
-    .maybeSingle();
-  if (controlError || !controls) {
-    return NextResponse.json({ error: 'AI runtime control is not configured; failing closed.' }, { status: 503 });
-  }
-  // The central admin switch controls every AI feature. Live Class remains
-  // exempt from spend-alert thresholds below, not from this emergency pause.
-  if (controls.is_paused) {
-    const pausedEvent = await admin.from('ai_usage_events').insert({
-      request_id: body.requestId,
-      user_id: body.userId,
-      feature: body.feature,
-      provider: 'voice-configured',
-      status: 'denied',
-      estimated_cost_microusd: 0,
-      error_code: 'ai_globally_paused',
-    });
-    if (pausedEvent.error) console.error('Voice budget event write failed', { code: pausedEvent.error.code || 'unknown' });
-    return NextResponse.json({ allowed: false, reason: 'ai_globally_paused' }, { status: 503 });
-  }
-
   const reservation = body.feature === 'voice'
     ? await admin.rpc('reserve_live_class_ai_request', {
         p_user_id: body.userId,

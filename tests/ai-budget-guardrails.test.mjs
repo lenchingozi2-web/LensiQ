@@ -4,11 +4,12 @@ import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('paid web AI endpoints use the admin pause and budget guard instead of a hard-coded emergency pause', async () => {
+test('paid web AI endpoints use the request budget guard without a global pause', async () => {
   for (const path of ['app/api/teach/route.ts', 'app/api/explain/route.ts']) {
     const source = await read(path);
     const provider = source.indexOf("https://api.deepseek.com/chat/completions");
     assert.match(source, /reserveAiRequest\(userId, '(teach|explain)'/);
+    assert.doesNotMatch(source, /is_paused|ai_globally_paused/);
     assert.doesNotMatch(source, /temporarily paused while service usage is reviewed/);
     assert.notEqual(provider, -1, `${path} must keep provider integration for a later reviewed restore`);
   }
@@ -61,15 +62,18 @@ test('voice model generation is budget-gated and restricted to Gemini or Groq', 
   assert.doesNotMatch(voice, /gpt-4o-mini|OPENAI_API_KEY|DEEPSEEK_API_KEY|api\.openai\.com/);
 });
 
-test('Live Class voice reservations are exempt from dollar caps but retain rate limits and the admin pause', async () => {
+test('Live Class voice reservations retain rate limits without a global pause', async () => {
   const route = await read('app/api/internal/ai-budget/route.ts');
   const migration = await read('supabase/migrations/0048_live_class_uncapped_voice_spend.sql');
+  const pauseRemoval = await read('supabase/migrations/0049_remove_global_pause_and_allow_live_class_reentry.sql');
   assert.match(route, /body\.feature === 'voice'[\s\S]*?reserve_live_class_ai_request/);
+  assert.doesNotMatch(route, /is_paused|ai_globally_paused/);
   assert.match(migration, /user_minute_limit/);
   assert.match(migration, /global_day_count >= 5000/);
   assert.match(migration, /ai_spend_reservations/);
   assert.doesNotMatch(migration, /insert\s+into\s+public\.ai_spend_windows/i);
-  assert.match(route, /controls\.is_paused/);
+  assert.match(pauseRemoval, /drop column if exists is_paused/i);
+  assert.match(pauseRemoval, /no global pause switch/i);
 });
 
 test('Live Class is paid-tier gated and has a server-enforced 90-minute graceful close', async () => {
@@ -86,7 +90,7 @@ test('Live Class is paid-tier gated and has a server-enforced 90-minute graceful
   assert.equal((reservation.match(/where user_id = v_user_id and status = 'active'/g) || []).length, 2);
   assert.match(reservation, /v_reserved_minutes := least\(greatest\(v_voice_balance, 0\), 90\)/);
   assert.match(token, /Math\.min\(90 \* 60/);
-  assert.match(token, /runtimeControls\.is_paused[\s\S]*?ai_globally_paused/);
+  assert.doesNotMatch(token, /is_paused|ai_globally_paused/);
   assert.match(worker, /close_at_session_deadline/);
   assert.match(worker, /EndFrame\(\)/);
   assert.match(worker, /def build_wrapup/);
@@ -94,6 +98,17 @@ test('Live Class is paid-tier gated and has a server-enforced 90-minute graceful
   assert.match(session, /Math\.ceil\(\(sessionDeadlineAtRef\.current! - Date\.now\(\)\) \/ 1000\)/);
   assert.match(session, /35_000/);
   assert.match(modal, /timeout=95 \* 60/);
+});
+
+test('users can reserve a fresh Live Class after a 90-minute session closes', async () => {
+  const migration = await read('supabase/migrations/0049_remove_global_pause_and_allow_live_class_reentry.sql');
+  const token = await read('app/api/voice/token/route.ts');
+  const page = await read('app/voice/page.tsx');
+  assert.match(migration, /where user_id = v_user_id and status = 'active'/);
+  assert.match(migration, /values \(v_user_id, p_conversation_id, p_room_name/);
+  assert.doesNotMatch(migration, /'active_session'/);
+  assert.match(token, /reserve_live_class_session/);
+  assert.match(page, /sessionSummary \? 'Start another Live Class' : 'Enter Live Class'/);
 });
 
 test('Live Class leaves Thinking on assistant text and surfaces bounded greeting/answer timeouts', async () => {
@@ -171,9 +186,9 @@ test('internal budget endpoint requires a constant-time shared-token check', asy
 });
 
 
-test('central AI switch defaults paused and stores configurable conservative caps', async () => {
+test('AI budget controls retain configurable caps while removing global pause state', async () => {
   const migration = await read('supabase/migrations/0044_ai_usage_monitoring.sql');
-  assert.match(migration, /is_paused boolean not null default true/i);
+  const pauseRemoval = await read('supabase/migrations/0049_remove_global_pause_and_allow_live_class_reentry.sql');
   assert.match(migration, /global_daily_limit_microusd bigint not null default 1000000/i);
   assert.match(migration, /global_monthly_limit_microusd bigint not null default 10000000/i);
   assert.match(migration, /user_daily_limit_microusd bigint not null default 250000/i);
@@ -181,12 +196,15 @@ test('central AI switch defaults paused and stores configurable conservative cap
   assert.match(migration, /ai_usage_events/);
   assert.match(migration, /ai_budget_alerts/);
   assert.match(migration, /revoke all on public\.ai_runtime_controls from public, anon, authenticated/i);
+  assert.match(pauseRemoval, /drop function if exists public\.set_ai_runtime_pause/i);
+  assert.match(pauseRemoval, /drop column if exists is_paused/i);
 });
 
-test('budget reservation checks the central pause and configurable caps atomically', async () => {
-  const sql = await read('supabase/migrations/0043_ai_spend_budget.sql');
+test('budget reservation checks configurable caps atomically without a global pause', async () => {
+  const sql = await read('supabase/migrations/0049_remove_global_pause_and_allow_live_class_reentry.sql');
+  const reservation = sql.slice(sql.indexOf('create or replace function public.reserve_ai_budget'), sql.indexOf('create or replace function public.reserve_live_class_session'));
   assert.match(sql, /from public\.ai_runtime_controls where id = 1/i);
-  assert.match(sql, /ai_globally_paused/);
+  assert.doesNotMatch(reservation, /ai_globally_paused|is_paused/);
   assert.match(sql, /v_global_day_spend \+ v_cost > v_global_daily_cap/);
   assert.match(sql, /v_global_month_spend \+ v_cost > v_global_monthly_cap/);
   assert.match(sql, /v_user_day_spend \+ v_cost > v_user_daily_cap/);
@@ -201,27 +219,26 @@ test('forward migration fixes ambiguous reserved_microusd output-variable refere
   assert.match(migration, /grant execute on function public\.reserve_ai_budget\(uuid, text, uuid\) to service_role/i);
 });
 
-test('The central admin pause controls all AI; provider environment gates are removed', async () => {
+test('AI budget endpoints and admin API expose no global pause control', async () => {
   const route = await read('app/api/internal/ai-budget/route.ts');
   const requestBudget = await read('lib/ai/request-budget.ts');
   const adminControl = await read('app/api/admin/ai-control/route.ts');
-  assert.match(route, /controls\.is_paused/);
-  assert.match(route, /if \(controls\.is_paused\)/);
+  assert.doesNotMatch(route, /controls\.is_paused|ai_globally_paused/);
   assert.match(route, /const isVoice = body\.feature === 'voice'/);
   assert.match(route, /if \(!isVoice && !\(await evaluateAiBudgetAlerts\(admin\)\)\)/);
   assert.doesNotMatch(route, /AI_PROVIDER_CALLS_ENABLED/);
   assert.doesNotMatch(requestBudget, /AI_PROVIDER_CALLS_ENABLED/);
   assert.doesNotMatch(adminControl, /AI_PROVIDER_CALLS_ENABLED/);
+  assert.doesNotMatch(adminControl, /action === '(pause|resume)'|set_ai_runtime_pause/);
   assert.match(route, /ai_usage_events/);
   assert.match(route, /usage logging unavailable; failing closed/i);
 });
 
-test('admin AI control API requires an authenticated admin and keeps the global pause switch operable', async () => {
+test('admin AI control API requires an admin and only allows budget-limit changes', async () => {
   const route = await read('app/api/admin/ai-control/route.ts');
   assert.match(route, /profile\?\.role !== 'admin'/);
   assert.doesNotMatch(route, /AI_PROVIDER_CALLS_ENABLED/);
-  assert.match(route, /action === 'pause'/);
-  assert.match(route, /action === 'resume'/);
+  assert.doesNotMatch(route, /action === '(pause|resume)'|set_ai_runtime_pause/);
   assert.match(route, /action === 'limits'/);
   assert.match(route, /AI_BUDGET_ALERT_WEBHOOK_URL/);
   assert.match(route, /ai_budget_alerts/);
@@ -243,7 +260,7 @@ test('usage alerts are evaluated before guarded requests can proceed', async () 
 test('admin writes use serialized service-role RPCs rather than direct table updates', async () => {
   const route = await read('app/api/admin/ai-control/route.ts');
   const migration = await read('supabase/migrations/0044_ai_usage_monitoring.sql');
-  assert.match(route, /rpc\('set_ai_runtime_pause'/);
+  assert.doesNotMatch(route, /set_ai_runtime_pause/);
   assert.match(route, /rpc\('set_ai_budget_limits'/);
   assert.match(migration, /pg_advisory_xact_lock\(hashtextextended\('ai-budget-control-global', 0\)\)/);
   assert.match(migration, /revoke all on function public\.set_ai_runtime_pause/i);
@@ -251,11 +268,12 @@ test('admin writes use serialized service-role RPCs rather than direct table upd
 });
 
 
-test('monitoring migration also upgrades previously-created reservation RPC', async () => {
-  const migration = await read('supabase/migrations/0044_ai_usage_monitoring.sql');
+test('forward migration upgrades the reservation RPC without reintroducing a pause gate', async () => {
+  const migration = await read('supabase/migrations/0049_remove_global_pause_and_allow_live_class_reentry.sql');
+  const reservation = migration.slice(migration.indexOf('create or replace function public.reserve_ai_budget'), migration.indexOf('create or replace function public.reserve_live_class_session'));
   assert.match(migration, /create or replace function public\.reserve_ai_budget/i);
   assert.match(migration, /from public\.ai_runtime_controls where id = 1/i);
+  assert.doesNotMatch(reservation, /is_paused|ai_globally_paused/);
   assert.match(migration, /v_global_day_spend \+ v_cost > v_global_daily_cap/);
-  assert.match(migration, /ai_globally_paused/);
   assert.match(migration, /grant execute on function public\.reserve_ai_budget\(uuid, text, uuid\) to service_role/i);
 });

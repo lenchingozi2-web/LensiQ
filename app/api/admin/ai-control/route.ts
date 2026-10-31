@@ -41,7 +41,7 @@ export async function GET() {
   const monthStart = isoDay(monthDate);
 
   const [controlResult, daySpendResult, monthSpendResult, dayCountResult, hourCountResult, minuteCountResult, eventsResult] = await Promise.all([
-    admin.from('ai_runtime_controls').select('*').eq('id', 1).maybeSingle(),
+    admin.from('ai_runtime_controls').select('global_daily_limit_microusd, global_monthly_limit_microusd, user_daily_limit_microusd, user_monthly_limit_microusd, updated_at').eq('id', 1).maybeSingle(),
     admin.from('ai_spend_windows').select('reserved_microusd').eq('window_start', dayStart).eq('scope_key', 'global:day').maybeSingle(),
     admin.from('ai_spend_windows').select('reserved_microusd').eq('window_start', monthStart).eq('scope_key', 'global:month').maybeSingle(),
     admin.from('ai_request_windows').select('request_count').eq('window_start', dayStart).eq('scope_key', 'global:day').maybeSingle(),
@@ -81,8 +81,6 @@ export async function GET() {
 
   return NextResponse.json({
     controls: {
-      isPaused: controls.is_paused,
-      pauseReason: controls.pause_reason,
       globalDailyLimitUsd: usd(dailyCap),
       globalMonthlyLimitUsd: usd(monthlyCap),
       userDailyLimitUsd: usd(controls.user_daily_limit_microusd),
@@ -124,27 +122,6 @@ export async function POST(request: Request) {
     body = parsed as Record<string, unknown>;
   } catch {
     return NextResponse.json({ error: 'Invalid JSON request.' }, { status: 400 });
-  }
-
-  if (body.action === 'pause') {
-    const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 200) : 'Emergency stop activated by admin';
-    const { data, error } = await admin.rpc('set_ai_runtime_pause', {
-      p_is_paused: true,
-      p_pause_reason: reason || 'Emergency stop activated by admin',
-      p_updated_by: user.id,
-    });
-    if (error || data !== true) return NextResponse.json({ error: 'Could not activate emergency stop.' }, { status: 503 });
-    return NextResponse.json({ ok: true, isPaused: true });
-  }
-
-  if (body.action === 'resume') {
-    const { data, error } = await admin.rpc('set_ai_runtime_pause', {
-      p_is_paused: false,
-      p_pause_reason: '',
-      p_updated_by: user.id,
-    });
-    if (error || data !== true) return NextResponse.json({ error: 'Could not update AI runtime control.' }, { status: 503 });
-    return NextResponse.json({ ok: true, isPaused: false });
   }
 
   if (body.action === 'limits') {

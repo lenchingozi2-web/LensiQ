@@ -47,17 +47,6 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: 'ai_runtime_unavailable', message: 'Live Class is temporarily unavailable. Please try again later.' }, { status: 503 });
-  const { data: runtimeControls, error: runtimeControlError } = await admin
-    .from('ai_runtime_controls')
-    .select('is_paused')
-    .eq('id', 1)
-    .maybeSingle();
-  if (runtimeControlError || !runtimeControls) {
-    return NextResponse.json({ error: 'ai_runtime_unavailable', message: 'Live Class could not verify the administrator AI control. Please try again later.' }, { status: 503 });
-  }
-  if (runtimeControls.is_paused) {
-    return NextResponse.json({ error: 'ai_globally_paused', message: 'Live Class is temporarily paused by the administrator. Please try again later.' }, { status: 503 });
-  }
 
   // The browser must join the same LiveKit Cloud deployment that the Modal
   // worker polls. Never fall back to an old NEXT_PUBLIC_* Codespaces URL in
