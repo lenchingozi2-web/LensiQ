@@ -149,7 +149,8 @@ def query(statement,read_only=False):
         except HTTPError as ex:
             if ex.code in (429,502,503,504) and attempt<3:
                 time.sleep(2**attempt);continue
-            raise RuntimeError('Supabase API rejected request: HTTP '+str(ex.code)) from ex
+            detail=ex.read(1200).decode('utf-8','replace').replace(token,'[redacted]')
+            raise RuntimeError('Supabase API rejected request: HTTP '+str(ex.code)+' '+detail[:900]) from ex
     raise RuntimeError('Supabase API retry limit')
 
 def apply(changes):
