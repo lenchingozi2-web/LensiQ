@@ -18,5 +18,8 @@ export const primaryNavigation: NavigationLink[] = [
 export const secondaryNavigation: NavigationLink[] = [
   { href: '/search', label: 'Question search', description: 'Find matching questions' },
   { href: '/exam', label: 'Mock exam', description: 'Test your knowledge' },
-  { href: '/library', label: 'Library', description: 'Manage course material' },
+  { href: '/library', label: 'Library', description: 'Explore reference resources' },
+  { href: '/files', label: 'My files', description: 'Manage saved lecture uploads' },
+  { href: '/wallet', label: 'Study wallet', description: 'Check subscription and balances' },
+  { href: '/studio', label: 'Video studio', description: 'Create a visual lesson plan' },
 ];
