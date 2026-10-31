@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { LOGIN_PATH, type NavigationLink } from '@/lib/navigation';
+import { LOGIN_PATH, secondaryNavigation, type NavigationLink } from '@/lib/navigation';
 
 type NavbarControlsProps = {
   links: NavigationLink[];
@@ -11,7 +11,12 @@ type NavbarControlsProps = {
 
 function isActiveLink(href: string, pathname: string, search: string) {
   const target = new URL(href, 'http://localhost');
-  return target.pathname === pathname && target.search === search;
+  if (target.pathname !== pathname) return false;
+  const current = new URLSearchParams(search);
+  for (const [key, value] of target.searchParams) {
+    if (current.get(key) !== value) return false;
+  }
+  return true;
 }
 
 export default function NavbarControls({ links, isAuthenticated }: NavbarControlsProps) {
@@ -37,6 +42,23 @@ export default function NavbarControls({ links, isAuthenticated }: NavbarControl
             </Link>
           );
         })}
+        <details className="group relative">
+          <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1 rounded-lg px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 hover:text-[#0B1220] [&::-webkit-details-marker]:hidden">
+            More <span className="text-slate-400 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span>
+          </summary>
+          <nav aria-label="Additional study tools" className="absolute right-0 top-12 z-50 w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">
+            <p className="px-3 pb-1 pt-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">More ways to study</p>
+            {secondaryNavigation.map((link) => (
+              <Link key={link.href} href={link.href}
+                aria-current={isActiveLink(link.href, pathname, search) ? 'page' : undefined}
+                className={`block rounded-xl px-3 py-2.5 transition-colors hover:bg-slate-50 ${isActiveLink(link.href, pathname, search) ? 'bg-amber-50' : ''}`}
+              >
+                <span className="block text-sm font-bold text-slate-800">{link.label}</span>
+                <span className="mt-0.5 block text-xs text-slate-500">{link.description}</span>
+              </Link>
+            ))}
+          </nav>
+        </details>
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
