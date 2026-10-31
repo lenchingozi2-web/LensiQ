@@ -681,11 +681,42 @@ function VoiceTutorContent() {
     roomRef.current?.disconnect();
     roomRef.current = null;
     const recordingBlob = await stopRecording();
+    let recordingUploadNotice = '';
     if (activeConversationId && recordingBlob) {
-      const formData = new FormData();
-      formData.append('conversationId', activeConversationId);
-      formData.append('file', new File([recordingBlob], 'lenxiq-live-class.webm', { type: recordingBlob.type || 'audio/webm' }));
-      await fetch('/api/voice/recording', { method: 'POST', body: formData }).catch(() => undefined);
+      // Vercel Function payloads are capped at 4.5 MB. Upload the full recording
+      // straight to the learner-owned Supabase bucket with a short-lived token.
+      try {
+        const mimeType = recordingBlob.type || 'audio/webm';
+        const prepare = await fetch('/api/voice/recording', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'prepare', conversationId: activeConversationId, mimeType }),
+        });
+        if (!prepare.ok) throw new Error('Unable to prepare the recording upload');
+        const signed = await prepare.json() as { bucket?: string; path?: string; token?: string };
+        if (!signed.path || !signed.token || signed.bucket !== 'live-class-recordings') {
+          throw new Error('The recording upload authorization was incomplete');
+        }
+        const { createClient } = await import('@/lib/supabase/client');
+        const storage = createClient().storage.from('live-class-recordings');
+        const fileName = signed.path.split('/').pop() || 'recording.webm';
+        const upload = await storage.uploadToSignedUrl(
+          signed.path, signed.token,
+          new File([recordingBlob], fileName, { type: mimeType }),
+          { contentType: mimeType },
+        );
+        if (upload.error) throw upload.error;
+        const complete = await fetch('/api/voice/recording', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'complete', conversationId: activeConversationId, path: signed.path }),
+        });
+        if (!complete.ok) throw new Error('Unable to attach the uploaded recording to History');
+      } catch (uploadError) {
+        console.warn('Live Class recording was retained locally but not saved to History',
+          uploadError instanceof Error ? uploadError.name : 'unknown_error');
+        recordingUploadNotice = 'Your class recording is available to download on this device, but the cloud copy could not be saved. Please download it before leaving this page.';
+      }
     }
     if (uploadedMaterialPathsRef.current.length > 0) {
       const paths = uploadedMaterialPathsRef.current;
@@ -715,6 +746,7 @@ function VoiceTutorContent() {
     setRemainingSeconds(null);
     setRuntimeState('ENDED');
     setStatus(message);
+    if (recordingUploadNotice) setError(recordingUploadNotice);
     setAudioState('waiting');
     setAgentAudioSubscribed(false);
     agentAudioSubscribedRef.current = false;
