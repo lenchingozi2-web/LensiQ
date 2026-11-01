@@ -341,6 +341,7 @@ function VoiceTutorContent() {
     teachingStepsRef.current = [...teachingStepsRef.current, spokenText].slice(-12);
     const current = visualContextRef.current;
     if (inferred.type !== 'whiteboard') {
+      explicitVisualThisTurnRef.current = true;
       if (current.type !== inferred.type || JSON.stringify(current) !== JSON.stringify(inferred)) {
         pendingHighlightRef.current = null;
         updateVisualContext(inferred);
@@ -1033,14 +1034,7 @@ function VoiceTutorContent() {
               // A new learner turn may choose a new model, simulation, or board.
               // Without this reset, one explicit visual command permanently
               // suppressed all later transcript-driven visual updates.
-              explicitVisualThisTurnRef.current = false;
-            }
-            if (data.state === 'TEACHING' && messagesRef.current.length === 0) {
-              updateVisualContext({
-                type: 'whiteboard',
-                topic: topicFocus || courseName || 'Live lesson',
-                markdown: '### Live teaching\n\nThe tutor is explaining the first concept now.',
-              });
+              if (data.source !== 'autocontinue') explicitVisualThisTurnRef.current = false;
             }
             setStatus(RUNTIME_COPY[data.state].detail);
             return;
