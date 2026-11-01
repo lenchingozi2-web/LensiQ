@@ -1,22 +1,20 @@
-name: AI budget guardrails
+name: Study Hub runtime checks
 on:
   pull_request:
   push:
-    branches:
-      - main
-      - fix/ai-spend-guardrails
+    branches: [main]
 jobs:
-  ai-budget-tests:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Run AI budget regression tests
-        run: node --test tests/ai-budget-guardrails.test.mjs
-      - name: Validate voice worker Python syntax
+      - name: Verify Study Hub regression tests
+        run: node --test tests/study-hub-runtime.test.mjs
+      - name: Check voice worker syntax
         run: python -m py_compile pipecat-voice-agent/agent.py pipecat-voice-agent/agent_modal.py

@@ -247,7 +247,13 @@ function TeachingRoom() {
         if (!data || data === '[DONE]') return;
         try {
           const parsed = JSON.parse(data);
-          const contentChunk = parsed.choices?.[0]?.delta?.content || '';
+          // Support both the existing OpenAI-shaped SSE and Gemini's native stream.
+          const parts = parsed.candidates?.[0]?.content?.parts;
+          const contentChunk = parsed.choices?.[0]?.delta?.content ||
+            (Array.isArray(parts) ? parts
+              .filter((part: { thought?: boolean; text?: string }) => !part.thought)
+              .map((part: { text?: string }) => typeof part.text === 'string' ? part.text : '')
+              .join('') : '');
           if (!contentChunk) return;
           assistantResponse += contentChunk;
           setMessages((previous) => { const updated = [...previous]; updated[updated.length - 1] = { role: 'assistant', content: assistantResponse }; return updated; });

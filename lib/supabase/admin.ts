@@ -5,7 +5,7 @@ import { createClient as createSupabaseClient, type SupabaseClient } from '@supa
 let adminClient: SupabaseClient | null = null;
 
 /**
- * Server-only Supabase client for privileged, narrowly scoped budget RPCs.
+ * Server-only Supabase client for privileged, narrowly scoped administrative operations.
  * Never expose this client or its key to browser code.
  */
 export function createAdminClient(): SupabaseClient | null {
@@ -17,7 +17,7 @@ export function createAdminClient(): SupabaseClient | null {
   if (!adminClient) {
     adminClient = createSupabaseClient(url, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
-      global: { headers: { 'X-Client-Info': 'lensiq-ai-budget-guard' } },
+      global: { headers: { 'X-Client-Info': 'lensiq-server-admin' } },
     });
   }
 

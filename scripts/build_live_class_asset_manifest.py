@@ -256,7 +256,7 @@ def main() -> None:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "asset_count": len(assets),
         "total_bytes": total_bytes,
-        "budget": {"max_file_bytes": args.max_file_bytes, "max_total_bytes": args.max_total_bytes},
+        "limits": {"max_file_bytes": args.max_file_bytes, "max_total_bytes": args.max_total_bytes},
         "assets": assets,
     }
     output = args.output or root / "manifest.json"
