@@ -1248,7 +1248,13 @@ function VoiceTutorContent() {
           <div className="min-w-0"><p className="truncate text-xs font-bold">{voiceActive ? 'Tutor speaking' : runtimeState === 'THINKING' ? 'Preparing explanation' : autoLesson ? 'Lesson flowing' : 'Lesson paused'}</p><p className="truncate text-[10px] text-white/55">{micMuted ? 'Mic muted' : 'Interrupt anytime'}</p></div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <button type="button" onClick={() => { setAutoLesson((value) => !value); }} aria-label={autoLesson ? 'Pause automatic teaching' : 'Resume automatic teaching'} aria-pressed={autoLesson} className="rounded-xl border border-white/15 bg-white/10 px-2.5 py-2 text-[11px] font-bold">{autoLesson ? 'Pause' : 'Resume'}</button>
+          <button type="button" onClick={() => {
+            const next = !autoLessonRef.current;
+            autoLessonRef.current = next;
+            setAutoLesson(next);
+            if (next) requestNextLessonSegment();
+            else clearLessonContinueTimer();
+          }} aria-label={autoLesson ? 'Pause after this teaching segment' : 'Continue teaching automatically'} aria-pressed={autoLesson} className="rounded-xl border border-white/15 bg-white/10 px-2.5 py-2 text-[11px] font-bold">{autoLesson ? 'Pause' : 'Resume'}</button>
           <button type="button" onClick={() => setShowTranscript((value) => !value)} aria-label={showTranscript ? 'Hide transcript' : 'Show transcript'} aria-pressed={showTranscript} className="rounded-xl border border-white/15 bg-white/10 px-2.5 py-2 text-[11px] font-bold">Notes</button>
           <button type="button" onClick={() => void toggleTutorAudio()} aria-label={tutorMuted ? 'Unmute tutor audio' : 'Mute tutor audio'} className={`rounded-xl border px-2.5 py-2 text-[11px] font-bold ${tutorMuted ? 'border-rose-300/40 bg-rose-900/60' : 'border-white/15 bg-white/10'}`}>{tutorMuted ? 'Audio off' : audioState === 'blocked' ? 'Enable sound' : 'Sound'}</button>
           <button type="button" onClick={() => void toggleMicrophone()} aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'} className={`flex h-10 w-10 items-center justify-center rounded-xl text-base font-black ${micMuted ? 'bg-rose-900 text-white' : 'bg-[#e8a23d] text-[#0b1422]'}`}>{micMuted ? '×' : '●'}</button>
