@@ -74,6 +74,9 @@ export async function GET(request: Request) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
+            // Keep the request-side jar in sync for getUser/profile reads after
+            // exchanging the single-use PKCE code, and persist to the browser.
+            requestCookies.set({ name, value, ...options });
             response.cookies.set({ name, value, ...options });
             if (name.startsWith('sb-') && name.includes('-auth-token') && !name.includes('code-verifier')) authCookieWriteObserved = true;
           });

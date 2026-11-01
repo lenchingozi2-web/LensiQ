@@ -277,3 +277,35 @@ test('forward migration upgrades the reservation RPC without reintroducing a pau
   assert.match(migration, /v_global_day_spend \+ v_cost > v_global_daily_cap/);
   assert.match(migration, /grant execute on function public\.reserve_ai_budget\(uuid, text, uuid\) to service_role/i);
 });
+
+test('admin refresh fetches fresh data with visible status and no browser cache', async () => {
+  const page = await read('app/admin/ai-usage/AiUsagePanel.tsx');
+  const api = await read('app/api/admin/ai-control/route.ts');
+  assert.match(page, /refresh=\\\$\\{Date\\.now\\(\\)\\}/);
+  assert.match(page, /aria-busy=\\{refreshing\\}/);
+  assert.match(page, /Last refreshed at/);
+  assert.match(api, /private, no-store/);
+});
+
+test('Gemini tutoring uses native streaming rather than a 30-second gateway timeout', async () => {
+  const route = await read('app/api/teach/route.ts');
+  const client = await read('app/teach/page.tsx');
+  assert.match(route, /streamGenerateContent\\?alt=sse/);
+  assert.match(route, /AbortSignal\\.timeout\\(50_000\\)/);
+  assert.match(client, /parsed\\.candidates/);
+});
+
+test('unrelated storyboard is absent and Google callback updates both cookie jars', async () => {
+  const navigation = await read('lib/navigation.ts');
+  const callback = await read('app/auth/callback/route.ts');
+  assert.doesNotMatch(navigation, /Storyboard studio/);
+  assert.match(callback, /requestCookies\\.set\\(\\{ name, value, \\.\\.\\.options \\}\\)/);
+});
+
+test('voice worker joins before slow class preparation without bypassing the AI budget gate', async () => {
+  const source = await read('pipecat-voice-agent/agent.py');
+  const join = source.indexOf('await queue_initial_greeting("pipeline_start")');
+  const preloading = source.indexOf('await asyncio.wait_for(material_bridge.preload(), timeout=20)');
+  assert.ok(join !== -1 && preloading > join);
+  assert.match(source, /AiBudgetGate/);
+});

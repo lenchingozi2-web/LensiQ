@@ -680,7 +680,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         await assistant_bridge.publish({"type": "live_class_state", "state": "GREETING"})
         await task.queue_frame(
             TTSSpeakFrame(
-                "Hello, I am your LenxiQ medical tutor. Tell me which concept you would like to master."
+                "Hello! Welcome to your LenxiQ study room. What would you like us to unpack today? You can interrupt me anytime."
             )
         )
 
@@ -702,25 +702,39 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
                 logger.warning("Unable to queue 90-minute Live Class wrap-up (%s)", type(error).__name__)
         await end_after_wrapup()
 
-    # Fetch and retain all six parsed lecture sources at class start; signed
-    # upload URLs can expire before a later turn in a 90-minute session.
-    await material_bridge.preload()
-    if material_bridge.syllabus:
-        context.messages.insert(1, {"role":"system","content":
-            "SYLLABUS MAP (select only the active source chunk): " +
-            "; ".join(material_bridge.syllabus)[:1700]})
-    # The one startup authorization occurs off the live voice turn path.
-    await budget_gate.start()
-    if budget_gate.available_turns <= 0:
-        logger.error("Live Class could not obtain an initial voice lease for %s", room_name)
-        return
+    # Join promptly. File parsing and budget authorization must never prevent
+    # the agent from entering the room and greeting the learner.
+    # The AiBudgetGate still blocks EVERY model request until a lease is granted.
     await queue_initial_greeting("pipeline_start")
     logger.info("Joining Live Class room %s", room_name)
+
+    async def prepare_class() -> None:
+        await budget_gate.start()
+        if budget_gate.available_turns <= 0:
+            logger.error("Live Class tutor joined but could not obtain its AI budget lease")
+            await assistant_bridge.publish({
+                "type": "live_class_state",
+                "state": "ERROR",
+                "message": "I have joined your room, but the AI budget service cannot authorize a reply. Please contact the administrator.",
+            })
+        try:
+            await asyncio.wait_for(material_bridge.preload(), timeout=20)
+            if material_bridge.syllabus:
+                context.messages.insert(1, {"role": "system", "content":
+                    "SYLLABUS MAP (select only the active source chunk): " +
+                    "; ".join(material_bridge.syllabus)[:1700]})
+        except asyncio.TimeoutError:
+            logger.warning("Lecture material preload timed out; the room stays connected")
+        except Exception as error:
+            logger.warning("Lecture material preload failed (%s); the room stays connected", type(error).__name__)
+
+    prepare_task = asyncio.create_task(prepare_class())
     deadline_task = asyncio.create_task(close_at_session_deadline())
     renewal_task = asyncio.create_task(budget_gate.periodic_renewal())
     try:
-        await PipelineRunner().run(task)
+    await PipelineRunner().run(task)
     finally:
+        prepare_task.cancel()
         deadline_task.cancel()
         renewal_task.cancel()
         if budget_gate.renewal_task:

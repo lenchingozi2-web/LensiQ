@@ -91,42 +91,46 @@ export async function POST(req: Request) {
     }
 
     // --- 6. Provider request ---
-    const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-    const systemPrompt = `You are the LenxIQ tutor... 
-    MODE: EXPLAIN — Give a deeper explanation.
-    You MUST always respond in strictly valid JSON format matching this exact shape:
-    { "content": "...", "flagged": false, "flag_reason": null }`;
-
-    const userPrompt = `
-    Question: ${questionText}
-    Options: ${JSON.stringify(options)}
-    Correct Answer: ${correctAnswer}
-    Stored Model Answer: ${modelAnswer || "None provided."}
-    `;
-
-    const response = await fetch(apiUrl, {
+    const systemPrompt = `You are the LenxiQ medical tutor. Explain the correct answer with concise, clinically sound reasoning. Return strictly valid JSON with keys "content", "flagged", "flag_reason".`;
+    const userPrompt = `Question: ${questionText}\nOptions: ${JSON.stringify(options)}\nCorrect Answer: ${correctAnswer}\nStored Model Answer: ${modelAnswer || 'None provided.'}`;
+    const model = (process.env.GEMINI_EXPLAIN_MODEL || 'gemini-3.8-flash').replace(/^models\\//, '');
+    if (!/^[a-zA-Z0-9._-]{1,80}$/.test(model)) {
+      return NextResponse.json({ content: 'The explanation model is misconfigured.', flagged: false }, { status: 503 });
+    }
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST',
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(45_000),
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GEMINI_API_KEY}`
+        'x-goog-api-key': process.env.GEMINI_API_KEY,
       },
       body: JSON.stringify({
-        model: process.env.GEMINI_EXPLAIN_MODEL || 'gemini-3.8-flash',
-        max_tokens: 800,
-        response_format: { type: 'json_object' }, 
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.2
-      })
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        generationConfig: {
+          maxOutputTokens: 1000,
+          responseMimeType: 'application/json',
+          thinkingConfig: { thinkingLevel: 'LOW' },
+        },
+      }),
     });
-
-    if (!response.ok) throw new Error(`Gemini API error: ${response.status}`);
-
-    const data = await response.json();
-    const aiResponseJson = JSON.parse(data.choices[0].message.content);
+    if (!response.ok) {
+      console.error('AI explanation provider rejected request', { status: response.status, model });
+      return NextResponse.json({ content: 'The AI explanation service is busy. Please try again.', flagged: false }, { status: response.status === 429 ? 429 : 502 });
+    }
+    const provider = await response.json();
+    const text = provider?.candidates?.[0]?.content?.parts?.filter(
+      (part: { thought?: boolean; text?: string }) => !part.thought
+    ).map((part: { text?: string }) => part.text || '').join('') || '';
+    let aiResponseJson: { content: string; flagged: boolean; flag_reason?: string | null };
+    try {
+      const parsed = JSON.parse(text) as Record<string, unknown>;
+      if (typeof parsed.content !== 'string' || !parsed.content.trim()) throw new Error('Missing explanation');
+      aiResponseJson = { content: parsed.content, flagged: parsed.flagged === true,
+        flag_reason: typeof parsed.flag_reason === 'string' ? parsed.flag_reason : null };
+    } catch {
+      return NextResponse.json({ content: 'The tutor returned an incomplete explanation. Please retry.', flagged: false }, { status: 502 });
+    }
 
     // 6. SAVE TO CACHE for the next user
     await supabase.from('question_explanations').insert({

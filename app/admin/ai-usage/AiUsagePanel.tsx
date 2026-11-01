@@ -39,29 +39,38 @@ export default function AiUsagePanel() {
   const [data, setData] = useState<MonitorData | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastChecked, setLastChecked] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [dirty, setDirty] = useState(false);
   const [form, setForm] = useState({ globalDailyUsd: 1, globalMonthlyUsd: 10, userDailyUsd: 0.25, userMonthlyUsd: 2 });
 
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+  const load = useCallback(async (silent = false, resetDraft = false) => {
+    if (!silent) { setLoading(true); setRefreshing(true); }
     try {
-      const response = await fetch('/api/admin/ai-control', { cache: 'no-store' });
+      // A unique URL and no-store bypass stale CDN and browser responses.
+      const response = await fetch(`/api/admin/ai-control?refresh=${Date.now()}`, {
+        cache: 'no-store',
+        credentials: 'same-origin',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Unable to load AI usage.');
       setData(result);
       setError('');
-      if (!dirty) setForm({
+      setLastChecked(new Date().toLocaleTimeString());
+      if (!dirty || resetDraft) setForm({
         globalDailyUsd: result.controls.globalDailyLimitUsd,
         globalMonthlyUsd: result.controls.globalMonthlyLimitUsd,
         userDailyUsd: result.controls.userDailyLimitUsd,
         userMonthlyUsd: result.controls.userMonthlyLimitUsd,
       });
+      if (resetDraft) setDirty(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to load AI usage.');
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent) { setLoading(false); setRefreshing(false); }
     }
   }, [dirty]);
 
@@ -88,13 +97,18 @@ export default function AiUsagePanel() {
       if (!response.ok) throw new Error(result.error || 'Action failed.');
       setNotice(success);
       setDirty(false);
-      await load(true);
+      await load(true, true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Action failed.');
     } finally {
       setBusy(false);
     }
   }
+
+  const refreshNow = () => {
+    if (dirty && !window.confirm('Discard unsaved spending limit edits and reload the latest values?')) return;
+    void load(false, true);
+  };
 
   async function saveLimits(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -118,11 +132,12 @@ export default function AiUsagePanel() {
             </div>
             <div className="flex flex-wrap gap-3">
               <a href="/admin" className="rounded-xl border border-white/20 px-4 py-2 text-sm font-bold hover:bg-white/10">← Admin dashboard</a>
-              <button onClick={() => void load()} disabled={loading || busy} className="rounded-xl bg-white px-4 py-2 text-sm font-black text-slate-900 disabled:opacity-50">Refresh</button>
+              <button type="button" onClick={refreshNow} disabled={loading || refreshing || busy} aria-busy={refreshing} className="rounded-xl bg-white px-4 py-2 text-sm font-black text-slate-900 disabled:opacity-50">{refreshing ? 'Refreshing…' : 'Refresh'}</button>
             </div>
           </div>
         </header>
 
+        <p role="status" aria-live="polite" className="mt-3 text-xs font-semibold text-slate-600">{refreshing ? 'Checking live usage and saved spending caps…' : lastChecked ? `Last refreshed at ${lastChecked}` : 'Waiting for the first usage check…'}</p>
         {error && <div role="alert" className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{error}</div>}
         {notice && <div role="status" className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{notice}</div>}
         {missing.length > 0 && <div className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-5"><h2 className="font-black text-amber-950">Monitoring setup incomplete</h2><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900">{missing.map(item => <li key={item}>{item}</li>)}</ul><p className="mt-3 text-sm text-amber-900">Budget enforcement fails closed while required configuration or database tables are unavailable.</p></div>}

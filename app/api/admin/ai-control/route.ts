@@ -106,7 +106,7 @@ export async function GET() {
     },
     generatedAt: now.toISOString(),
     note: 'Spend is reserved estimated cost, not a provider invoice. Token and actual-cost fields remain empty until provider usage reconciliation is implemented.',
-  });
+  }, { headers: { 'Cache-Control': 'private, no-store, max-age=0' } });
 }
 
 export async function POST(request: Request) {
