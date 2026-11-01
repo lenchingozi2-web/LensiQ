@@ -138,9 +138,24 @@ export default function PreClassSetup({
               ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
               : file.type;
         const uploadName = normalizeLectureFileName(file.name, sourceMimeType);
-        const formData = new FormData();
-        formData.append('file', file, uploadName);
-        const response = await fetch('/api/voice/materials', { method: 'POST', body: formData });
+        const prepareResponse = await fetch('/api/voice/materials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'prepare', fileName: uploadName, mimeType: sourceMimeType, fileSize: file.size }),
+        });
+        const prepared = await prepareResponse.json().catch(() => ({}));
+        if (!prepareResponse.ok || !prepared.path || !prepared.token) {
+          throw new Error(prepared.error || `Unable to prepare ${file.name} for upload.`);
+        }
+        const { createClient } = await import('@/lib/supabase/client');
+        const { error: storageError } = await createClient().storage.from('ephemeral_class_materials')
+          .uploadToSignedUrl(prepared.path, prepared.token, file, { contentType: sourceMimeType || 'application/octet-stream' });
+        if (storageError) throw new Error(`Upload failed: ${storageError.message}`);
+        const response = await fetch('/api/voice/materials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'parse', path: prepared.path }),
+        });
         const result = await response.json().catch(() => ({}));
         if (!response.ok || !result.signedUrl || !result.path) throw new Error(result.error || `Unable to parse ${file.name} for Live Class.`);
         uploadedUrlsRef.current.set(fileKey(file), result.signedUrl);
