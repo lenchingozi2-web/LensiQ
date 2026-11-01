@@ -191,6 +191,7 @@ class MaterialContextBridge(FrameProcessor):
         self._load_lock = asyncio.Lock()
         self._bank_cache: dict[str, str] = {}
         self._lecture_cursor = 0
+        self._covered_concepts: list[str] = []
         self.user_id = ""
         self.course_name = ""
         self.context_endpoint = ""
@@ -396,6 +397,35 @@ class MaterialContextBridge(FrameProcessor):
             "Save your answers; next time we can continue from this lesson."
         )
 
+    def compact_lesson_context(self, messages: list[dict[str, Any]]) -> None:
+        """Keep long classes within the verbalizer's context window."""
+        if len(messages) <= 22 and sum(len(str(m.get("content") or "")) for m in messages) <= 46_000:
+            return
+        # Replace any previous generated progress memory rather than stacking it.
+        keep_system = [message for message in messages if isinstance(message, dict)
+                       and message.get("role") == "system"
+                       and not str(message.get("content") or "").startswith((
+                           "LESSON PROGRESS MEMORY:", "SOURCE NOTES:", "NATIVE PAST QUESTIONS:"
+                       ))]
+        dialogue = [message for message in messages if isinstance(message, dict)
+                    and message.get("role") in ("user", "assistant")]
+        dropped = dialogue[:-14]
+        for message in dropped:
+            if message.get("role") == "assistant":
+                speech = re.sub(r"\s+", " ", str(message.get("content") or "")).strip()
+                if len(speech) > 50:
+                    self._covered_concepts.append(speech[:175])
+        self._covered_concepts = self._covered_concepts[-35:]
+        original_topic = next((message for message in dialogue if message.get("role") == "user"
+                               and not str(message.get("content") or "").startswith(
+                                   "Resume the current medical lesson from exactly where you stopped")), None)
+        retained = dialogue[-14:]
+        if original_topic and original_topic not in retained:
+            retained = [original_topic] + retained
+        recap = ("LESSON PROGRESS MEMORY: Previously explained concepts (do not repeat; use for continuity):\n"
+                 + "\n".join("• " + concept for concept in self._covered_concepts)[-4100:])
+        messages[:] = keep_system[:3] + [{"role": "system", "content": recap}] + retained
+
     async def process_frame(self, frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
         if isinstance(frame, (LLMContextFrame, OpenAILLMContextFrame)):
@@ -416,6 +446,7 @@ class MaterialContextBridge(FrameProcessor):
                     isinstance(message, dict) and message.get("role") == "system"
                     and str(message.get("content", "")).startswith(("SOURCE NOTES:", "NATIVE PAST QUESTIONS:"))
                 )]
+                self.compact_lesson_context(messages)
                 if notes or bank:
                     insert_at = 1 if messages and messages[0].get("role") == "system" else 0
                     if bank:
