@@ -132,41 +132,82 @@ export async function POST(req: Request) {
     const context = await buildTeachingContext(supabase, courseName, messages, conversationId || undefined);
     const systemPrompt = buildTeachingSystemPrompt(courseName, context, sessionType === 'live_class');
 
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ error: 'AI provider is not configured.' }, { status: 503 });
+    // Prefer the configured Gemini tutor; use DeepSeek if Gemini is unavailable.
+    // Keep the response in SSE format: the Teaching Room already supports both providers.
+    const geminiKey = process.env.GEMINI_API_KEY?.trim();
+    const deepseekKey = process.env.DEEPSEEK_API_KEY?.trim();
+    if (!geminiKey && !deepseekKey) {
+      return NextResponse.json({ error: 'AI tutor is not configured. Contact the administrator.' }, { status: 503 });
     }
 
-    // Stream the medical tutor response directly from Gemini's supported endpoint.
-    const model = (process.env.GEMINI_TEACHING_MODEL || 'gemini-3.8-flash').replace('models/', '');
-    if (!/^[a-zA-Z0-9._-]{1,80}$/.test(model)) {
-      return NextResponse.json({ error: 'The tutor model is not configured correctly.' }, { status: 503 });
-    }
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
-      method: 'POST',
-      signal: AbortSignal.timeout(50_000),
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': process.env.GEMINI_API_KEY,
-      },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: messages.map((message) => ({
-          role: message.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: message.content }],
-        })),
-        generationConfig: {
-          maxOutputTokens: 1024,
-          thinkingConfig: { thinkingLevel: 'LOW' },
-        },
-      }),
-    });
+    const model = (process.env.GEMINI_TEACHING_MODEL || 'gemini-3.8-flash').replace(/^models\//, '');
+    const deepseekModel = process.env.DEEPSEEK_TEACHING_MODEL || 'deepseek-chat';
+    let providerResponse: Response | null = null;
+    let providerStatus: number | null = null;
 
-    if (!response.ok || !response.body) {
-      console.error('AI Teaching provider rejected request', { status: response.status, model: process.env.GEMINI_TEACHING_MODEL || 'gemini-3.8-flash' });
-      return NextResponse.json({ error: response.status === 429 ? 'The tutor is busy. Please try again shortly.' : 'The tutor provider could not complete this request. Please try again.' }, { status: response.status === 429 ? 429 : 502 });
+    if (geminiKey && /^[a-zA-Z0-9._-]{1,80}$/.test(model)) {
+      try {
+        const candidate = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
+          method: 'POST',
+          signal: AbortSignal.timeout(35_000),
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiKey },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: messages.map((message) => ({
+              role: message.role === 'assistant' ? 'model' : 'user',
+              parts: [{ text: message.content }],
+            })),
+            generationConfig: { maxOutputTokens: 2048, thinkingConfig: { thinkingLevel: 'LOW' } },
+          }),
+        });
+        if (candidate.ok && candidate.body) providerResponse = candidate;
+        else {
+          providerStatus = candidate.status;
+          console.error('Teaching Gemini request failed', { provider: 'gemini', status: candidate.status, model });
+          await candidate.body?.cancel().catch(() => undefined);
+        }
+      } catch (error) {
+        console.error('Teaching Gemini transport failure', { name: error instanceof Error ? error.name : 'unknown' });
+      }
+    } else if (geminiKey) {
+      console.error('Teaching Gemini model name is invalid');
     }
 
-    return new Response(response.body, {
+    if (!providerResponse && deepseekKey) {
+      try {
+        const candidate = await fetch('https://api.deepseek.com/chat/completions', {
+          method: 'POST',
+          signal: AbortSignal.timeout(45_000),
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deepseekKey}` },
+          body: JSON.stringify({
+            model: deepseekModel,
+            stream: true,
+            max_tokens: 2048,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...messages.map(({ role, content }) => ({ role, content })),
+            ],
+          }),
+        });
+        if (candidate.ok && candidate.body) providerResponse = candidate;
+        else {
+          providerStatus = candidate.status;
+          console.error('Teaching DeepSeek request failed', { provider: 'deepseek', status: candidate.status, model: deepseekModel });
+          await candidate.body?.cancel().catch(() => undefined);
+        }
+      } catch (error) {
+        console.error('Teaching DeepSeek transport failure', { name: error instanceof Error ? error.name : 'unknown' });
+      }
+    }
+
+    if (!providerResponse?.body) {
+      return NextResponse.json({
+        error: providerStatus === 429
+          ? 'The AI tutor is receiving too many requests. Please try again shortly.'
+          : 'The AI tutor is temporarily unavailable. Please try again shortly.',
+      }, { status: providerStatus === 429 ? 429 : 502 });
+    }
+    return new Response(providerResponse.body, {
       headers: {
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache, no-transform',
