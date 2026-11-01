@@ -1,22 +1,25 @@
 import JSZip from 'jszip';
 import { getLectureFileExtension } from '@/lib/curriculum/file-types';
 
-const MAX_EXTRACTED_CHARACTERS = 180_000;
+// Preserve large lecture sources for retrieval; never send all pages to the LLM at once.
+const MAX_EXTRACTED_CHARACTERS = 2_400_000;
 
 function decodeXml(value: string) {
   return value
+    .replace(/<\/(?:w:p|a:p|w:tr|p:sp|w:br|a:br)>/g, '\n')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
 function clampText(value: string) {
-  return value.replace(/\u0000/g, '').replace(/\s+/g, ' ').trim().slice(0, MAX_EXTRACTED_CHARACTERS);
+  return value.replace(/\u0000/g, '').replace(/\r\n?/g, '\n').replace(/[^\S\n]+/g, ' ').replace(/\n{4,}/g, '\n\n').trim().slice(0, MAX_EXTRACTED_CHARACTERS);
 }
 
 async function extractOfficeXml(buffer: Buffer, extension: string) {
