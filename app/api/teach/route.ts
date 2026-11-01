@@ -132,80 +132,74 @@ export async function POST(req: Request) {
     const context = await buildTeachingContext(supabase, courseName, messages, conversationId || undefined);
     const systemPrompt = buildTeachingSystemPrompt(courseName, context, sessionType === 'live_class');
 
-    // Prefer the configured Gemini tutor; use DeepSeek if Gemini is unavailable.
-    // Keep the response in SSE format: the Teaching Room already supports both providers.
+    // Gemini-only tutor: use a second Gemini Flash model when the primary is overloaded.
     const geminiKey = process.env.GEMINI_API_KEY?.trim();
-    const deepseekKey = process.env.DEEPSEEK_API_KEY?.trim();
-    if (!geminiKey && !deepseekKey) {
-      return NextResponse.json({ error: 'AI tutor is not configured. Contact the administrator.' }, { status: 503 });
+    if (!geminiKey) {
+      return NextResponse.json({ error: 'The AI tutor is not configured. Please contact support.' }, { status: 503 });
     }
 
-    const model = (process.env.GEMINI_TEACHING_MODEL || 'gemini-3.8-flash').replace(/^models\//, '');
-    const deepseekModel = process.env.DEEPSEEK_TEACHING_MODEL || 'deepseek-chat';
+    const primaryModel = (process.env.GEMINI_TEACHING_MODEL || 'gemini-3.8-flash').replace(/^models\//, '');
+    const fallbackModel = (process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.6-flash').replace(/^models\//, '');
+    const models = [...new Set([primaryModel, fallbackModel])];
+    if (models.some((name) => !/^[a-zA-Z0-9._-]{1,80}$/.test(name))) {
+      return NextResponse.json({ error: 'The AI tutor model is misconfigured.' }, { status: 503 });
+    }
+
+    const contents = messages.map(({ role, content }) => ({
+      role: role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: content }],
+    }));
+    const providerBody = JSON.stringify({
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents,
+      generationConfig: { maxOutputTokens: 2048, thinkingConfig: { thinkingLevel: 'LOW' } },
+    });
+
     let providerResponse: Response | null = null;
-    let providerStatus: number | null = null;
-
-    if (geminiKey && /^[a-zA-Z0-9._-]{1,80}$/.test(model)) {
-      try {
-        const candidate = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
-          method: 'POST',
-          signal: AbortSignal.timeout(35_000),
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiKey },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents: messages.map((message) => ({
-              role: message.role === 'assistant' ? 'model' : 'user',
-              parts: [{ text: message.content }],
-            })),
-            generationConfig: { maxOutputTokens: 2048, thinkingConfig: { thinkingLevel: 'LOW' } },
-          }),
-        });
-        if (candidate.ok && candidate.body) providerResponse = candidate;
-        else {
-          providerStatus = candidate.status;
-          console.error('Teaching Gemini request failed', { provider: 'gemini', status: candidate.status, model });
+    let lastStatus: number | null = null;
+    const retryable = new Set([429, 500, 502, 503, 504]);
+    // Keep retries and fallback inside the serverless function's execution window.
+    const deadline = Date.now() + 45_000;
+    providerLoop:
+    for (let modelIndex = 0; modelIndex < models.length; modelIndex += 1) {
+      const model = models[modelIndex];
+      const attempts = modelIndex === 0 ? 2 : 1;
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        const remainingMs = deadline - Date.now();
+        if (remainingMs < 3500) break providerLoop;
+        try {
+          const candidate = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
+            method: 'POST',
+            signal: AbortSignal.timeout(Math.min(20_000, remainingMs - 1000)),
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiKey },
+            body: providerBody,
+          });
+          if (candidate.ok && candidate.body) {
+            providerResponse = candidate;
+            break providerLoop;
+          }
+          lastStatus = candidate.status;
+          console.error('Teaching Gemini provider unavailable', { status: candidate.status, model, attempt: attempt + 1 });
           await candidate.body?.cancel().catch(() => undefined);
+          if (!retryable.has(candidate.status)) break providerLoop;
+        } catch (error) {
+          console.error('Teaching Gemini transport failure', {
+            model,
+            name: error instanceof Error ? error.name : 'unknown',
+          });
         }
-      } catch (error) {
-        console.error('Teaching Gemini transport failure', { name: error instanceof Error ? error.name : 'unknown' });
-      }
-    } else if (geminiKey) {
-      console.error('Teaching Gemini model name is invalid');
-    }
-
-    if (!providerResponse && deepseekKey) {
-      try {
-        const candidate = await fetch('https://api.deepseek.com/chat/completions', {
-          method: 'POST',
-          signal: AbortSignal.timeout(45_000),
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deepseekKey}` },
-          body: JSON.stringify({
-            model: deepseekModel,
-            stream: true,
-            max_tokens: 2048,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              ...messages.map(({ role, content }) => ({ role, content })),
-            ],
-          }),
-        });
-        if (candidate.ok && candidate.body) providerResponse = candidate;
-        else {
-          providerStatus = candidate.status;
-          console.error('Teaching DeepSeek request failed', { provider: 'deepseek', status: candidate.status, model: deepseekModel });
-          await candidate.body?.cancel().catch(() => undefined);
+        if (attempt + 1 < attempts && deadline - Date.now() > 4000) {
+          await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
         }
-      } catch (error) {
-        console.error('Teaching DeepSeek transport failure', { name: error instanceof Error ? error.name : 'unknown' });
       }
     }
 
     if (!providerResponse?.body) {
       return NextResponse.json({
-        error: providerStatus === 429
-          ? 'The AI tutor is receiving too many requests. Please try again shortly.'
-          : 'The AI tutor is temporarily unavailable. Please try again shortly.',
-      }, { status: providerStatus === 429 ? 429 : 502 });
+        error: lastStatus === 429
+          ? 'The AI tutor is busy. Please try again shortly.'
+          : 'The AI tutor is temporarily unavailable. Please try again.',
+      }, { status: lastStatus === 429 ? 429 : 503 });
     }
     return new Response(providerResponse.body, {
       headers: {
