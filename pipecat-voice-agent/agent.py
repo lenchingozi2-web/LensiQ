@@ -21,7 +21,7 @@ from typing import Any, AsyncGenerator
 from urllib.parse import urlparse
 
 from livekit import api
-from pipecat.frames.frames import EndFrame, ErrorFrame, Frame, InputTextRawFrame, LLMContextFrame, TTSAudioRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
+from pipecat.frames.frames import EndFrame, ErrorFrame, Frame, InputTextRawFrame, LLMFullResponseEndFrame, LLMContextFrame, TTSAudioRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -73,9 +73,18 @@ def _system_prompt(room_name: str, room_metadata: str | None = None) -> str:
         except (TypeError, ValueError, json.JSONDecodeError):
             logger.warning("Ignoring malformed Live Class metadata for room %s", room_name)
     return (
-        "You are LenxiQ AI Tutor, a concise and warm medical teacher. "
-        "Use a normal, lively conversational pace that is slightly faster than a lecture. Start answering immediately; never narrate thinking or use filler. Give the direct answer first in 1–3 short spoken sentences, then explain only what helps. Ask one focused check-for-understanding question after a meaningful teaching segment, and wait for the learner. Keep each turn concise and conversational. "
-        f"You are teaching in room {room_name}. Speak naturally, pause for interruption, "
+        "You are LenxiQ AI, an engaging medical lecturer and responsive conversation partner. "
+        "When the learner names a topic, actively teach it as a connected lesson rather than replying like a chat bot. "
+        "Begin with a clear definition and overview; then explain mechanisms step by step, cause-and-effect pathways, "
+        "clinical examples, comparisons and exam-relevant application. "
+        "Give a substantial, flowing spoken segment of about 250–450 words, with natural transitions and short "
+        "breathing pauses. Do not stop after one or two sentences or ask the learner to say continue. "
+        "Assume the lesson can keep progressing through related sections unless the learner asks a specific short question. "
+        "Avoid repetition across continuation segments; advance to the next concept. "
+        "Only ask a check-for-understanding question after several connected teaching segments, not after every paragraph. "
+        "If the learner interrupts, answer their question first and then return to the lesson. "
+        "Do not invent source citations, 3D structures or visuals. "
+                f"You are teaching in room {room_name}. Speak naturally, pause for interruption, "
         "and never claim a visual that is not available. The browser synchronizes the teaching board "
         "from your natural explanation, so do not output JSON, XML, markdown code fences, slash commands, "
         "screen commands, tool calls, labels such as 'screen detected', or stage directions. Never read "
@@ -358,8 +367,15 @@ class LiveClassDataBridge(FrameProcessor):
                 await self.publish({"type": "live_class_state", "state": "THINKING"})
         elif isinstance(frame, TextFrame) and frame.text.strip() and self.role == "assistant":
             logger.info("Live Class tutor response text generated (characters=%d)", len(frame.text.strip()))
-            await self.publish({"type": "live_class_transcript", "role": "assistant", "content": frame.text.strip(), "final": True})
+            text = frame.text.strip()
+            await self.publish({"type": "live_class_transcript", "role": "assistant", "content": text, "final": True})
+            # The browser advances the board as each spoken sentence is generated.
+            await self.publish({"type": "live_class_visual_step", "content": text})
             await self.publish({"type": "live_class_state", "state": "TEACHING"})
+        elif isinstance(frame, LLMFullResponseEndFrame) and self.role == "assistant":
+            # The browser waits until remote audio finishes before requesting the
+            # next teaching segment; never queue another LLM call over live TTS.
+            await self.publish({"type": "live_class_segment_complete"})
         await self.push_frame(frame, direction)
 
 
@@ -416,7 +432,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         try:
             groq_settings = GroqLLMService.Settings(
                 model=llm_model, reasoning_effort="none",
-                max_tokens=220, temperature=0.35,
+                max_tokens=650, temperature=0.45,
             )
         except TypeError:
             logger.warning("Pinned Pipecat Groq settings lack reasoning_effort; using compatible settings")
@@ -430,7 +446,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     else:
         llm = llm_class(
             api_key=llm_api_key, base_url=llm_base_url, model=llm_model,
-            params=OpenAILLMService.InputParams(max_completion_tokens=220, temperature=0.35),
+            params=OpenAILLMService.InputParams(max_completion_tokens=650, temperature=0.45),
             max_retries=0, timeout=25,
         )
     context = OpenAILLMContext(messages=[{"role": "system", "content": _system_prompt(room_name, room_metadata)}])
@@ -493,7 +509,18 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
             data = json.loads(payload.decode())
         except (UnicodeDecodeError, json.JSONDecodeError):
             return
-        if data.get("type") != "structure_selected" and data.get("type") != "concept_selected":
+        if data.get("type") == "lesson_continue":
+            focus = (
+                "Resume the current medical lesson from exactly where you stopped. "
+                "Develop the NEXT important subtopic or mechanism, show how it connects "
+                "to the preceding material, and give a worked clinical example. "
+                "Do not restart the introduction, repeat yourself, or ask whether to continue. "
+                "Keep teaching naturally until the learner interrupts."
+            )
+            await assistant_bridge.publish({"type": "live_class_state", "state": "THINKING", "source": "autocontinue"})
+            await task.queue_frame(InputTextRawFrame(text=focus))
+            return
+        if data.get("type") not in ("structure_selected", "concept_selected"):
             return
         if data.get("type") == "structure_selected":
             model_url = str(data.get("modelUrl") or "the current approved anatomy model")[:400]
