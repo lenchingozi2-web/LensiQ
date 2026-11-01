@@ -164,6 +164,8 @@ function VoiceTutorContent() {
   const lessonSegmentCountRef = useRef(0);
   const tutorSpeakingRef = useRef(false);
   const tutorSpokeThisSegmentRef = useRef(false);
+  const lastLearnerSpeechAtRef = useRef(0);
+  const [lastHeard, setLastHeard] = useState('');
   const lessonContinueTimerRef = useRef<number | null>(null);
   const visualRevisionRef = useRef(0);
   const pendingHighlightRef = useRef<{ structureId: string; color?: string } | null>(null);
@@ -334,7 +336,7 @@ function VoiceTutorContent() {
 
   const applyTutorTranscript = (content: string) => {
     const spokenText = content.trim();
-    if (!spokenText) return;
+    if (!spokenText || /(?:Resume the current medical lesson from exactly where you stopped|Develop the NEXT important subtopic|Do not restart the introduction|Keep teaching naturally until the learner interrupts)/i.test(spokenText)) return;
     const inferred = inferLiveClassVisual(spokenText, courseName);
     if (!shouldApplyTutorTranscriptVisual(spokenText, inferred)) return;
     if (teachingStepsRef.current.includes(spokenText)) return;
@@ -349,7 +351,7 @@ function VoiceTutorContent() {
     } else if (current.type === 'whiteboard' || !explicitVisualThisTurnRef.current) {
       updateVisualContext({
         type: 'whiteboard',
-        topic: inferred.topic || (current.type === 'whiteboard' ? current.topic : courseName),
+        topic: topicFocus || (current.type === 'whiteboard' ? current.topic : courseName),
         markdown: teachingStepsRef.current.map((step) => '- ' + step).join('\n'),
       });
     }
@@ -365,13 +367,14 @@ function VoiceTutorContent() {
   const requestNextLessonSegment = () => {
     if (!autoLessonRef.current || !lessonSegmentCompleteRef.current
       || !tutorSpokeThisSegmentRef.current || tutorSpeakingRef.current
-      || lessonSegmentCountRef.current >= 12) return;
+      || lessonSegmentCountRef.current >= 180) return;
     if (lessonContinueTimerRef.current !== null) return;
     lessonContinueTimerRef.current = window.setTimeout(() => {
       lessonContinueTimerRef.current = null;
       const room = roomRef.current;
       if (!room || !autoLessonRef.current || !lessonSegmentCompleteRef.current
         || tutorSpeakingRef.current || room.localParticipant.isSpeaking
+        || Date.now() - lastLearnerSpeechAtRef.current < 3600
         || runtimeStateRef.current === 'ERROR' || runtimeStateRef.current === 'ENDING'
         || runtimeStateRef.current === 'WRAPPING') return;
       lessonSegmentCompleteRef.current = false;
@@ -380,7 +383,7 @@ function VoiceTutorContent() {
       const payload = new TextEncoder().encode(JSON.stringify({ type: 'lesson_continue', segment: lessonSegmentCountRef.current }));
       void room.localParticipant.publishData(payload, { reliable: true, topic: 'lensiq.live_class.lesson_control' })
         .catch(() => { lessonSegmentCompleteRef.current = true; });
-    }, 1800);
+    }, 2800);
   };
 
   const materialBranches = Array.from(new Set(materialProfiles.flatMap((profile) => profile.detectedBranches)));
@@ -535,6 +538,10 @@ function VoiceTutorContent() {
       for (const value of data) { const centered = (value - 128) / 128; sum += centered * centered; }
       const rms = Math.sqrt(sum / data.length);
       const level = Math.min(1, rms * 5);
+      if (level > 0.09 && !micMuted) {
+        lastLearnerSpeechAtRef.current = Date.now();
+        clearLessonContinueTimer();
+      }
       monitor.sampleCount += 1;
       if (monitor.sampleCount % 6 === 0 && Math.abs(level - monitor.lastUiLevel) > 0.025) {
         monitor.lastUiLevel = level;
@@ -829,6 +836,7 @@ function VoiceTutorContent() {
     setSelectedStructure('');
     explicitVisualThisTurnRef.current = false;
     teachingStepsRef.current = [];
+    setLastHeard('');
     lessonSegmentCountRef.current = 0;
     lessonSegmentCompleteRef.current = false;
     tutorSpokeThisSegmentRef.current = false;
@@ -927,6 +935,12 @@ function VoiceTutorContent() {
       room.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
         try {
           const data = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; message?: string; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; structureId?: string; note?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
+          if (data.type === 'live_class_user_transcript' && data.content?.trim()) {
+            lastLearnerSpeechAtRef.current = Date.now();
+            clearLessonContinueTimer();
+            setLastHeard(data.content.trim().slice(0, 220));
+            return;
+          }
           if (data.type === 'live_class_visual_step' && data.content?.trim()) {
             applyTutorTranscript(data.content);
             return;
@@ -1245,7 +1259,7 @@ function VoiceTutorContent() {
       <section className="absolute bottom-3 left-3 right-3 z-30 mx-auto flex max-w-3xl items-center justify-between gap-2 rounded-2xl border border-white/15 bg-[#0d1726]/85 px-3 py-2 text-white shadow-[0_12px_44px_#0007] backdrop-blur-xl sm:bottom-5 sm:px-5" aria-label="Live Class controls">
         <div className="flex min-w-0 items-center gap-2">
           <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${voiceActive ? 'animate-pulse bg-[#e8a23d]' : micMuted ? 'bg-rose-400' : 'bg-emerald-400'}`} />
-          <div className="min-w-0"><p className="truncate text-xs font-bold">{voiceActive ? 'Tutor speaking' : runtimeState === 'THINKING' ? 'Preparing explanation' : autoLesson ? 'Lesson flowing' : 'Lesson paused'}</p><p className="truncate text-[10px] text-white/55">{micMuted ? 'Mic muted' : 'Interrupt anytime'}</p></div>
+          <div className="min-w-0"><p className="truncate text-xs font-bold">{voiceActive ? 'Tutor speaking' : runtimeState === 'THINKING' ? 'Preparing explanation' : autoLesson ? 'Lesson flowing' : 'Lesson paused'}</p><p className="truncate text-[10px] text-white/55">{micMuted ? 'Mic muted' : lastHeard ? `Heard: ${lastHeard}` : 'Interrupt anytime'}</p></div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <button type="button" onClick={() => {
