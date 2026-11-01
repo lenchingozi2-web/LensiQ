@@ -205,4 +205,13 @@ REPAIRS = {
       'model_answer':'Simvastatin is an HMG-CoA reductase inhibitor that lowers LDL cholesterol. Adults with familial hypercholesterolaemia generally require intensive LDL reduction, often with a high-intensity statin such as atorvastatin or rosuvastatin; other agents may be added when indicated.',
     },
   },
+
+  '91be96b0-cf70-4d0b-98e8-4ac5c57ec5e5':{
+    'stem':'Candida albicans, which is false?',
+    'changes':{
+      'option_e':'May cause vulvovaginal candidiasis.',
+      'correct_answer':'C',
+      'model_answer':'Candida albicans is an opportunistic yeast that is part of normal mucosal flora, commonly causes oral thrush after broad-spectrum antibiotics and can cause vulvovaginal candidiasis. Germ-tube formation is a useful presumptive identification feature. Although candiduria and Candida urinary infection occur, especially in susceptible patients, C. albicans is not a common cause of urinary tract infection in otherwise healthy men. Option C is false.',
+    },
+  },
 }
