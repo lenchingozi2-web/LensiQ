@@ -13,8 +13,7 @@ collectively provide LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET, and
 either a complete LLM_BASE_URL / LLM_API_KEY / LLM_MODEL contract pointing to
 Gemini or Groq, or a direct GEMINI_API_KEY + GEMINI_MODEL or GROQ_API_KEY +
 GROQ_MODEL pair. When both direct keys exist Groq is selected by default;
-LIVE_CLASS_LLM_PROVIDER=groq selects Groq. GPT/OpenAI and DeepSeek fallbacks
-are disabled.
+LIVE_CLASS_LLM_PROVIDER=groq selects Groq. Only the configured Gemini/Groq providers are supported.
 LIVEKIT_URL may be wss:// or https://; this module normalizes it for the
 LiveKit server API and WebRTC transport.
 """
