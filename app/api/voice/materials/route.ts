@@ -8,6 +8,7 @@ import { createClassMaterialMap } from '@/lib/ai/live-class-material-map';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 const STORAGE_BUCKET = 'ephemeral_class_materials';
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -27,26 +28,80 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Lecture uploads for Live Class require an active All Access plan.' }, { status: 403 });
   }
 
-  let formData: FormData;
-  try {
-    formData = await request.formData();
-  } catch {
-    return NextResponse.json({ error: 'The Word document could not be read. Choose the file again and retry.' }, { status: 400 });
+  // Large files go directly from the learner's browser to private Supabase
+  // Storage. A 20 MB PDF must not transit Vercel's small request-body limit.
+  let value: File;
+  let temporarySourcePath: string | null = null;
+  if (request.headers.get('content-type')?.includes('application/json')) {
+    const body = await request.json().catch(() => ({}));
+    if (body.action === 'prepare') {
+      const fileName = typeof body.fileName === 'string' ? body.fileName.slice(0, 180) : '';
+      const mimeType = typeof body.mimeType === 'string' ? body.mimeType.slice(0, 130) : '';
+      const fileSize = Number(body.fileSize);
+      if (!isSupportedLectureFile(fileName, mimeType) || !Number.isFinite(fileSize) || fileSize <= 0 || fileSize > MAX_FILE_SIZE) {
+        return NextResponse.json({ error: 'Choose a supported PDF, DOC, DOCX, PPTX or TXT file smaller than 20 MB.' }, { status: 400 });
+      }
+      const extension = getLectureFileExtension(fileName, mimeType);
+      const uploadPath = `${user.id}/class_${crypto.randomUUID()}/${safeBaseName(fileName)}.${extension}`;
+      const { data, error } = await supabase.storage.from(STORAGE_BUCKET).createSignedUploadUrl(uploadPath);
+      if (error || !data?.token) {
+        return NextResponse.json({ error: 'Unable to prepare a secure lecture upload.' }, { status: 500 });
+      }
+      return NextResponse.json({ path: uploadPath, token: data.token });
+    }
+    if (body.action !== 'parse' || typeof body.path !== 'string') {
+      return NextResponse.json({ error: 'Invalid lecture upload request.' }, { status: 400 });
+    }
+    const rawPath = body.path;
+    const rawName = rawPath.split('/').at(-1) || '';
+    const allowed = rawPath.startsWith(`${user.id}/class_`)
+      && /^[a-f0-9-]{36}$/.test(rawPath.split('/')[1]?.replace(/^class_/, '') || '')
+      && /^[a-z0-9._-]+\.(?:pdf|doc|docx|pptx|txt)$/i.test(rawName)
+      && rawPath.split('/').length === 3 && !rawPath.includes('..');
+    if (!allowed) return NextResponse.json({ error: 'Invalid lecture upload path.' }, { status: 403 });
+    temporarySourcePath = rawPath;
+    const { data: downloaded, error } = await supabase.storage.from(STORAGE_BUCKET).download(rawPath);
+    if (error || !downloaded) return NextResponse.json({ error: 'The uploaded lecture could not be retrieved for parsing.' }, { status: 422 });
+    if (downloaded.size > MAX_FILE_SIZE || downloaded.size <= 0) {
+      await supabase.storage.from(STORAGE_BUCKET).remove([rawPath]);
+      return NextResponse.json({ error: 'The uploaded lecture is empty or exceeds 20 MB.' }, { status: 413 });
+    }
+    value = new File([await downloaded.arrayBuffer()], rawName, { type: normalizeLectureMimeType(rawName) });
+  } else {
+    // Compatibility for existing small-file clients.
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
+      return NextResponse.json({ error: 'The lecture file could not be read.' }, { status: 400 });
+    }
+    const submitted = formData.get('file');
+    if (!(submitted instanceof File)) return NextResponse.json({ error: 'Choose a lecture file.' }, { status: 400 });
+    value = submitted;
   }
-  const value = formData.get('file');
-  if (!(value instanceof File) || value.size <= 0) return NextResponse.json({ error: 'Choose a non-empty lecture file.' }, { status: 400 });
-  if (value.size > MAX_FILE_SIZE) return NextResponse.json({ error: 'Lecture files must be 20 MB or smaller.' }, { status: 413 });
-  if (!isSupportedLectureFile(value.name, value.type)) return NextResponse.json({ error: 'Use PDF, DOC, DOCX, PPTX, or TXT files. LenxiQ parses the file before class.' }, { status: 415 });
-
+  if (value.size <= 0 || value.size > MAX_FILE_SIZE) return NextResponse.json({ error: 'Lecture files must be 20 MB or smaller.' }, { status: 413 });
+  if (!isSupportedLectureFile(value.name, value.type)) {
+    return NextResponse.json({ error: 'Use PDF, DOC, DOCX, PPTX or TXT files.' }, { status: 415 });
+  }
   let extractedText: string;
   try {
     const normalizedName = normalizeLectureFileName(value.name, value.type);
     const normalizedFile = new File([await value.arrayBuffer()], normalizedName, { type: normalizeLectureMimeType(normalizedName, value.type) });
     extractedText = await extractLectureText(normalizedFile);
-  } catch {
-    return NextResponse.json({ error: 'LenxiQ could not read this lecture file. Try a text-readable PDF, DOC, DOCX, PPTX, or TXT file.' }, { status: 422 });
+  } catch (parseError) {
+    console.error('Live Class document extraction error', {
+      extension: getLectureFileExtension(value.name, value.type),
+      errorType: parseError instanceof Error ? parseError.name : 'unknown',
+    });
+    if (temporarySourcePath) await supabase.storage.from(STORAGE_BUCKET).remove([temporarySourcePath]);
+    return NextResponse.json({
+      error: 'This file could not be parsed. Check that the PDF is readable and not password-protected or image-only. Scanned PDFs currently need a text-readable version.',
+    }, { status: 422 });
   }
-  if (!extractedText.trim()) return NextResponse.json({ error: 'No readable text was found. If this is a scan or image-only document, add a text-readable version or paste the key content in the focus prompt.' }, { status: 422 });
+  if (!extractedText.trim()) {
+    if (temporarySourcePath) await supabase.storage.from(STORAGE_BUCKET).remove([temporarySourcePath]);
+    return NextResponse.json({ error: 'No readable text was found. Scanned or image-only files need OCR or a text-readable version.' }, { status: 422 });
+  }
 
   const outputName = `${safeBaseName(value.name)}.parsed.txt`;
   const storagePath = `${user.id}/class_${crypto.randomUUID()}/${outputName}`;
@@ -76,6 +131,9 @@ export async function POST(request: Request) {
     }
   } catch {
     console.warn('Structured class mapping unavailable; extracted lecture text remains accessible.');
+  }
+  if (temporarySourcePath) {
+    await supabase.storage.from(STORAGE_BUCKET).remove([temporarySourcePath]).catch(() => undefined);
   }
   const profile = detectMaterialBranches(extractedText, value.name, extractedText.length);
   return NextResponse.json({
