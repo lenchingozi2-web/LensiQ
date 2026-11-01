@@ -27,6 +27,9 @@ test('Admin Refresh fetches uncached status and requires admin authentication', 
   assert.match(view,/Last checked/);
   assert.match(api,/profile\?\.role !== 'admin'/);
   assert.match(api,/private, no-store/);
+  assert.match(api,/await Promise\.all\(\[checkTutor\(\), checkLiveKit\(\)\]\)/);
+  assert.match(api,/RoomServiceClient/);
+  assert.match(api,/AbortSignal\.timeout\(7000\)/);
 });
 
 test('voice worker joins before optional lecture loading', async () => {
@@ -36,4 +39,9 @@ test('voice worker joins before optional lecture loading', async () => {
   assert.ok(join>=0 && preload>join);
   assert.match(voice,/PipelineRunner\(\)\.run\(task\)/);
   assert.match(voice,/material_bridge, llm,/);
+});
+
+test('the unrelated storyboard endpoint and schema are absent from the current application', async () => {
+  await assert.rejects(read('app/api/studio/videos/[id]/render/route.ts'), { code: 'ENOENT' });
+  await assert.rejects(read('supabase/migrations/0046_video_studio.sql'), { code: 'ENOENT' });
 });
