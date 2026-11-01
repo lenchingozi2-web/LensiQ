@@ -35,7 +35,7 @@ export async function createClassMaterialMap(text:string,sourceFileName:string) 
   const titles=portions.map((part,i)=>part.split(/\n/).map(s=>s.trim()).find(s=>s.length>5&&s.length<100)||'Lecture section '+(i+1));
   let enriched:string[]|null=null;
   if(process.env.GEMINI_API_KEY&&portions.length<=32){
-    const model=process.env.GEMINI_CLASS_MAP_MODEL||'gemini-2.5-flash';
+    const model=process.env.GEMINI_CLASS_MAP_MODEL||'gemini-3.8-flash';
     if(/^gemini-[a-z0-9.-]+$/.test(model))try{
       const resp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{
         method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':process.env.GEMINI_API_KEY},

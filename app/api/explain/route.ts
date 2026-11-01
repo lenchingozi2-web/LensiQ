@@ -112,7 +112,7 @@ export async function POST(req: Request) {
         'Authorization': `Bearer ${process.env.GEMINI_API_KEY}`
       },
       body: JSON.stringify({
-        model: process.env.GEMINI_EXPLAIN_MODEL || 'gemini-2.5-flash',
+        model: process.env.GEMINI_EXPLAIN_MODEL || 'gemini-3.8-flash',
         max_tokens: 800,
         response_format: { type: 'json_object' }, 
         messages: [

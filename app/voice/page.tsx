@@ -217,12 +217,12 @@ function VoiceTutorContent() {
     if (!connected || runtimeState !== 'GREETING' || agentAudioSubscribed) return;
     const timer = window.setTimeout(() => {
       if (runtimeStateRef.current !== 'GREETING' || agentAudioSubscribedRef.current) return;
-      const message = 'The tutor has not joined the audio room yet. Check your connection, then end and restart the class.';
+      const message = 'The voice tutor has not joined the classroom. The voice worker may be offline; end this session and use Text Tutor while voice service is restored.';
       runtimeStateRef.current = 'ERROR';
       setRuntimeState('ERROR');
       setStatus(message);
       setError(message);
-    }, 25000);
+    }, 65000);
     return () => window.clearTimeout(timer);
   }, [connected, runtimeState, agentAudioSubscribed]);
 

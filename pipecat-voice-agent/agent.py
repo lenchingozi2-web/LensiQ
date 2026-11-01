@@ -117,8 +117,8 @@ def _select_live_class_llm() -> tuple[str, str, str, str]:
                 "https://generativelanguage.googleapis.com/v1beta/openai/",
             ).strip()
             model = (os.getenv("GEMINI_MODEL") or "").strip()
-            if not model or "gpt" in model.lower():
-                model = "gemini-2.0-flash"
+            if not model or "gpt" in model.lower() or model in ("gemini-2.0-flash", "gemini-2.5-flash"):
+                model = "gemini-3.8-flash"
         else:
             api_key = groq_key
             base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").strip()

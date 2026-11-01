@@ -152,7 +152,7 @@ export async function POST(req: Request) {
         Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: process.env.GEMINI_TEACHING_MODEL || 'gemini-2.5-flash',
+        model: process.env.GEMINI_TEACHING_MODEL || 'gemini-3.8-flash',
         stream: true,
         max_tokens: 1000,
         messages: [
@@ -163,8 +163,8 @@ export async function POST(req: Request) {
     });
 
     if (!response.ok || !response.body) {
-      const errorText = await response.text();
-      throw new Error(`Gemini request failed: ${errorText}`);
+      console.error('AI Teaching provider rejected request', { status: response.status, model: process.env.GEMINI_TEACHING_MODEL || 'gemini-3.8-flash' });
+      return NextResponse.json({ error: response.status === 429 ? 'The tutor is busy. Please try again shortly.' : 'The tutor provider could not complete this request. Please try again.' }, { status: response.status === 429 ? 429 : 502 });
     }
 
     return new Response(response.body, {

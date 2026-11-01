@@ -5,16 +5,15 @@ import { getOrCreateProfile } from '../../../lib/profile';
 import { issueActiveSession } from '../../../lib/auth/active-session';
 
 function siteOrigin(requestUrl: URL) {
+  if (process.env.NODE_ENV !== 'production') return requestUrl.origin;
   const configured = process.env.NEXT_PUBLIC_SITE_URL;
-  if (configured) {
-    try {
-      const parsed = new URL(configured);
-      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return parsed.origin;
-    } catch {
-      // Fall through to the production default or local request origin.
+  try {
+    const parsed = new URL(configured || 'https://www.lenxiq.online');
+    if (parsed.protocol === 'https:' && ['lenxiq.online', 'www.lenxiq.online'].includes(parsed.hostname)) {
+      return parsed.origin;
     }
-  }
-  return process.env.NODE_ENV === 'production' ? 'https://www.lenxiq.online' : requestUrl.origin;
+  } catch { /* Use the canonical production host. */ }
+  return 'https://www.lenxiq.online';
 }
 
 function safeNextPath(value: string | null) {
@@ -33,6 +32,13 @@ function noStoreRedirect(origin: string, path: string) {
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const origin = siteOrigin(requestUrl);
+  // Keep the PKCE verifier and single-use authorization code on the same host.
+  if (requestUrl.origin !== origin) {
+    return NextResponse.redirect(new URL(requestUrl.pathname + requestUrl.search, origin), {
+      status: 307,
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  }
   const code = requestUrl.searchParams.get('code');
   const next = safeNextPath(requestUrl.searchParams.get('next'));
   const errorDescription = requestUrl.searchParams.get('error_description') || requestUrl.searchParams.get('error');

@@ -21,5 +21,4 @@ export const secondaryNavigation: NavigationLink[] = [
   { href: '/library', label: 'Library', description: 'Explore reference resources' },
   { href: '/files', label: 'My files', description: 'Manage saved lecture uploads' },
   { href: '/subscription', label: 'Subscription', description: 'Your active plan and included access' },
-  { href: '/studio', label: 'Storyboard studio', description: 'Plan video scenes (rendering coming later)' },
 ];

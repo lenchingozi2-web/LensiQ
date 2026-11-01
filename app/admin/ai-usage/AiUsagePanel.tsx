@@ -152,7 +152,7 @@ export default function AiUsagePanel() {
           <section className="mt-6 grid gap-5 lg:grid-cols-2">
             <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-xl font-black">Configure spending caps</h2>
-              <p className="mt-1 text-sm text-slate-600">Defaults are intentionally conservative: $1/day and $10/month globally. Dollar limits are reservation estimates, not provider invoice totals.</p>
+              <p className="mt-1 text-sm text-slate-600">Current global limits: {data ? `${usd(data.controls.globalDailyLimitUsd)}/day and ${usd(data.controls.globalMonthlyLimitUsd)}/month` : 'loading…'}. Values shown above are the actual saved caps. Usage is estimated reserved spending, not an invoice.</p>
               <form onSubmit={saveLimits} className="mt-5 grid gap-4 sm:grid-cols-2">
                 {([
                   ['globalDailyUsd', 'Global daily cap (USD)', 0.1, 25],

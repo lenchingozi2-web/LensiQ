@@ -49,7 +49,7 @@ export async function reserveAiRequest(
     user_id: userId,
     feature,
     provider: 'gemini',
-    model: feature === 'teach' ? (process.env.GEMINI_TEACHING_MODEL || 'gemini-2.5-flash') : (process.env.GEMINI_EXPLAIN_MODEL || 'gemini-2.5-flash'),
+    model: feature === 'teach' ? (process.env.GEMINI_TEACHING_MODEL || 'gemini-3.8-flash') : (process.env.GEMINI_EXPLAIN_MODEL || 'gemini-3.8-flash'),
     status: eventStatus,
     estimated_cost_microusd: Number(row.reserved_microusd || 0),
     error_code: row.allowed ? null : (row.reason || 'budget_denied'),

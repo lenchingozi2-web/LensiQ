@@ -115,7 +115,7 @@ test('Live Class leaves Thinking on assistant text and surfaces bounded greeting
   const client = await read('app/voice/page.tsx');
   assert.match(client, /runtimeStateRef\.current = 'TEACHING';\s*setRuntimeState\('TEACHING'\)/);
   assert.match(client, /not replied yet[\s\S]{0,260}30000/);
-  assert.match(client, /not joined the audio room yet[\s\S]{0,260}25000/);
+  assert.match(client, /voice tutor has not joined the classroom[\s\S]{0,260}65000/);
   assert.match(client, /runtimeStateRef\.current === 'INITIALIZING' \|\| runtimeStateRef\.current === 'READY'/);
 });
 
