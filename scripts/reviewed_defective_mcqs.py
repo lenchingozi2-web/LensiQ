@@ -178,4 +178,31 @@ REPAIRS = {
       'model_answer':'Carbamazepine can cause hyponatraemia, often associated with inappropriate antidiuretic hormone action. It is enzyme-inducing, has an active epoxide metabolite, and is used for focal-onset seizures.',
     },
   },
+
+  '2db65ca4-53e3-4262-85ce-d4331ad0e77a':{
+    'stem':'Cutaneous flushing is caused by;',
+    'changes':{
+      'question_text':'Which lipid-lowering drug commonly produces cutaneous flushing?',
+      'option_a':'Atorvastatin.',
+      'option_b':'Niacin (nicotinic acid).',
+      'option_c':'Ezetimibe.',
+      'option_d':'Colestipol.',
+      'option_e':'Evolocumab.',
+      'correct_answer':'B',
+      'model_answer':'Niacin causes dose-related cutaneous flushing, largely through prostaglandin-mediated vasodilation. This adverse effect often limits its use as a lipid-modifying drug.',
+    },
+  },
+  '6be995f8-1a07-4dad-91f8-351e557cf8d0':{
+    'stem':'Which of the following is used in Familial hypercholesterolemia',
+    'changes':{
+      'question_text':'Which of the following drugs is a statin that may be used to reduce LDL cholesterol in familial hypercholesterolaemia?',
+      'option_a':'Colestipol.',
+      'option_b':'Ezetimibe.',
+      'option_c':'Simvastatin.',
+      'option_d':'Fenofibrate.',
+      'option_e':'Niacin.',
+      'correct_answer':'C',
+      'model_answer':'Simvastatin is an HMG-CoA reductase inhibitor that lowers LDL cholesterol. Adults with familial hypercholesterolaemia generally require intensive LDL reduction, often with a high-intensity statin such as atorvastatin or rosuvastatin; other agents may be added when indicated.',
+    },
+  },
 }
