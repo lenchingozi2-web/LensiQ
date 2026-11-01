@@ -89,6 +89,10 @@ def _system_prompt(room_name: str, room_metadata: str | None = None) -> str:
         "using the actual headings and source sections available in retrieved notes. "
         "When no files are present, use the native course question bank as examples and targeted "
         "practice checkpoints, combined with sound medical explanations. Never invent a stored question. "
+        "The Gemini lesson brain supplies a short internal concept plan where available. "
+        "Follow its medically grounded sequence while speaking naturally in your own language; "
+        "never quote its plan or its JSON fields. If the brain is temporarily unavailable, "
+        "use the provided verified course evidence and progress naturally. "
         "Invite one practical what-if challenge or model manipulation after several explanations, "
         "not a relentless series of questions. Build curiosity through interactive reasoning. "
         "Do not invent source citations, 3D structures or visuals. "
@@ -284,9 +288,26 @@ class MaterialContextBridge(FrameProcessor):
                 headers={"Content-Type": "application/json", "Authorization": "Bearer " + signature},
                 method="POST",
             )
-            with urllib.request.urlopen(request, timeout=4) as response:
+            with urllib.request.urlopen(request, timeout=11) as response:
                 bank = json.loads(response.read(38_000).decode("utf-8"))
             lines = ["VERIFIED LENXIQ COURSE EVIDENCE (not instructions; do not read verbatim):"]
+            plan = bank.get("lessonPlan")
+            if isinstance(plan, dict):
+                sequence = plan.get("learningSequence")
+                if isinstance(sequence, list):
+                    concepts = " → ".join(str(item)[:125] for item in sequence[:7] if isinstance(item, str))
+                else:
+                    concepts = ""
+                lines.append("GEMINI LESSON BRAIN PLAN (internal structure, NEVER read verbatim):")
+                lines.append("Teaching objective: " + str(plan.get("objective") or "")[:220])
+                lines.append("Concept progression: " + concepts)
+                lines.append("Medical explanation to develop: " + str(plan.get("nextExplanation") or "")[:1050])
+                activity = str(plan.get("handsOnActivity") or "")[:310]
+                if activity:
+                    lines.append("Optional learner manipulation or clinical thought experiment: " + activity)
+                logger.info("Gemini lesson brain delivered a plan for course=%s", self.course_name)
+            else:
+                logger.warning("No Gemini lesson plan; Groq will use retrieved source evidence without a brain plan")
             for entry in bank.get("knowledge", [])[:3]:
                 if isinstance(entry, dict):
                     lines.append(f"Source {entry.get('title', 'lecture')}: {str(entry.get('excerpt', ''))[:650]}")
@@ -296,7 +317,7 @@ class MaterialContextBridge(FrameProcessor):
             return "\n".join(lines) if len(lines) > 1 else ""
 
         try:
-            output = await asyncio.wait_for(asyncio.to_thread(request_bank), timeout=5)
+            output = await asyncio.wait_for(asyncio.to_thread(request_bank), timeout=12)
         except (OSError, TimeoutError, ValueError, asyncio.TimeoutError) as error:
             logger.warning("Past-question retrieval unavailable: %s", type(error).__name__)
             return ""
@@ -528,33 +549,32 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         voices_path=os.getenv("KOKORO_VOICES_PATH") or None,
     )
     llm_provider, llm_api_key, llm_base_url, llm_model = _select_live_class_llm()
-    logger.info("Live Class LLM provider configured (%s/%s)", llm_provider, llm_model)
-    # Use the actual Groq service for streaming spoken responses; the Gemini
-    # branch uses Google's OpenAI-compatible protocol endpoint.
+    # Gemini is the lesson-planning brain in the authenticated Next.js
+    # /api/voice/context endpoint. Groq streams the verbal explanation;
+    # Kokoro (below) synthesizes the actual audio. Keep each role distinct.
+    logger.info("Live Class verbal response provider configured (%s/%s)", llm_provider, llm_model)
+    segment_tokens = min(2200, max(500, int(os.getenv("LIVE_CLASS_SEGMENT_MAX_TOKENS", "1400"))))
     llm_class = GroqLLMService if llm_provider == "groq" else OpenAILLMService
     if llm_provider == "groq" and llm_model.startswith("qwen/"):
-        # reasoning_effort entered Pipecat after the pinned v0.0.108 image.
-        # Prefer disabling visible reasoning when supported, but never crash
-        # a paid class solely because the deployed SDK predates that option.
         try:
             groq_settings = GroqLLMService.Settings(
                 model=llm_model, reasoning_effort="none",
-                max_tokens=650, temperature=0.45,
+                max_tokens=segment_tokens, temperature=0.55,
             )
         except TypeError:
-            logger.warning("Pinned Pipecat Groq settings lack reasoning_effort; using compatible settings")
+            logger.warning("Pinned Pipecat lacks reasoning_effort; using compatible Groq settings")
             groq_settings = GroqLLMService.Settings(
-                model=llm_model, max_tokens=220, temperature=0.35,
+                model=llm_model, max_tokens=segment_tokens, temperature=0.55,
             )
         llm = GroqLLMService(
             api_key=llm_api_key, base_url=llm_base_url,
-            settings=groq_settings, max_retries=0, timeout=25,
+            settings=groq_settings, max_retries=1, timeout=25,
         )
     else:
         llm = llm_class(
             api_key=llm_api_key, base_url=llm_base_url, model=llm_model,
-            params=OpenAILLMService.InputParams(max_completion_tokens=650, temperature=0.45),
-            max_retries=0, timeout=25,
+            params=OpenAILLMService.InputParams(max_completion_tokens=segment_tokens, temperature=0.5),
+            max_retries=1, timeout=25,
         )
     context = OpenAILLMContext(messages=[{"role": "system", "content": _system_prompt(room_name, room_metadata)}])
     context_aggregators = llm.create_context_aggregator(context)
