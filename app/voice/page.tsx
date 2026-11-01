@@ -157,6 +157,14 @@ function VoiceTutorContent() {
   const uploadedMaterialPathsRef = useRef<string[]>([]);
   const visualContextRef = useRef<VisualContext>(visualContext);
   const explicitVisualThisTurnRef = useRef(false);
+  const teachingStepsRef = useRef<string[]>([]);
+  const [autoLesson, setAutoLesson] = useState(true);
+  const autoLessonRef = useRef(true);
+  const lessonSegmentCompleteRef = useRef(false);
+  const lessonSegmentCountRef = useRef(0);
+  const tutorSpeakingRef = useRef(false);
+  const tutorSpokeThisSegmentRef = useRef(false);
+  const lessonContinueTimerRef = useRef<number | null>(null);
   const visualRevisionRef = useRef(0);
   const pendingHighlightRef = useRef<{ structureId: string; color?: string } | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
@@ -199,6 +207,13 @@ function VoiceTutorContent() {
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => { recordingDownloadUrlRef.current = recordingDownloadUrl; }, [recordingDownloadUrl]);
+  useEffect(() => {
+    autoLessonRef.current = autoLesson;
+    if (!autoLesson && lessonContinueTimerRef.current !== null) {
+      window.clearTimeout(lessonContinueTimerRef.current);
+      lessonContinueTimerRef.current = null;
+    }
+  }, [autoLesson]);
 
   useEffect(() => {
     if (!connected || runtimeState !== 'THINKING') return;
@@ -319,11 +334,52 @@ function VoiceTutorContent() {
 
   const applyTutorTranscript = (content: string) => {
     const spokenText = content.trim();
-    if (explicitVisualThisTurnRef.current) return;
-    const visual = inferLiveClassVisual(spokenText, courseName);
-    if (!shouldApplyTutorTranscriptVisual(spokenText, visual)) return;
-    pendingHighlightRef.current = null;
-    updateVisualContext(visual);
+    if (!spokenText) return;
+    const inferred = inferLiveClassVisual(spokenText, courseName);
+    if (!shouldApplyTutorTranscriptVisual(spokenText, inferred)) return;
+    if (teachingStepsRef.current.includes(spokenText)) return;
+    teachingStepsRef.current = [...teachingStepsRef.current, spokenText].slice(-12);
+    const current = visualContextRef.current;
+    if (inferred.type !== 'whiteboard') {
+      if (current.type !== inferred.type || JSON.stringify(current) !== JSON.stringify(inferred)) {
+        pendingHighlightRef.current = null;
+        updateVisualContext(inferred);
+      }
+    } else if (current.type === 'whiteboard' || !explicitVisualThisTurnRef.current) {
+      updateVisualContext({
+        type: 'whiteboard',
+        topic: inferred.topic || (current.type === 'whiteboard' ? current.topic : courseName),
+        markdown: teachingStepsRef.current.map((step) => '- ' + step).join('\n'),
+      });
+    }
+  };
+
+  const clearLessonContinueTimer = () => {
+    if (lessonContinueTimerRef.current !== null) {
+      window.clearTimeout(lessonContinueTimerRef.current);
+      lessonContinueTimerRef.current = null;
+    }
+  };
+
+  const requestNextLessonSegment = () => {
+    if (!autoLessonRef.current || !lessonSegmentCompleteRef.current
+      || !tutorSpokeThisSegmentRef.current || tutorSpeakingRef.current
+      || lessonSegmentCountRef.current >= 12) return;
+    if (lessonContinueTimerRef.current !== null) return;
+    lessonContinueTimerRef.current = window.setTimeout(() => {
+      lessonContinueTimerRef.current = null;
+      const room = roomRef.current;
+      if (!room || !autoLessonRef.current || !lessonSegmentCompleteRef.current
+        || tutorSpeakingRef.current || room.localParticipant.isSpeaking
+        || runtimeStateRef.current === 'ERROR' || runtimeStateRef.current === 'ENDING'
+        || runtimeStateRef.current === 'WRAPPING') return;
+      lessonSegmentCompleteRef.current = false;
+      tutorSpokeThisSegmentRef.current = false;
+      lessonSegmentCountRef.current += 1;
+      const payload = new TextEncoder().encode(JSON.stringify({ type: 'lesson_continue', segment: lessonSegmentCountRef.current }));
+      void room.localParticipant.publishData(payload, { reliable: true, topic: 'lensiq.live_class.lesson_control' })
+        .catch(() => { lessonSegmentCompleteRef.current = true; });
+    }, 1800);
   };
 
   const materialBranches = Array.from(new Set(materialProfiles.flatMap((profile) => profile.detectedBranches)));
@@ -669,6 +725,8 @@ function VoiceTutorContent() {
       wrapupTimeoutRef.current = null;
     }
     setRuntimeState('ENDING');
+    clearLessonContinueTimer();
+    lessonSegmentCompleteRef.current = false;
     const activeSessionId = sessionIdRef.current;
     const activeConversationId = conversationIdRef.current;
     const durationSeconds = sessionStartedAtRef.current ? Math.max(1, elapsedSecondsRef.current) : 0;
@@ -769,6 +827,11 @@ function VoiceTutorContent() {
     updateVisualContext({ type: 'whiteboard', topic: topicFocus || courseName, ...(focusText.trim() ? { markdown: `### Study focus\n\n${focusText.trim()}` } : {}) });
     setSelectedStructure('');
     explicitVisualThisTurnRef.current = false;
+    teachingStepsRef.current = [];
+    lessonSegmentCountRef.current = 0;
+    lessonSegmentCompleteRef.current = false;
+    tutorSpokeThisSegmentRef.current = false;
+    clearLessonContinueTimer();
     pendingHighlightRef.current = null;
     elapsedSecondsRef.current = 0;
     sessionDeadlineAtRef.current = null;
@@ -863,6 +926,15 @@ function VoiceTutorContent() {
       room.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
         try {
           const data = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; message?: string; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; structureId?: string; note?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
+          if (data.type === 'live_class_visual_step' && data.content?.trim()) {
+            applyTutorTranscript(data.content);
+            return;
+          }
+          if (data.type === 'live_class_segment_complete') {
+            lessonSegmentCompleteRef.current = true;
+            requestNextLessonSegment();
+            return;
+          }
           if (data.type === 'show_3d_model' && data.modelUrl && isApprovedMedicalModelUrl(data.modelUrl)) {
             explicitVisualThisTurnRef.current = true;
             const pendingHighlight = pendingHighlightRef.current;
@@ -955,6 +1027,9 @@ function VoiceTutorContent() {
             }
             if (data.state === 'THINKING') {
               setError('');
+              if (data.source !== 'autocontinue') lessonSegmentCountRef.current = 0;
+              lessonSegmentCompleteRef.current = false;
+              clearLessonContinueTimer();
               // A new learner turn may choose a new model, simulation, or board.
               // Without this reset, one explicit visual command permanently
               // suppressed all later transcript-driven visual updates.
@@ -989,7 +1064,17 @@ function VoiceTutorContent() {
           setStatus('LenxiQ AI is teaching…');
         } catch { /* Ignore malformed diagnostic packets. */ }
       });
-      room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => setVoiceActive(speakers.some((speaker) => !speaker.isLocal)));
+      room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+        const tutorSpeaking = speakers.some((speaker) => !speaker.isLocal);
+        tutorSpeakingRef.current = tutorSpeaking;
+        if (tutorSpeaking) {
+          tutorSpokeThisSegmentRef.current = true;
+          clearLessonContinueTimer();
+        } else {
+          requestNextLessonSegment();
+        }
+        setVoiceActive(tutorSpeaking);
+      });
       room.on(RoomEvent.TranscriptionReceived, (segments: TranscriptionSegment[], participant?: Participant) => {
         for (const segment of segments) {
           if (participant?.isLocal || !segment.final || !segment.text.trim()) continue;
