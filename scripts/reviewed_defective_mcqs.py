@@ -214,4 +214,40 @@ REPAIRS = {
       'model_answer':'Candida albicans is an opportunistic yeast that is part of normal mucosal flora, commonly causes oral thrush after broad-spectrum antibiotics and can cause vulvovaginal candidiasis. Germ-tube formation is a useful presumptive identification feature. Although candiduria and Candida urinary infection occur, especially in susceptible patients, C. albicans is not a common cause of urinary tract infection in otherwise healthy men. Option C is false.',
     },
   },
+
+  '64bdbdad-68d0-4cd7-8122-797ac3871d78':{
+    'stem':'The uses of oxytocin include all the biosynthesis',
+    'changes':{
+      'question_text':'Which of the following is NOT a recognised physiological action or routine clinical use of oxytocin?',
+      'option_a':'Use as a standard first-line drug for induction of abortion at eight weeks of gestation.',
+      'option_b':'Augmentation of labour when clinically indicated.',
+      'option_c':'Promotion of milk ejection by contraction of mammary myoepithelial cells.',
+      'option_d':'Control of postpartum bleeding caused by uterine atony.',
+      'option_e':'Stimulation of uterine smooth-muscle contraction during labour.',
+      'correct_answer':'A',
+      'model_answer':'Oxytocin stimulates uterine smooth-muscle contraction and milk ejection. It is used for medically indicated induction or augmentation of labour and for prevention or treatment of uterine-atony-related postpartum haemorrhage. It is not the standard first-line medication for inducing abortion at eight weeks; early medication abortion commonly uses mifepristone with misoprostol.',
+    },
+  },
+  '8dad5c77-1afe-4abe-be43-727b2b4efa19':{
+    'stem':'Regarding efficacy and potency of a drug all are true except',
+    'changes':{
+      'question_text':'Regarding drug efficacy and potency, all of the following are true EXCEPT:',
+      'option_e':'Efficacy describes the maximum response a drug can produce.',
+      'correct_answer':'C',
+      'model_answer':'Efficacy is the maximum effect (Emax) a drug can produce and is represented by the height of a graded concentration–response curve. Potency is reflected by the concentration or dose required to produce a given effect; EC50 or ED50 is commonly used as a measure of potency, not maximal efficacy. Option C is therefore false.',
+    },
+  },
+  '03a5a945-1540-4c69-9904-2ae322422b7f':{
+    'stem':'Which is FALSE concerning bile acid vessels binding resins?',
+    'changes':{
+      'question_text':'Which statement about bile-acid sequestrants is FALSE?',
+      'option_a':'They interrupt intestinal reabsorption of bile acids.',
+      'option_b':'They can impair absorption of fat-soluble vitamins.',
+      'option_c':'Their principal LDL-lowering action is activation of PPAR-alpha receptors.',
+      'option_d':'They increase hepatic conversion of cholesterol into bile acids and indirectly increase LDL receptor expression.',
+      'option_e':'They can reduce the gastrointestinal absorption of several oral medicines.',
+      'correct_answer':'C',
+      'model_answer':'Bile-acid sequestrants bind intestinal bile acids, interrupt enterohepatic recycling, and increase conversion of hepatic cholesterol into bile acids. The resulting fall in hepatic cholesterol increases LDL receptor expression. They can also reduce absorption of fat-soluble vitamins and some medicines. PPAR-alpha activation is the mechanism of fibrates, not bile-acid sequestrants.',
+    },
+  },
 }
