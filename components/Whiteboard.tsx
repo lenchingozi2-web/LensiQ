@@ -1,7 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import { useEffect, useMemo, useState } from 'react';
 
 type WhiteboardProps = {
   topic: string;
@@ -9,67 +8,86 @@ type WhiteboardProps = {
   onConceptSelect?: (concept: string, index: number) => void;
 };
 
-function getConceptSteps(markdown: string) {
+function conceptSteps(markdown: string): string[] {
   return markdown
     .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\`([^\`]+)\`/g, '$1')
     .replace(/^\s{0,3}#{1,6}\s+/gm, '')
-    .replace(/^\s*[-*+]\s+/gm, '')
-    .replace(/^\s*\d+[.)]\s+/gm, '')
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, '')
     .replace(/\*\*|__/g, '')
     .split(/\n+|(?<=[.!?])\s+/)
-    .map((step) => step.replace(/^\s*\d+[.)]\s*/, '').replace(/\s+/g, ' ').trim())
-    .filter((step) => step.length > 12 && !/^the tutor's explanation$/i.test(step))
-    .slice(0, 6);
+    .map((part) => part.replace(/\s+/g, ' ').trim())
+    .filter((part) => part.length > 18 && !/^(?:the tutor's explanation|live teaching|lesson progress)$/i.test(part))
+    .slice(-12);
 }
 
 export default function Whiteboard({ topic, markdown, onConceptSelect }: WhiteboardProps) {
-  const steps = useMemo(() => getConceptSteps(markdown ?? ''), [markdown]);
-  const [activeStep, setActiveStep] = useState(0);
-  const [slideKey, setSlideKey] = useState(0);
-  const activeIndex = Math.min(activeStep, Math.max(steps.length - 1, 0));
+  const steps = useMemo(() => conceptSteps(markdown ?? ''), [markdown]);
+  const [selected, setSelected] = useState(0);
+  const [followTutor, setFollowTutor] = useState(true);
+  const [mapMode, setMapMode] = useState(true);
+  const [zoom, setZoom] = useState(1);
+  const active = Math.max(0, Math.min(selected, steps.length - 1));
+  useEffect(() => {
+    if (followTutor && steps.length) setSelected(steps.length - 1);
+  }, [steps.length, markdown, followTutor]);
 
-  const chooseStep = (index: number) => {
-    const next = Math.max(0, Math.min(steps.length - 1, index));
-    setActiveStep(next);
-    setSlideKey((value) => value + 1);
+  function choose(index: number) {
+    const next = Math.max(0, Math.min(index, steps.length - 1));
+    setFollowTutor(false);
+    setSelected(next);
     if (steps[next]) onConceptSelect?.(steps[next], next);
-  };
-
-  const step = steps[activeIndex] ?? 'Your tutor’s explanation will appear here when the first answer arrives.';
+  }
 
   return (
-    <section className="relative isolate h-full w-full overflow-hidden bg-[#060a12] text-white" aria-label="Full-screen interactive medical concept whiteboard">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_20%,rgba(232,162,61,0.22),transparent_28%),radial-gradient(circle_at_15%_80%,rgba(38,95,135,0.24),transparent_38%),linear-gradient(135deg,#0b1320,#05070c)]" />
-      <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,0.26)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.26)_1px,transparent_1px)] [background-size:56px_56px]" />
-      <div className="pointer-events-none absolute -right-40 top-[12%] h-[38rem] w-[38rem] rounded-full border border-white/10" />
-      <div className="pointer-events-none absolute -right-20 top-[24%] h-[26rem] w-[26rem] rounded-full border border-[#e8a23d]/15" />
-
-      <div key={slideKey} className="live-class-slide relative flex h-full min-h-[28rem] flex-col justify-center px-6 pb-[27dvh] pt-28 sm:px-12 sm:pb-[22dvh] lg:px-[10vw] lg:pt-32">
-        <div className="max-w-7xl">
-          <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.28em] text-[#ffd68d] sm:text-xs">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-[#e8a23d] shadow-[0_0_18px_rgba(232,162,61,.9)]" />
-            Tutor visual board · {steps.length ? `${String(activeIndex + 1).padStart(2, '0')} / ${String(steps.length).padStart(2, '0')}` : 'LIVE'}
-          </div>
-          <h1 className="mt-5 max-w-6xl text-4xl font-black leading-[0.98] tracking-[-0.065em] text-white sm:text-6xl lg:text-8xl">{topic || 'Your lesson topic'}</h1>
-          <div className="my-8 h-px w-24 bg-[#e8a23d] shadow-[0_0_22px_rgba(232,162,61,.6)] sm:my-12 sm:w-40" />
-          <article className="max-w-6xl text-2xl font-semibold leading-[1.2] tracking-[-0.03em] text-slate-100 sm:text-4xl lg:text-6xl">
-            <ReactMarkdown components={{ p: ({ children }) => <p>{children}</p>, strong: ({ children }) => <strong className="font-black text-[#ffd68d]">{children}</strong> }}>
-              {step}
-            </ReactMarkdown>
-          </article>
-          {steps.length > 0 && <div className="mt-8 flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => chooseStep(activeIndex - 1)} disabled={activeIndex === 0} className="rounded-xl border border-white/15 bg-white/[0.06] px-4 py-2.5 text-xs font-black text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35">← Previous</button>
-            <button type="button" onClick={() => onConceptSelect?.(step, activeIndex)} className="rounded-xl border border-[#e8a23d]/40 bg-[#e8a23d]/10 px-4 py-2.5 text-xs font-black text-[#ffd68d] transition hover:bg-[#e8a23d]/20">Ask tutor about this</button>
-            <button type="button" onClick={() => chooseStep(activeIndex + 1)} disabled={activeIndex >= steps.length - 1} className="rounded-xl bg-[#e8a23d] px-4 py-2.5 text-xs font-black text-[#101827] transition hover:bg-[#ffd68d] disabled:cursor-not-allowed disabled:opacity-35">Next →</button>
-          </div>}
-          <p className="mt-5 max-w-2xl text-sm font-semibold leading-6 text-white/45 sm:text-base">Choose a point to focus the tutor on it. The board stays still until you navigate or the tutor changes the lesson.</p>
+    <section className="relative h-full w-full overflow-hidden bg-[#070e18] text-white" aria-label="Interactive medical teaching board">
+      <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(#ffffff0b_1px,transparent_1px),linear-gradient(90deg,#ffffff0b_1px,transparent_1px)] [background-size:42px_42px]" />
+      <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 border-b border-white/10 bg-[#0b1422]/85 px-3 pb-2 pt-[4.8rem] backdrop-blur-lg sm:px-6 sm:pt-24">
+        <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#ffd080]">Live concept board</p><h1 className="truncate text-sm font-bold text-white sm:text-xl">{topic || 'Medical lesson'}</h1></div>
+        <div className="flex shrink-0 items-center gap-1">
+          <button type="button" onClick={() => setMapMode((value) => !value)} className="rounded-lg border border-white/15 px-2.5 py-2 text-[11px] font-semibold text-white/90" aria-pressed={mapMode}>{mapMode ? 'Focus' : 'Map'}</button>
+          <button type="button" onClick={() => setZoom((z) => Math.max(.8, +(z-.1).toFixed(1)))} aria-label="Zoom out" className="rounded-lg border border-white/15 px-2.5 py-2 text-sm">−</button>
+          <button type="button" onClick={() => setZoom((z) => Math.min(1.4, +(z+.1).toFixed(1)))} aria-label="Zoom in" className="rounded-lg border border-white/15 px-2.5 py-2 text-sm">+</button>
         </div>
-
-        {steps.length > 1 && <div className="absolute bottom-[28dvh] left-6 flex max-w-[calc(100%-3rem)] gap-2 overflow-x-auto sm:bottom-[23dvh] sm:left-12 lg:left-[10vw]" aria-label="Automatic lesson progress">
-          {steps.map((item, index) => <span key={`${index}-${item.slice(0, 18)}`} className={`h-2 rounded-full transition-all ${index === activeIndex ? 'w-16 bg-[#e8a23d] shadow-[0_0_18px_rgba(232,162,61,.8)]' : 'w-6 bg-white/25'}`} aria-hidden="true" />)}
-        </div>}
       </div>
+      <div className="absolute inset-x-0 bottom-[5.5rem] top-[8.7rem] overflow-y-auto overscroll-contain px-3 py-5 sm:top-32 sm:bottom-24 sm:px-8" style={{ touchAction: 'pan-y' }}>
+        {steps.length === 0 ? (
+          <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-[#e8a23d]/35 bg-[#e8a23d]/10 text-3xl text-[#ffd080]">✦</div>
+            <h2 className="text-xl font-bold sm:text-3xl">{topic || 'Ready to explore'}</h2>
+            <p className="mt-3 max-w-md text-sm leading-6 text-white/60">As the tutor explains the first concept, its steps and relationships will build here. You can tap any step to discuss it.</p>
+          </div>
+        ) : (
+          <div className="mx-auto w-full max-w-4xl origin-top transition-transform duration-200" style={{ zoom }}>
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <p className="text-[11px] font-bold text-white/60">{steps.length} lesson point{steps.length === 1 ? '' : 's'} · tap to explore</p>
+              {!followTutor && <button type="button" onClick={() => { setFollowTutor(true); setSelected(steps.length - 1); }} className="rounded-full border border-[#e8a23d]/40 bg-[#e8a23d]/15 px-3 py-1.5 text-[11px] font-bold text-[#ffd080]">Follow tutor ↗</button>}
+            </div>
+            {mapMode ? (
+              <div className="flex flex-col items-stretch">
+                {steps.map((step, index) => <div key={index} className="flex flex-col items-center">
+                  <button type="button" onClick={() => choose(index)} aria-current={active === index ? 'step' : undefined} className={`w-full rounded-2xl border px-4 py-4 text-left shadow-lg transition sm:px-6 ${active === index ? 'border-[#e8a23d] bg-[#e8a23d]/15 shadow-[#e8a23d]/10' : 'border-white/15 bg-[#142235]/85 hover:border-white/35'}`}>
+                    <span className="mb-2 block text-[10px] font-bold uppercase tracking-[.14em] text-[#ffd080]">Concept {String(index + 1).padStart(2, '0')}{active === index && followTutor ? ' · now teaching' : ''}</span>
+                    <span className="block text-sm font-semibold leading-6 text-white/95 sm:text-lg sm:leading-7">{step}</span>
+                  </button>
+                  {index < steps.length - 1 && <div aria-hidden="true" className="flex h-9 flex-col items-center"><div className="h-5 w-px bg-[#e8a23d]/50" /><span className="-mt-1 text-base text-[#e8a23d]/75">↓</span></div>}
+                </div>)}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-[#e8a23d]/35 bg-[#142235] p-5 shadow-xl sm:p-9">
+                <p className="text-xs font-bold uppercase tracking-[.18em] text-[#ffd080]">Point {active + 1} of {steps.length}</p>
+                <p className="mt-4 text-xl font-semibold leading-8 sm:text-3xl sm:leading-[1.4]">{steps[active]}</p>
+                <button type="button" onClick={() => choose(active)} className="mt-5 rounded-xl border border-white/20 px-3 py-2 text-xs font-semibold text-white/80">Ask tutor about this</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {steps.length > 0 && <nav aria-label="Concept navigation" className="absolute bottom-[4.7rem] left-3 right-3 z-10 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#0b1422]/90 p-2 backdrop-blur-xl sm:bottom-20 sm:left-8 sm:right-8">
+        <button type="button" onClick={() => choose(active - 1)} disabled={active === 0} className="rounded-lg px-3 py-2 text-xs font-bold text-white disabled:opacity-30">← Previous</button>
+        <span className="text-xs font-semibold tabular-nums text-white/55">{active + 1} / {steps.length}</span>
+        <button type="button" onClick={() => choose(active + 1)} disabled={active === steps.length - 1} className="rounded-lg bg-[#e8a23d] px-4 py-2 text-xs font-bold text-[#0b1422] disabled:opacity-30">Next →</button>
+      </nav>}
     </section>
   );
 }
