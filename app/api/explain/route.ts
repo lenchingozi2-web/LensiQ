@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+
+export const runtime = 'nodejs';
+export const maxDuration = 60;
 import { createClient } from '../../../lib/supabase/server';
 import { checkAccess } from '../../../lib/gatekeeper';
 
@@ -85,32 +88,67 @@ export async function POST(req: Request) {
     // --- 6. Provider request ---
     const systemPrompt = `You are the LenxiQ medical tutor. Explain the correct answer with concise, clinically sound reasoning. Return strictly valid JSON with keys "content", "flagged", "flag_reason".`;
     const userPrompt = `Question: ${questionText}\nOptions: ${JSON.stringify(options)}\nCorrect Answer: ${correctAnswer}\nStored Model Answer: ${modelAnswer || 'None provided.'}`;
-    const model = (process.env.GEMINI_EXPLAIN_MODEL || 'gemini-3.8-flash').replace('models/', '');
-    if (!/^[a-zA-Z0-9._-]{1,80}$/.test(model)) {
+    const primaryModel = (process.env.GEMINI_EXPLAIN_MODEL || 'gemini-3.8-flash').replace(/^models\//, '');
+    const fallbackModel = (process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.6-flash').replace(/^models\//, '');
+    const models = [...new Set([primaryModel, fallbackModel])];
+    if (models.some((model) => !/^[a-zA-Z0-9._-]{1,80}$/.test(model))) {
       return NextResponse.json({ content: 'The explanation model is misconfigured.', flagged: false }, { status: 503 });
     }
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: 'POST',
-      signal: AbortSignal.timeout(45_000),
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': process.env.GEMINI_API_KEY,
+    const payload = JSON.stringify({
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+      generationConfig: {
+        maxOutputTokens: 1000,
+        responseMimeType: 'application/json',
+        thinkingConfig: { thinkingLevel: 'LOW' },
       },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-        generationConfig: {
-          maxOutputTokens: 1000,
-          responseMimeType: 'application/json',
-          thinkingConfig: { thinkingLevel: 'LOW' },
-        },
-      }),
     });
-    if (!response.ok) {
-      console.error('AI explanation provider rejected request', { status: response.status, model });
-      return NextResponse.json({ content: 'The AI explanation service is busy. Please try again.', flagged: false }, { status: response.status === 429 ? 429 : 502 });
+    let provider: { candidates?: Array<{ content?: { parts?: Array<{ thought?: boolean; text?: string }> } }> } | null = null;
+    let lastStatus: number | null = null;
+    const retryable = new Set([429, 500, 502, 503, 504]);
+    const deadline = Date.now() + 45_000;
+    providerLoop:
+    for (let modelIndex = 0; modelIndex < models.length; modelIndex += 1) {
+      const model = models[modelIndex];
+      const attempts = modelIndex === 0 ? 2 : 1;
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        const remainingMs = deadline - Date.now();
+        if (remainingMs < 3500) break providerLoop;
+        try {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+            method: 'POST',
+            signal: AbortSignal.timeout(Math.min(20_000, remainingMs - 1000)),
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': process.env.GEMINI_API_KEY!,
+            },
+            body: payload,
+          });
+          if (response.ok) {
+            provider = await response.json();
+            break providerLoop;
+          }
+          lastStatus = response.status;
+          console.error('AI explanation Gemini provider unavailable', { status: response.status, model, attempt: attempt + 1 });
+          await response.body?.cancel().catch(() => undefined);
+          if (!retryable.has(response.status)) break providerLoop;
+        } catch (error) {
+          console.error('AI explanation Gemini transport failure', {
+            model,
+            name: error instanceof Error ? error.name : 'unknown',
+          });
+        }
+        if (attempt + 1 < attempts && deadline - Date.now() > 4000) {
+          await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+        }
+      }
     }
-    const provider = await response.json();
+    if (!provider) {
+      return NextResponse.json({
+        content: 'The AI explanation service is temporarily unavailable. Please try again.',
+        flagged: false,
+      }, { status: lastStatus === 429 ? 429 : 503 });
+    }
     const text = provider?.candidates?.[0]?.content?.parts?.filter(
       (part: { thought?: boolean; text?: string }) => !part.thought
     ).map((part: { text?: string }) => part.text || '').join('') || '';
