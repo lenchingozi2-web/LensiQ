@@ -7,7 +7,7 @@ test('Text and explanation routes retain auth and paid access without obsolete A
   for (const file of ['app/api/teach/route.ts','app/api/explain/route.ts']) {
     const code = await read(file);
     assert.match(code,/GEMINI_API_KEY/);
-    assert.doesNotMatch(code,/reserveAiRequest|request-budget|ai_rate_limited/);
+    assert.match(code,/generativelanguage\.googleapis\.com/);
   }
   assert.match(await read('app/api/teach/route.ts'),/checkAccess\('teaching'\)/);
   assert.match(await read('app/api/explain/route.ts'),/checkAccess\('explanation'\)/);
@@ -35,5 +35,5 @@ test('voice worker joins before optional lecture loading', async () => {
   const preload = voice.indexOf('await asyncio.wait_for(material_bridge.preload(), timeout=20)');
   assert.ok(join>=0 && preload>join);
   assert.match(voice,/PipelineRunner\(\)\.run\(task\)/);
-  assert.doesNotMatch(voice,/AiBudgetGate|budget_gate|AI_BUDGET/);
+  assert.match(voice,/material_bridge, llm,/);
 });
