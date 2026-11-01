@@ -15,9 +15,6 @@ Gemini or Groq, or a direct GEMINI_API_KEY + GEMINI_MODEL or GROQ_API_KEY +
 GROQ_MODEL pair. When both direct keys exist Groq is selected by default;
 LIVE_CLASS_LLM_PROVIDER=groq selects Groq. GPT/OpenAI and DeepSeek fallbacks
 are disabled.
-The ``ai-budget-secret`` Modal secret must contain ``AI_BUDGET_INTERNAL_TOKEN``,
-matching the Vercel environment variable. The worker reserves voice turns
-at startup and renews asynchronously every fifteen minutes; no per-turn HTTP waits.
 LIVEKIT_URL may be wss:// or https://; this module normalizes it for the
 LiveKit server API and WebRTC transport.
 """
@@ -50,7 +47,6 @@ voice_image = (
 app = modal.App(APP_NAME)
 livekit_credentials = modal.Secret.from_name("livekit-credentials")
 llm_fallback = modal.Secret.from_name("lensiq-llm-fallback")
-ai_budget_secret = modal.Secret.from_name("ai-budget-secret")
 
 
 def _api_url(value: str) -> str:
@@ -79,7 +75,7 @@ def _is_closed_room_error(error: Exception) -> bool:
 
 @app.function(
     image=voice_image,
-    secrets=[livekit_credentials, llm_fallback, ai_budget_secret],
+    secrets=[livekit_credentials, llm_fallback],
     cpu=2.0,
     memory=4096,
     timeout=95 * 60,
@@ -97,9 +93,6 @@ def run_voice_room(room_name: str, room_metadata: str = "") -> None:
     # agent.py uses the same value for RoomService and RTC; https is accepted by
     # RoomService and agent.py converts it back to wss for the RTC transport.
     os.environ["LIVEKIT_URL"] = _api_url(livekit_url)
-    # The endpoint is public, but all reservations remain protected by the shared bearer token.
-    # Default it here so a missing optional Modal secret field cannot silently block every tutor answer.
-    os.environ.setdefault("AI_BUDGET_ENDPOINT", "https://www.lenxiq.online/api/internal/ai-budget")
     sys.path.insert(0, "/root")
     import importlib.util
 

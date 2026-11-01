@@ -1,4 +1,4 @@
-"""Read-only Supabase Storage inventory and safe upload-budget preflight."""
+"""Read-only Supabase Storage inventory and safe upload-capacity preflight."""
 
 from __future__ import annotations
 

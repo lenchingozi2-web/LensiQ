@@ -148,155 +148,6 @@ def _select_live_class_llm() -> tuple[str, str, str, str]:
     raise RuntimeError("Configure a Gemini or Groq API key and model for Live Class; GPT fallback is disabled.")
 
 
-class AiBudgetGate(FrameProcessor):
-    """Atomic lease at room start and periodic renewals, never on the speech hot path."""
-
-    def __init__(self, transport: LiveKitTransport, user_id: str, session_id: str, endpoint: str, token: str):
-        super().__init__(name="ai-budget-gate")
-        self.transport = transport
-        self.user_id = user_id
-        self.session_id = session_id
-        self.endpoint = endpoint
-        self.token = token
-        self.available_turns = 0
-        self.last_renewal_attempt = 0.0
-        self.last_successful_lease = 0.0
-        self.renewal_task: asyncio.Task | None = None
-        self.lease_lock = asyncio.Lock()
-
-    def _reserve_sync(self) -> tuple[bool, str]:
-        missing = [name for name, value in (
-            ("user_id", self.user_id),
-            ("session_id", self.session_id),
-            ("endpoint", self.endpoint),
-            ("shared_token", self.token),
-        ) if not value]
-        if missing:
-            logger.error("Voice AI budget gate missing required settings: %s", ", ".join(missing))
-            return False, "This class is missing its secure tutor session context. Please end and restart the class."
-        payload = json.dumps({
-            "userId": self.user_id,
-            "requestId": str(uuid.uuid4()),
-            "feature": "voice",
-            "action": "lease",
-            "sessionId": self.session_id,
-            "turns": 128,
-        }).encode("utf-8")
-        request = urllib.request.Request(
-            self.endpoint,
-            data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.token}",
-            },
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=4) as response:
-                result = json.loads(response.read(4096).decode("utf-8"))
-                if response.status == 200 and result.get("allowed") is True:
-                    if result.get("leaseTurns") != 128:
-                        return False, "The tutor lease server returned an invalid authorization."
-                    logger.info("Voice AI budget reservation authorized (128-turn lease)")
-                    return True, ""
-                reason = result.get("reason")
-                if reason in ("user_daily_spend_limit", "user_monthly_spend_limit", "global_daily_spend_limit", "global_monthly_spend_limit", "user_minute_limit", "user_hour_limit", "user_day_limit", "global_minute_limit", "global_hour_limit", "global_day_limit"):
-                    return False, "The AI usage allowance has been reached. Please try again later."
-                if reason == "ai_globally_paused":
-                    return False, "AI voice responses are temporarily paused. Please try again later."
-                return False, "The tutor could not authorize this response. Please try again shortly."
-        except urllib.error.HTTPError as error:
-            logger.error("Voice AI budget service rejected reservation (HTTP %s)", error.code)
-            if error.code == 429:
-                return False, "The AI usage allowance has been reached. Please try again later."
-            if error.code == 401:
-                return False, "The tutor authorization check failed. Please reload the class and try again."
-            return False, "The tutor budget service is temporarily unavailable. Please try again shortly."
-        except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
-            logger.error("Voice AI budget service unavailable (%s); blocking provider call", type(error).__name__)
-            return False, "The tutor budget service is temporarily unavailable. Please try again shortly."
-
-    async def renew(self) -> bool:
-        async with self.lease_lock:
-            # Backoff on transient failures, but retain previously granted turns.
-            if time.monotonic() - self.last_renewal_attempt < 45:
-                return self.available_turns > 0
-            self.last_renewal_attempt = time.monotonic()
-            allowed, message = await asyncio.to_thread(self._reserve_sync)
-            if allowed:
-                self.available_turns += 128
-                self.last_successful_lease = time.monotonic()
-                logger.info('Live Class lease renewed; remaining authorized turns=%d', self.available_turns)
-                return True
-            logger.warning("Voice lease renewal failed: %s", message)
-            return False
-
-    async def start(self) -> None:
-        await self.renew()
-
-    async def periodic_renewal(self) -> None:
-        # Check in the background frequently enough to recover from transient
-        # provider or network errors; never block the normal speech hot path.
-        while True:
-            await asyncio.sleep(30)
-            if (self.available_turns <= 96 or
-                (self.available_turns < 192 and
-                 time.monotonic() - self.last_successful_lease >= 15 * 60)):
-                await self.renew()
-
-    def _bound_context(self, frame) -> None:
-        context = getattr(frame, "context", None)
-        messages = getattr(context, "messages", None)
-        if not isinstance(messages, list):
-            return
-        system_messages = [message for message in messages if isinstance(message, dict) and message.get("role") == "system"]
-        recent_conversation = [message for message in messages if not (isinstance(message, dict) and message.get("role") == "system")][-8:]
-        bounded = system_messages + recent_conversation
-        for message in bounded:
-            if not isinstance(message, dict):
-                continue
-            content = message.get("content")
-            if isinstance(content, str) and len(content) > 6000:
-                message["content"] = content[-6000:]
-        while len(bounded) > 1 and sum(len(message.get("content", "")) for message in bounded if isinstance(message, dict) and isinstance(message.get("content"), str)) > 12000:
-            removable = len(system_messages) if len(bounded) > len(system_messages) else None
-            if removable is None:
-                break
-            bounded.pop(removable)
-        set_messages = getattr(context, "set_messages", None)
-        if callable(set_messages):
-            set_messages(bounded)
-        else:
-            messages[:] = bounded
-
-    async def process_frame(self, frame, direction: FrameDirection):
-        await super().process_frame(frame, direction)
-        if isinstance(frame, (LLMContextFrame, OpenAILLMContextFrame)):
-            self._bound_context(frame)
-            if self.available_turns <= 0:
-                # A previously failed background refresh must not permanently
-                # strand the room. Reauthorize on depletion, not on each turn.
-                await self.renew()
-            if self.available_turns <= 0:
-                denial_message = "The tutor is unable to renew its voice allowance right now. Your room is still connected; please try again shortly."
-                client = getattr(self.transport, "_client", None)
-                if client is not None:
-                    message = {
-                        "type": "live_class_state",
-                        "state": "ERROR",
-                        "message": denial_message,
-                    }
-                    await client.send_data(json.dumps(message).encode("utf-8"))
-                # Surface the denial to the pipeline error handler so the
-                # learner receives a spoken wrap-up rather than a silent stop.
-                await self.push_frame(ErrorFrame(error=denial_message), direction)
-                return
-            self.available_turns -= 1
-            if self.available_turns <= 96 and (self.renewal_task is None or self.renewal_task.done()):
-                self.renewal_task = asyncio.create_task(self.renew())
-        await self.push_frame(frame, direction)
-
-
 class MaterialContextBridge(FrameProcessor):
     """Retrieve only the most relevant excerpts from uploaded lecture text."""
 
@@ -603,15 +454,8 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
             )
         except ValueError:
             logger.warning("Ignoring malformed Live Class deadline metadata")
-    budget_gate = AiBudgetGate(
-        transport,
-        str(room_data.get("userId") or ""),
-        str(room_data.get("sessionId") or ""),
-        os.getenv("AI_BUDGET_ENDPOINT", "https://www.lenxiq.online/api/internal/ai-budget").strip(),
-        os.getenv("AI_BUDGET_INTERNAL_TOKEN", "").strip(),
-    )
     pipeline = Pipeline([
-        transport.input(), stt, user_bridge, user_aggregator, material_bridge, budget_gate, llm,
+        transport.input(), stt, user_bridge, user_aggregator, material_bridge, llm,
         assistant_bridge, tts, transport.output(), assistant_aggregator,
     ])
     task = PipelineTask(pipeline, params=PipelineParams(allow_interruptions=True, enable_metrics=True))
@@ -631,7 +475,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         if "402" in message or "Insufficient Balance" in message:
             message = "The tutor service is temporarily unavailable. Please try again in a moment."
         logger.error("Live Class pipeline error: %s", frame.error)
-        if "usage allowance" in message.lower() or "budget" in message.lower() or "temporarily paused" in message.lower():
+        if "usage allowance" in message.lower() or "temporarily paused" in message.lower():
             if wrapup_queued:
                 return
             wrapup_queued = True
@@ -702,21 +546,12 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
                 logger.warning("Unable to queue 90-minute Live Class wrap-up (%s)", type(error).__name__)
         await end_after_wrapup()
 
-    # Join promptly. File parsing and budget authorization must never prevent
-    # the agent from entering the room and greeting the learner.
-    # The AiBudgetGate still blocks EVERY model request until a lease is granted.
+    # Join first; source preparation runs independently without blocking the greeting.
     await queue_initial_greeting("pipeline_start")
     logger.info("Joining Live Class room %s", room_name)
 
     async def prepare_class() -> None:
-        await budget_gate.start()
-        if budget_gate.available_turns <= 0:
-            logger.error("Live Class tutor joined but could not obtain its AI budget lease")
-            await assistant_bridge.publish({
-                "type": "live_class_state",
-                "state": "ERROR",
-                "message": "I have joined your room, but the AI budget service cannot authorize a reply. Please contact the administrator.",
-            })
+        # Lecture preparation is optional and must not delay the audio greeting.
         try:
             await asyncio.wait_for(material_bridge.preload(), timeout=20)
             if material_bridge.syllabus:
@@ -730,15 +565,11 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
 
     prepare_task = asyncio.create_task(prepare_class())
     deadline_task = asyncio.create_task(close_at_session_deadline())
-    renewal_task = asyncio.create_task(budget_gate.periodic_renewal())
     try:
-    await PipelineRunner().run(task)
+        await PipelineRunner().run(task)
     finally:
         prepare_task.cancel()
         deadline_task.cancel()
-        renewal_task.cancel()
-        if budget_gate.renewal_task:
-            budget_gate.renewal_task.cancel()
 
 
 async def _list_rooms(client: api.LiveKitAPI) -> list[Any]:

@@ -5,7 +5,6 @@ import { includesLiveClass } from '../../../lib/plans';
 import { getOrCreateProfile } from '../../../lib/profile';
 import { buildTeachingContext } from '../../../lib/ai/teaching-context';
 import { buildTeachingSystemPrompt } from '../../../lib/ai/teaching-prompt';
-import { reserveAiRequest } from '../../../lib/ai/request-budget';
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
@@ -133,21 +132,12 @@ export async function POST(req: Request) {
     const context = await buildTeachingContext(supabase, courseName, messages, conversationId || undefined);
     const systemPrompt = buildTeachingSystemPrompt(courseName, context, sessionType === 'live_class');
 
-    const budget = await reserveAiRequest(userId, 'teach', req.headers.get('idempotency-key') || undefined);
-    if (!budget.allowed) {
-      return NextResponse.json(
-        { error: 'ai_rate_limited', message: 'AI teaching is temporarily at capacity. Please wait a minute and try again.' },
-        { status: budget.reason === 'budget_unavailable' ? 503 : 429 },
-      );
-    }
-
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json({ error: 'AI provider is not configured.' }, { status: 503 });
     }
 
-    // Gemini's native streaming endpoint avoids the slower OpenAI compatibility gateway.
-    // This still runs only after the atomic budget reservation above.
-    const model = (process.env.GEMINI_TEACHING_MODEL || 'gemini-3.8-flash').replace(/^models\\//, '');
+    // Stream the medical tutor response directly from Gemini's supported endpoint.
+    const model = (process.env.GEMINI_TEACHING_MODEL || 'gemini-3.8-flash').replace('models/', '');
     if (!/^[a-zA-Z0-9._-]{1,80}$/.test(model)) {
       return NextResponse.json({ error: 'The tutor model is not configured correctly.' }, { status: 503 });
     }

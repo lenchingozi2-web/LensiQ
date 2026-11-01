@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
 import { checkAccess } from '../../../lib/gatekeeper';
-import { reserveAiRequest } from '../../../lib/ai/request-budget';
 
 export async function POST(req: Request) {
   try {
@@ -78,14 +77,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // --- 5. If no cache exists, reserve a budget slot before calling Gemini ---
-    const budget = await reserveAiRequest(userId, 'explain', req.headers.get('idempotency-key') || undefined);
-    if (!budget.allowed) {
-      return NextResponse.json(
-        { content: 'AI explanations are temporarily at capacity. Please wait a minute and try again.', flagged: false },
-        { status: budget.reason === 'budget_unavailable' ? 503 : 429 },
-      );
-    }
+    // No saved explanation exists; call the configured medical tutor model.
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json({ content: 'AI provider is not configured.', flagged: false }, { status: 503 });
     }
@@ -93,7 +85,7 @@ export async function POST(req: Request) {
     // --- 6. Provider request ---
     const systemPrompt = `You are the LenxiQ medical tutor. Explain the correct answer with concise, clinically sound reasoning. Return strictly valid JSON with keys "content", "flagged", "flag_reason".`;
     const userPrompt = `Question: ${questionText}\nOptions: ${JSON.stringify(options)}\nCorrect Answer: ${correctAnswer}\nStored Model Answer: ${modelAnswer || 'None provided.'}`;
-    const model = (process.env.GEMINI_EXPLAIN_MODEL || 'gemini-3.8-flash').replace(/^models\\//, '');
+    const model = (process.env.GEMINI_EXPLAIN_MODEL || 'gemini-3.8-flash').replace('models/', '');
     if (!/^[a-zA-Z0-9._-]{1,80}$/.test(model)) {
       return NextResponse.json({ content: 'The explanation model is misconfigured.', flagged: false }, { status: 503 });
     }

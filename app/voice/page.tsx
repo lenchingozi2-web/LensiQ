@@ -934,7 +934,7 @@ function VoiceTutorContent() {
             }
             if (data.state === 'ERROR') {
               const message = data.message || 'The tutor could not complete that response. Please try speaking again.';
-              if (/usage allowance|budget|temporarily paused/i.test(message)) {
+              if (/usage allowance|temporarily paused/i.test(message)) {
                 startWrapupGrace('The lesson ended gracefully after the protected AI segment. Your puzzle questions are saved in History.');
                 return;
               }
