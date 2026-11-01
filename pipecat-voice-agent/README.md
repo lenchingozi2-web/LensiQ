@@ -4,7 +4,7 @@ This stack keeps voice processing local: LiveKit server, Pipecat worker, faster-
 
 ## Modal deployment
 
-`agent_modal.py` deploys the Pipecat pipeline to Modal for LiveKit Cloud. It uses `modal.App("lenxiq-ai-voice")`, reads LiveKit credentials and Gemini/Groq provider settings from the existing Modal secrets, and schedules a lightweight room poller every 5 seconds. Each active room gets a separate worker with 2 vCPU, 4 GB RAM, a 5-minute idle scale-down window, and a 60-minute maximum lifetime, subject to the learner's server-side allowance; one poller container stays warm to reduce first-greeting latency. The worker uses mobile-safe Silero VAD, responsive Whisper turns, slightly faster Kokoro speech, and publishes tutor/learner transcript and interaction-state packets to the browser.
+`agent_modal.py` deploys the Pipecat pipeline to Modal for LiveKit Cloud. It uses `modal.App("lenxiq-ai-voice")`, reads LiveKit credentials and Gemini/Groq provider settings from the existing Modal secrets, and schedules a lightweight room poller every 5 seconds. Each active room gets a separate worker with 2 vCPU, 4 GB RAM, a 5-minute idle scale-down window, and a 95-minute worker timeout supporting a 90-minute classroom allowance, subject to the learner's server-side allowance; one poller container stays warm to reduce first-greeting latency. The worker uses mobile-safe Silero VAD, responsive Whisper turns, slightly faster Kokoro speech, and publishes tutor/learner transcript and interaction-state packets to the browser.
 
 ```bash
 modal deploy agent_modal.py
@@ -25,8 +25,11 @@ LIVEKIT_AGENT_NAME=lensiq-voice-tutor
 
 Use the exact `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` values from the Modal `livekit-credentials` secret. Do not use the old `*.app.github.dev` URL, and do not set `LIVEKIT_INTERNAL_URL` for the Modal room-poll deployment.
 
-The mounted `livekit-credentials` and `lensiq-llm-fallback` secrets must collectively provide the LiveKit values above and either a complete `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` contract pointing to Google's Gemini endpoint or Groq, or provider-specific settings (`GEMINI_API_KEY` with `GEMINI_MODEL`, or `GROQ_API_KEY` with `GROQ_MODEL`). If both direct provider keys exist, Gemini is selected by default; set `LIVE_CLASS_LLM_PROVIDER=groq` to choose Groq. Other unsupported provider endpoints are rejected. The worker logs the selected provider and model name, never credentials. 
-The worker uses a mobile-safe Silero VAD loudness gate by default (`LIVEKIT_VAD_MIN_VOLUME=0.03`, `LIVEKIT_VAD_CONFIDENCE=0.62`, `LIVEKIT_VAD_START_SECS=0.16`, and `LIVEKIT_VAD_STOP_SECS=0.32`). These may be overridden in the Modal environment if a particular microphone needs tuning; do not raise the volume gate to `0.42`, which can reject ordinary phone speech.
+**Live Class provider architecture:** Gemini 3.8 Flash is the lesson planning brain, called through the authenticated Next.js `/api/voice/context` route. Its `GEMINI_API_KEY` is configured in Vercel, and it plans the concept sequence from native past questions and retrieved source excerpts. The Modal worker should have `GROQ_API_KEY` and optionally `GROQ_MODEL=qwen/qwen3.8-27b`; Groq streams the natural spoken explanation, while Kokoro generates the actual audio. The worker defaults to Groq whenever its key is present. Explicit `LIVE_CLASS_LLM_PROVIDER=gemini` is a compatibility option, not the intended split architecture. If Gemini planning fails, the verbalizer continues using verified evidence rather than fabricating a plan. Avoid placing keys in client-side variables.
+
+`LIVE_CLASS_SEGMENT_MAX_TOKENS` defaults to **1400** (configurable from 500–2200 per response), not per lesson. Long classes use successive segments, a rolling teaching memory and on-demand source retrieval; no token setting can guarantee thorough coverage of six giant uploads automatically.
+
+Mobile speech detection defaults: `LIVEKIT_VAD_MIN_VOLUME=0.012`, `LIVEKIT_VAD_CONFIDENCE=0.50`, `LIVEKIT_VAD_START_SECS=0.12`, `LIVEKIT_VAD_STOP_SECS=0.95`; Whisper defaults to `base.en` instead of tiny.en. Tune environmental overrides on Modal only after testing real device input, and check transcription logs for misrecognitions.
 
 ## Run locally
 
@@ -53,4 +56,4 @@ In Codespaces, set `LIVEKIT_AGENT_URL=http://host.docker.internal:7880` if the w
 
 ## Model endpoint
 
-Use `GEMINI_API_KEY` plus `GEMINI_MODEL`, or `GROQ_API_KEY` plus `GROQ_MODEL`. Set `LIVE_CLASS_LLM_PROVIDER` to `gemini` or `groq` if both are configured. Alternatively, set the complete `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` contract to one of the supported Gemini/Groq endpoints. There is no automatic retry or silent provider switch. The Live Class session and subscription entitlements are enforced by the Next.js token route.
+Use `GEMINI_API_KEY` on the Vercel server for lesson planning and `GROQ_API_KEY` in the Modal worker for fast verbalization. The worker can fall back to Gemini voice text if Groq has not been provisioned, but that is not the preferred two-model design. Alternatively, set the complete `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` contract to one of the supported Gemini/Groq endpoints. There is no automatic retry or silent provider switch. The Live Class session and subscription entitlements are enforced by the Next.js token route.
