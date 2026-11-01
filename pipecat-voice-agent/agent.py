@@ -21,7 +21,7 @@ from typing import Any, AsyncGenerator
 from urllib.parse import urlparse
 
 from livekit import api
-from pipecat.frames.frames import EndFrame, ErrorFrame, Frame, InputTextRawFrame, LLMFullResponseEndFrame, LLMContextFrame, TTSAudioRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
+from pipecat.frames.frames import EndFrame, ErrorFrame, Frame, InputTextRawFrame, LLMTextFrame, LLMFullResponseEndFrame, LLMContextFrame, TTSAudioRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -350,6 +350,7 @@ class LiveClassDataBridge(FrameProcessor):
         super().__init__(name=f"live-class-{role}-bridge")
         self.transport = transport
         self.role = role
+        self._spoken_visual_buffer = ""
 
     async def publish(self, payload: dict[str, Any]) -> None:
         client = getattr(self.transport, "_client", None)
@@ -358,23 +359,39 @@ class LiveClassDataBridge(FrameProcessor):
 
     async def process_frame(self, frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
+        # InputTextRawFrame is a subclass of TextFrame. It carries private
+        # continuation/interaction instructions, NOT words spoken by the tutor.
+        # Never forward it to the speech synthesizer or student's whiteboard.
+        if self.role == "assistant" and isinstance(frame, InputTextRawFrame):
+            return
         if isinstance(frame, TranscriptionFrame) and frame.text.strip():
-            logger.info("Live Class %s transcription received (characters=%d)", self.role, len(frame.text.strip()))
-            # Learner speech is input to the tutor, not part of the answer transcript.
             if self.role == "assistant":
-                await self.publish({"type": "live_class_transcript", "role": "assistant", "content": frame.text.strip(), "final": True})
-            else:
-                await self.publish({"type": "live_class_state", "state": "THINKING"})
-        elif isinstance(frame, TextFrame) and frame.text.strip() and self.role == "assistant":
-            logger.info("Live Class tutor response text generated (characters=%d)", len(frame.text.strip()))
-            text = frame.text.strip()
-            await self.publish({"type": "live_class_transcript", "role": "assistant", "content": text, "final": True})
-            # The browser advances the board as each spoken sentence is generated.
-            await self.publish({"type": "live_class_visual_step", "content": text})
-            await self.publish({"type": "live_class_state", "state": "TEACHING"})
+                return
+            logger.info("Learner speech transcribed (characters=%d)", len(frame.text.strip()))
+            await self.publish({"type": "live_class_state", "state": "THINKING"})
+            # Expose only the learner's actual transcribed speech to the
+            # authorized room for feedback; never replay internal control text.
+            await self.publish({"type": "live_class_user_transcript", "content": frame.text.strip()})
+        elif self.role == "assistant" and isinstance(frame, LLMTextFrame) and frame.text.strip():
+            # LLMTextFrame is provenance-checked; generic TextFrame may include
+            # raw user input and other internal control frames.
+            chunk = frame.text
+            self._spoken_visual_buffer += chunk
+            if len(self._spoken_visual_buffer) > 12000:
+                self._spoken_visual_buffer = self._spoken_visual_buffer[-12000:]
+            if re.search(r"[.!?][\\s]*$", self._spoken_visual_buffer) or len(self._spoken_visual_buffer) >= 280:
+                spoken = self._spoken_visual_buffer.strip()
+                self._spoken_visual_buffer = ""
+                if spoken:
+                    await self.publish({"type": "live_class_transcript", "role": "assistant", "content": spoken, "final": True})
+                    await self.publish({"type": "live_class_visual_step", "content": spoken})
+                    await self.publish({"type": "live_class_state", "state": "TEACHING"})
         elif isinstance(frame, LLMFullResponseEndFrame) and self.role == "assistant":
-            # The browser waits until remote audio finishes before requesting the
-            # next teaching segment; never queue another LLM call over live TTS.
+            if self._spoken_visual_buffer.strip():
+                spoken = self._spoken_visual_buffer.strip()
+                self._spoken_visual_buffer = ""
+                await self.publish({"type": "live_class_transcript", "role": "assistant", "content": spoken, "final": True})
+                await self.publish({"type": "live_class_visual_step", "content": spoken})
             await self.publish({"type": "live_class_segment_complete"})
         await self.push_frame(frame, direction)
 
@@ -393,21 +410,21 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
             vad_enabled=True,
             vad_analyzer=SileroVADAnalyzer(
                 params=VADParams(
-                    confidence=float(os.getenv("LIVEKIT_VAD_CONFIDENCE", "0.62")),
-                    start_secs=float(os.getenv("LIVEKIT_VAD_START_SECS", "0.16")),
-                    stop_secs=float(os.getenv("LIVEKIT_VAD_STOP_SECS", "0.68")),
+                    confidence=float(os.getenv("LIVEKIT_VAD_CONFIDENCE", "0.50")),
+                    start_secs=float(os.getenv("LIVEKIT_VAD_START_SECS", "0.12")),
+                    stop_secs=float(os.getenv("LIVEKIT_VAD_STOP_SECS", "0.95")),
                     # Pipecat's volume is normalized EBU-R128 loudness, not
                     # microphone peak amplitude. A 0.42 gate rejects ordinary
                     # phone speech; keep this mobile-safe and tunable.
-                    min_volume=float(os.getenv("LIVEKIT_VAD_MIN_VOLUME", "0.03")),
+                    min_volume=float(os.getenv("LIVEKIT_VAD_MIN_VOLUME", "0.012")),
                 )
             ),
         ),
     )
     stt = WhisperSTTService(
-        # tiny.en keeps turn-taking responsive on the 2-vCPU worker; callers
-        # can override it with base.en when medical transcription accuracy wins.
-        model=os.getenv("WHISPER_MODEL", "tiny.en"),
+        # base.en improves medical pronunciation recognition over tiny.en; retain
+        # a configurable override for GPU-backed small.en or larger models.
+        model=os.getenv("WHISPER_MODEL", "base.en"),
         device=os.getenv("WHISPER_DEVICE", "cpu"),
         compute_type=os.getenv("WHISPER_COMPUTE_TYPE", "int8"),
     )
