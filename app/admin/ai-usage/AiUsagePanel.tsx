@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 type ServiceStatus = {
   checkedAt: string;
-  services: { textTutor: boolean; liveKit: boolean; voiceWorker: 'external' };
+  services: { textTutor: boolean; textTutorDetail: string; liveKit: boolean; liveKitDetail: string; voiceWorker: 'external' };
 };
 
 export default function AiUsagePanel() {
@@ -45,7 +45,7 @@ export default function AiUsagePanel() {
       <header className="rounded-3xl bg-slate-950 p-7 text-white sm:p-10">
         <p className="text-xs font-bold uppercase tracking-widest text-amber-300">LenxiQ · Administration</p>
         <h1 className="mt-3 text-3xl font-black">AI service status</h1>
-        <p className="mt-3 text-sm text-slate-300">Current configuration signals for medical tutoring and Live Class.</p>
+        <p className="mt-3 text-sm text-slate-300">Live connection checks for medical tutoring and Live Class. The external voice worker is checked separately.</p>
         <div className="mt-6 flex flex-wrap gap-3">
           <a href="/admin" className="rounded-xl border border-white/25 px-4 py-2 font-bold">← Admin dashboard</a>
           <button type="button" onClick={() => void refresh()} disabled={loading}
@@ -64,13 +64,13 @@ export default function AiUsagePanel() {
       {status && <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <article className="rounded-2xl border bg-white p-6">
           <h2 className="font-bold">Text Tutor provider</h2>
-          <p className="mt-2 text-xl font-black">{status.services.textTutor ? 'Configured' : 'Not configured'}</p>
-          <p className="mt-2 text-sm text-slate-500">Configuration only, not a successful model-response test.</p>
+          <p className="mt-2 text-xl font-black">{status.services.textTutor ? 'Reachable' : 'Unavailable'}</p>
+          <p className="mt-2 text-sm text-slate-500">{status.services.textTutorDetail} This checks model access, not a generated response.</p>
         </article>
         <article className="rounded-2xl border bg-white p-6">
           <h2 className="font-bold">LiveKit classroom</h2>
-          <p className="mt-2 text-xl font-black">{status.services.liveKit ? 'Configured' : 'Not configured'}</p>
-          <p className="mt-2 text-sm text-slate-500">The external Modal worker must be checked separately.</p>
+          <p className="mt-2 text-xl font-black">{status.services.liveKit ? 'Reachable' : 'Unavailable'}</p>
+          <p className="mt-2 text-sm text-slate-500">{status.services.liveKitDetail} The external Modal voice worker must be checked separately.</p>
         </article>
       </div>}
     </div>
