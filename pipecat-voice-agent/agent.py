@@ -23,7 +23,7 @@ from typing import Any, AsyncGenerator
 from urllib.parse import urlparse
 
 from livekit import api
-from pipecat.frames.frames import EndFrame, ErrorFrame, Frame, InputTextRawFrame, LLMTextFrame, LLMFullResponseEndFrame, LLMContextFrame, TTSAudioRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
+from pipecat.frames.frames import EndFrame, ErrorFrame, Frame, InputTextRawFrame, TTSTextFrame, LLMFullResponseEndFrame, LLMContextFrame, TTSAudioRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -514,9 +514,10 @@ class LiveClassDataBridge(FrameProcessor):
             # Expose only the learner's actual transcribed speech to the
             # authorized room for feedback; never replay internal control text.
             await self.publish({"type": "live_class_user_transcript", "content": frame.text.strip()})
-        elif self.role == "assistant" and isinstance(frame, LLMTextFrame) and frame.text.strip():
-            # LLMTextFrame is provenance-checked; generic TextFrame may include
-            # raw user input and other internal control frames.
+        elif self.role == "assistant" and isinstance(frame, TTSTextFrame) and frame.text.strip():
+            # TTSTextFrame is emitted by Kokoro's serialized audio queue after
+            # the corresponding utterance has been synthesized. LLM tokens can
+            # arrive far ahead of audible speech; they must never drive the board.
             chunk = frame.text
             self._spoken_visual_buffer += chunk
             if len(self._spoken_visual_buffer) > 12000:
@@ -630,7 +631,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
             logger.warning("Ignoring malformed Live Class deadline metadata")
     pipeline = Pipeline([
         transport.input(), stt, user_bridge, user_aggregator, material_bridge, llm,
-        assistant_bridge, tts, transport.output(), assistant_aggregator,
+        tts, assistant_bridge, transport.output(), assistant_aggregator,
     ])
     task = PipelineTask(pipeline, params=PipelineParams(allow_interruptions=True, enable_metrics=True))
     wrapup_queued = False
