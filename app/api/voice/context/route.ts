@@ -36,7 +36,8 @@ async function planLessonWithGemini(courseName: string, query: string, context: 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST',
       cache: 'no-store',
-      signal: AbortSignal.timeout(6500),
+      // Do not block an interrupted learner's spoken answer for a slow planner.
+      signal: AbortSignal.timeout(2800),
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: instructions }] }],
