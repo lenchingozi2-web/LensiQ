@@ -28,11 +28,12 @@ export default function Whiteboard({ topic, markdown, onConceptSelect }: Whitebo
   // Spoken explanations are focused by default. A diagram is shown only for
   // explicit mechanism/flow content, or when the learner requests Flow.
   const [mapMode, setMapMode] = useState(false);
+  const [userSelectedMode, setUserSelectedMode] = useState(false);
   const [zoom, setZoom] = useState(1);
   const viewportRef = useRef<HTMLDivElement>(null);
   const active = Math.max(0, Math.min(selected, steps.length - 1));
   const diagramSource = /(?:→|➡|\s->\s|^\s*(?:flowchart|mechanism flow|pathway)\s*:)/im.test(markdown ?? '');
-  const diagramMode = mapMode || diagramSource;
+  const diagramMode = userSelectedMode ? mapMode : diagramSource;
   const diagramStart = Math.max(0, active - 3);
   const diagramSteps = steps.slice(diagramStart, Math.min(steps.length, active + 2));
   useEffect(() => {
@@ -60,7 +61,7 @@ export default function Whiteboard({ topic, markdown, onConceptSelect }: Whitebo
       <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 border-b border-white/10 bg-[#0b1422]/85 px-3 pb-2 pt-[4.8rem] backdrop-blur-lg sm:px-6 sm:pt-24">
         <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#ffd080]">Live concept board</p><h1 className="truncate text-sm font-bold text-white sm:text-xl">{topic || 'Medical lesson'}</h1></div>
         <div className="flex shrink-0 items-center gap-1">
-          <button type="button" onClick={() => setMapMode((value) => !value)} className="rounded-lg border border-white/15 px-2.5 py-2 text-[11px] font-semibold text-white/90" aria-pressed={diagramMode}>{diagramMode ? 'Focus' : 'Flow'}</button>
+          <button type="button" onClick={() => { setMapMode(!diagramMode); setUserSelectedMode(true); }} className="rounded-lg border border-white/15 px-2.5 py-2 text-[11px] font-semibold text-white/90" aria-pressed={diagramMode}>{diagramMode ? 'Focus' : 'Flow'}</button>
           <button type="button" onClick={() => setZoom((z) => Math.max(.8, +(z-.1).toFixed(1)))} aria-label="Zoom out" className="rounded-lg border border-white/15 px-2.5 py-2 text-sm">−</button>
           <button type="button" onClick={() => setZoom((z) => Math.min(1.4, +(z+.1).toFixed(1)))} aria-label="Zoom in" className="rounded-lg border border-white/15 px-2.5 py-2 text-sm">+</button>
         </div>
@@ -88,7 +89,8 @@ export default function Whiteboard({ topic, markdown, onConceptSelect }: Whitebo
                     <span className="block text-sm font-semibold leading-6 text-white/95 sm:text-lg sm:leading-7">{step}</span>
                   </button>
                   {localIndex < diagramSteps.length - 1 && <div aria-hidden="true" className="flex h-9 flex-col items-center"><div className="h-5 w-px bg-[#e8a23d]/50" /><span className="-mt-1 text-base text-[#e8a23d]/75">↓</span></div>}
-                </div>)}
+                  </div>;
+                })}
               </div>
             ) : (
               <div key={active} className="animate-[lab-reveal_400ms_ease-out] rounded-2xl border border-[#e8a23d]/35 bg-[#142235] p-5 shadow-xl sm:p-9">
