@@ -109,7 +109,7 @@ def run_voice_room(room_name: str, room_metadata: str = "") -> None:
     cpu=0.25,
     memory=512,
     timeout=45,
-    schedule=modal.Period(seconds=5),
+    schedule=modal.Period(seconds=3),
     scaledown_window=30,
 )
 def poll_livekit_rooms() -> None:
