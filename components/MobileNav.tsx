@@ -80,7 +80,7 @@ export default function MobileNav({ links, secondaryLinks, isAuthenticated }: Pr
           <nav
             id={menuId}
             aria-label="Mobile study navigation"
-            className="absolute right-0 top-14 z-50 max-h-[calc(100dvh-6rem)] w-[min(22rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain rounded-[1.35rem] border border-slate-200 bg-white p-3 shadow-[0_28px_90px_rgba(15,23,42,.25)]"
+            className="absolute right-0 top-14 z-50 max-h-[calc(100dvh-6rem)] w-[min(22rem,calc(100vw-1rem))] min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain rounded-[1.35rem] border border-slate-200 bg-white p-3 shadow-[0_28px_90px_rgba(15,23,42,.25)]"
           >
             <div className="rounded-xl bg-[#0B1220] p-4 text-white">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#E8A23D]">LenxiQ AI workspace</p>
