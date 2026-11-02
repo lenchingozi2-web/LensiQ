@@ -163,6 +163,7 @@ function VoiceTutorContent() {
   const lessonSegmentCompleteRef = useRef(false);
   const lessonSegmentCountRef = useRef(0);
   const tutorSpeakingRef = useRef(false);
+  const lastTutorActivityAtRef = useRef(Date.now());
   const tutorSpokeThisSegmentRef = useRef(false);
   const lastLearnerSpeechAtRef = useRef(0);
   const [lastHeard, setLastHeard] = useState('');
@@ -217,31 +218,20 @@ function VoiceTutorContent() {
     }
   }, [autoLesson]);
 
+  // A fixed response timer is unsafe for long spoken lessons: LLM generation,
+  // synthesis and WebRTC playback are distinct asynchronous stages. Only offer
+  // non-destructive status guidance if *no* activity is observed.
   useEffect(() => {
-    if (!connected || runtimeState !== 'THINKING') return;
+    if (!connected || (runtimeState !== 'THINKING' && runtimeState !== 'GREETING')) return;
     const timer = window.setTimeout(() => {
-      if (runtimeStateRef.current !== 'THINKING') return;
-      const message = 'The tutor has not replied yet. Try asking once more; if it stays quiet, end and restart the class.';
-      runtimeStateRef.current = 'ERROR';
-      setRuntimeState('ERROR');
-      setStatus(message);
-      setError(message);
-    }, 30000);
+      if (runtimeStateRef.current !== runtimeState || endingRef.current || tutorSpeakingRef.current) return;
+      if (Date.now() - lastTutorActivityAtRef.current < 40_000) return;
+      setStatus(runtimeState === 'GREETING'
+        ? 'Your tutor is joining the voice room. Keep the class open while the connection completes.'
+        : 'The tutor is preparing the next explanation. You can speak or interrupt at any time.');
+    }, 45_000);
     return () => window.clearTimeout(timer);
   }, [connected, runtimeState]);
-
-  useEffect(() => {
-    if (!connected || runtimeState !== 'GREETING' || agentAudioSubscribed) return;
-    const timer = window.setTimeout(() => {
-      if (runtimeStateRef.current !== 'GREETING' || agentAudioSubscribedRef.current) return;
-      const message = 'The voice tutor has not joined the classroom. The voice worker may be offline; end this session and use Text Tutor while voice service is restored.';
-      runtimeStateRef.current = 'ERROR';
-      setRuntimeState('ERROR');
-      setStatus(message);
-      setError(message);
-    }, 65000);
-    return () => window.clearTimeout(timer);
-  }, [connected, runtimeState, agentAudioSubscribed]);
 
   useEffect(() => {
     if (!connected || studioOpen) return;
@@ -801,6 +791,7 @@ function VoiceTutorContent() {
     sessionStartedAtRef.current = null;
     sessionDeadlineAtRef.current = null;
     setLiveStarted(false);
+    lastTutorActivityAtRef.current = Date.now();
     setStudioOpen(false);
     ambienceAudioRef.current?.pause();
     setAmbienceEnabled(false);
@@ -893,6 +884,7 @@ function VoiceTutorContent() {
       transcriptIdsRef.current.clear();
       setReplaying(false);
       room.on(RoomEvent.TrackSubscribed, (track) => {
+        if (track.kind === 'audio') lastTutorActivityAtRef.current = Date.now();
         if (track.kind !== 'audio') return;
         agentAudioSubscribedRef.current = true;
         setAgentAudioSubscribed(true);
@@ -942,6 +934,8 @@ function VoiceTutorContent() {
             return;
           }
           if (data.type === 'live_class_visual_step' && data.content?.trim()) {
+            lastTutorActivityAtRef.current = Date.now();
+            setError('');
             applyTutorTranscript(data.content);
             return;
           }
@@ -1033,6 +1027,7 @@ function VoiceTutorContent() {
             }
             if (!(data.state in RUNTIME_COPY)) return;
             runtimeStateRef.current = data.state;
+            lastTutorActivityAtRef.current = Date.now();
             setRuntimeState(data.state);
             if (data.state === 'WRAPPING') {
               setError('');
@@ -1056,6 +1051,7 @@ function VoiceTutorContent() {
           if (topic !== 'lensiq.live_class.transcript' && data.type !== 'live_class_transcript') return;
           if (data.role !== 'assistant' || !data.content?.trim()) return;
           const content = data.content.trim();
+          lastTutorActivityAtRef.current = Date.now();
           if (/^(?:i(?:'m| am)\\s+)?listening(?:\\s+to\\s+you)?[.!\\s]*$/i.test(content)) return;
           const key = `content:${data.role}:${content.toLowerCase()}`;
           if (transcriptIdsRef.current.has(key)) return;
@@ -1074,6 +1070,10 @@ function VoiceTutorContent() {
       });
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
         const tutorSpeaking = speakers.some((speaker) => !speaker.isLocal);
+        if (tutorSpeaking) {
+          lastTutorActivityAtRef.current = Date.now();
+          setError('');
+        }
         tutorSpeakingRef.current = tutorSpeaking;
         if (tutorSpeaking) {
           tutorSpokeThisSegmentRef.current = true;
