@@ -431,7 +431,15 @@ class MaterialContextBridge(FrameProcessor):
     async def process_frame(self, frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
         if isinstance(frame, (LLMContextFrame, OpenAILLMContextFrame)):
-            await self.preload()
+            # PDF extraction may be substantial. Never hold a spoken learner
+            # question hostage while six lecture maps finish preloading.
+            # Shield lets the background source load continue after this short
+            # wait; subsequent turns automatically benefit from loaded chunks.
+            if not self._loaded:
+                try:
+                    await asyncio.wait_for(asyncio.shield(self.preload()), timeout=1.2)
+                except asyncio.TimeoutError:
+                    logger.info("Lecture source indexing continues while tutor responds")
             context = getattr(frame, "context", None)
             messages = getattr(context, "messages", None)
             if isinstance(messages, list):
