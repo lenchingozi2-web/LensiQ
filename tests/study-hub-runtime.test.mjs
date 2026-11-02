@@ -83,3 +83,12 @@ test('Google sign-in works after restoring a mobile history page', async () => {
   assert.match(middleware, /hasPkceVerifier/);
   assert.match(middleware, /new URL\('\/auth\/callback'/);
 });
+
+test('Google OAuth uses a single allow-list-compatible callback while preserving return path', async () => {
+  const google = await read('app/auth/google/route.ts');
+  const callback = await read('app/auth/callback/route.ts');
+  assert.match(google, /redirectTo: \`\\$\\{origin\\}\\/auth\\/callback\`/);
+  assert.match(google, /lensiq_oauth_next/);
+  assert.match(callback, /request\\.cookies\\.get\\('lensiq_oauth_next'\\)/);
+  assert.match(callback, /response\\.cookies\\.delete\\('lensiq_oauth_next'\\)/);
+});

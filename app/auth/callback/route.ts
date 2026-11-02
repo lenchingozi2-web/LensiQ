@@ -19,6 +19,7 @@ function safeNextPath(value: string | null) {
 function noStoreRedirect(origin: string, path: string) {
   const response = NextResponse.redirect(new URL(path, origin));
   response.headers.set('Cache-Control', 'no-store');
+  response.cookies.delete('lensiq_oauth_next');
   return response;
 }
 
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     });
   }
   const code = requestUrl.searchParams.get('code');
-  const next = safeNextPath(requestUrl.searchParams.get('next'));
+  const next = safeNextPath(requestUrl.searchParams.get('next') || request.cookies.get('lensiq_oauth_next')?.value || null);
   const errorDescription = requestUrl.searchParams.get('error_description') || requestUrl.searchParams.get('error');
 
   console.error('[AuthDiag] Google OAuth callback reached', {
@@ -97,5 +98,6 @@ export async function GET(request: NextRequest) {
     authCookieWriteObserved,
     callbackHost: requestUrl.host,
   });
+  response.cookies.delete('lensiq_oauth_next');
   return response;
 }

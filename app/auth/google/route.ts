@@ -48,7 +48,8 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      // An exact URL avoids a query-string mismatch with Supabase's allow list.
+      redirectTo: `${origin}/auth/callback`,
       scopes: 'openid email profile',
     },
   });
@@ -69,5 +70,13 @@ export async function GET(request: NextRequest) {
   for (const cookie of outgoingCookies) {
     response.cookies.set({ name: cookie.name, value: cookie.value, ...(cookie.options || {}) });
   }
+  // Preserve the safe return path without changing the allow-listed callback.
+  response.cookies.set('lensiq_oauth_next', next, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 600,
+  });
   return response;
 }
