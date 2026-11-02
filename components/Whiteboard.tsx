@@ -32,7 +32,7 @@ export default function Whiteboard({ topic, markdown, onConceptSelect }: Whitebo
   const [zoom, setZoom] = useState(1);
   const viewportRef = useRef<HTMLDivElement>(null);
   const active = Math.max(0, Math.min(selected, steps.length - 1));
-  const diagramSource = /(?:→|➡|\s->\s|^\s*(?:flowchart|mechanism flow|pathway)\s*:)/im.test(markdown ?? '');
+  const diagramSource = /(?:→|➡|\s->\s|^\s*#{1,3}\s+.*\b(?:mechanism|cascade|pathway|sequence|cycle|flowchart)\b|^\s*(?:flowchart|mechanism flow|pathway)\s*:)/im.test(markdown ?? '');
   const diagramMode = userSelectedMode ? mapMode : diagramSource;
   const diagramStart = Math.max(0, active - 3);
   const diagramSteps = steps.slice(diagramStart, Math.min(steps.length, active + 2));
@@ -52,6 +52,8 @@ export default function Whiteboard({ topic, markdown, onConceptSelect }: Whitebo
     const next = Math.max(0, Math.min(index, steps.length - 1));
     setFollowTutor(false);
     setSelected(next);
+    setMapMode(false);
+    setUserSelectedMode(true);
     if (steps[next]) onConceptSelect?.(steps[next], next);
   }
 
@@ -86,7 +88,7 @@ export default function Whiteboard({ topic, markdown, onConceptSelect }: Whitebo
                   return <div key={index} className="flex flex-col items-center">
                   <button type="button" data-lesson-step onClick={() => choose(index)} aria-current={active === index ? 'step' : undefined} className={`w-full rounded-2xl border px-4 py-4 text-left shadow-lg transition sm:px-6 ${active === index ? 'border-[#e8a23d] bg-[#e8a23d]/15 shadow-[#e8a23d]/10' : 'border-white/15 bg-[#142235]/85 hover:border-white/35'}`}>
                     <span className="mb-2 block text-[10px] font-bold uppercase tracking-[.14em] text-[#ffd080]">Concept {String(index + 1).padStart(2, '0')}{active === index && followTutor ? ' · now teaching' : ''}</span>
-                    <span className="block text-sm font-semibold leading-6 text-white/95 sm:text-lg sm:leading-7">{step}</span>
+                    <span className="block text-sm font-semibold leading-5 text-white/95 sm:text-base sm:leading-6">{step.length > 145 ? step.slice(0, 142).trimEnd() + '…' : step}</span>
                   </button>
                   {localIndex < diagramSteps.length - 1 && <div aria-hidden="true" className="flex h-9 flex-col items-center"><div className="h-5 w-px bg-[#e8a23d]/50" /><span className="-mt-1 text-base text-[#e8a23d]/75">↓</span></div>}
                   </div>;
