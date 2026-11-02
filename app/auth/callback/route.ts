@@ -1,17 +1,12 @@
 import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 function siteOrigin(requestUrl: URL) {
-  if (process.env.NODE_ENV !== 'production') return requestUrl.origin;
-  const configured = process.env.NEXT_PUBLIC_SITE_URL;
-  try {
-    const parsed = new URL(configured || 'https://www.lenxiq.online');
-    if (parsed.protocol === 'https:' && ['lenxiq.online', 'www.lenxiq.online'].includes(parsed.hostname)) {
-      return parsed.origin;
-    }
-  } catch { /* Use the canonical production host. */ }
-  return 'https://www.lenxiq.online';
+  // Vercel redirects the apex domain to www. Never start OAuth on a host
+  // that the platform will immediately redirect away from: PKCE is host-bound.
+  return process.env.NODE_ENV === 'production'
+    ? 'https://www.lenxiq.online'
+    : requestUrl.origin;
 }
 
 function safeNextPath(value: string | null) {
@@ -27,7 +22,7 @@ function noStoreRedirect(origin: string, path: string) {
   return response;
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const origin = siteOrigin(requestUrl);
   // Keep the PKCE verifier and single-use authorization code on the same host.
@@ -62,7 +57,6 @@ export async function GET(request: Request) {
   completion.searchParams.set('next', next);
   const response = NextResponse.redirect(completion, { status: 303 });
   response.headers.set('Cache-Control', 'no-store');
-  const requestCookies = await cookies();
   let authCookieWriteObserved = false;
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -70,13 +64,13 @@ export async function GET(request: Request) {
     {
       cookies: {
         getAll() {
-          return requestCookies.getAll().map(({ name, value }) => ({ name, value }));
+          return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             // Keep the request-side jar in sync for getUser/profile reads after
             // exchanging the single-use PKCE code, and persist to the browser.
-            requestCookies.set({ name, value, ...options });
+            request.cookies.set({ name, value, ...options });
             response.cookies.set({ name, value, ...options });
             if (name.startsWith('sb-') && name.includes('-auth-token') && !name.includes('code-verifier')) authCookieWriteObserved = true;
           });

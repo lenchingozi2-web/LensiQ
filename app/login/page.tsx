@@ -1,9 +1,6 @@
-import { revalidatePath } from 'next/cache';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
-import { getOrCreateProfile } from '../../lib/profile';
-import { issueActiveSession } from '../../lib/auth/active-session';
 import GoogleSignInButton from '../../components/GoogleSignInButton';
 
 function safeNextPath(value: string | null | undefined) {
@@ -25,76 +22,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
   if (user) redirect(next);
 
-  const login = async (formData: FormData) => {
-    'use server'
-    const email = String(formData.get('email') ?? '').trim().toLowerCase();
-    const password = formData.get('password') as string;
-    const nextPath = safeNextPath(formData.get('next') as string | null);
-    let authCookieWriteObserved = false;
-    const supabase = await createClient((names) => {
-      authCookieWriteObserved = names.some((name) => name.startsWith('sb-') && name.includes('-auth-token') && !name.includes('code-verifier'));
-    });
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    console.error('[AuthDiag] Email/password sign-in result', {
-      accepted: !error && Boolean(data.user),
-      hasSession: Boolean(data.session),
-      authCookieWriteObserved,
-      authErrorCode: error?.code || null,
-      authErrorStatus: typeof error?.status === 'number' ? error.status : null,
-      authErrorName: error?.name || null,
-    });
-
-    if (error || !data.user) {
-      redirect(`/login?message=Could not authenticate user&next=${encodeURIComponent(nextPath)}`);
-    }
-    
-    // Ensure an Auth user without a public profile is repaired before protected access.
-    const { error: profileError } = await getOrCreateProfile(supabase, data.user);
-    if (profileError) {
-      console.error('[AuthDiag] Email/password profile bootstrap failed', { hasError: true, errorCode: 'code' in profileError ? profileError.code || null : null });
-      redirect('/login?message=Your account could not be initialized');
-    }
-    const { error: activeSessionError } = await issueActiveSession(supabase, data.user.id);
-    if (activeSessionError) {
-      console.error('[AuthDiag] Email/password active-session issuance failed', { hasError: true });
-      redirect('/login?message=Your account session could not be secured');
-    }
-    revalidatePath('/');
-    redirect(nextPath);
-  }
-
-  const signup = async (formData: FormData) => {
-    'use server'
-    const email = String(formData.get('email') ?? '').trim().toLowerCase();
-    const password = formData.get('password') as string;
-    const nextPath = safeNextPath(formData.get('next') as string | null);
-    const supabase = await createClient(); 
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
-    if (error || !data.user) {
-      redirect(`/login?message=Could not sign up&next=${encodeURIComponent(nextPath)}`);
-    }
-    
-    // Ensure an Auth user without a public profile is repaired before protected access.
-    const { error: profileError } = await getOrCreateProfile(supabase, data.user);
-    if (profileError) redirect('/login?message=Your account could not be initialized');
-    const { error: activeSessionError } = await issueActiveSession(supabase, data.user.id);
-    if (activeSessionError) redirect('/login?message=Your account session could not be secured');
-    revalidatePath('/');
-    redirect(nextPath);
-  }
-
   return (
     <main className="flex-1 flex flex-col w-full px-8 sm:max-w-md justify-center gap-2 mx-auto mt-20">
-      <form autoComplete="on" className="flex-1 flex flex-col w-full justify-center gap-2 text-slate-800">
+      <form action="/auth/password" method="post" autoComplete="on" className="flex-1 flex flex-col w-full justify-center gap-2 text-slate-800">
         <input type="hidden" name="next" value={next} />
         <h1 className="text-3xl font-bold mb-6 text-center text-[#0B1220]">LenxiQ AI access</h1>
         {(params.message || params.error) && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-800">{params.error || (params.message === 'Could not authenticate user' ? 'Email or password did not match. Try again, use Google, or reset your password.' : 'Sign-in could not be completed. Please retry, use Google, or reset your password.')}</p>}
@@ -123,13 +53,17 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <Link href="/forgot-password" className="-mt-5 mb-4 self-end text-sm font-bold text-[#9a5d00] hover:underline">Forgot password?</Link>
         
         <button 
-          formAction={login} 
+          type="submit"
+          name="intent"
+          value="signin"
           className="bg-[#0B1220] text-white rounded-md px-4 py-2 mb-2 font-semibold shadow hover:bg-slate-800"
         >
           Sign In
         </button>
         <button 
-          formAction={signup} 
+          type="submit"
+          name="intent"
+          value="signup"
           className="border border-[#0B1220] text-[#0B1220] rounded-md px-4 py-2 mb-2 font-semibold hover:bg-slate-50"
         >
           Create Account

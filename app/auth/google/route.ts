@@ -2,17 +2,11 @@ import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 
 function siteOrigin(requestUrl: URL) {
-  if (process.env.NODE_ENV !== 'production') return requestUrl.origin;
-  // OAuth state/PKCE cookies must be issued and exchanged on the SAME host.
-  // Redirect alternate domains to the one configured production domain.
-  const configured = process.env.NEXT_PUBLIC_SITE_URL;
-  try {
-    const url = new URL(configured || 'https://www.lenxiq.online');
-    if (url.protocol === 'https:' && ['lenxiq.online', 'www.lenxiq.online'].includes(url.hostname)) {
-      return url.origin;
-    }
-  } catch { /* Use the established production origin. */ }
-  return 'https://www.lenxiq.online';
+  // Vercel redirects the apex domain to www. Never start OAuth on a host
+  // that the platform will immediately redirect away from: PKCE is host-bound.
+  return process.env.NODE_ENV === 'production'
+    ? 'https://www.lenxiq.online'
+    : requestUrl.origin;
 }
 
 function safeNextPath(value: string | null) {

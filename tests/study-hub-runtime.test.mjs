@@ -45,3 +45,23 @@ test('the unrelated storyboard endpoint and schema are absent from the current a
   await assert.rejects(read('app/api/studio/videos/[id]/render/route.ts'), { code: 'ENOENT' });
   await assert.rejects(read('supabase/migrations/0046_video_studio.sql'), { code: 'ENOENT' });
 });
+
+test('password sign-in issues Supabase and active-session cookies on the same HTTP response', async () => {
+  const login = await read('app/login/page.tsx');
+  const route = await read('app/auth/password/route.ts');
+  assert.match(login, /action="\\/auth\\/password" method="post"/);
+  assert.match(route, /supabase\\.auth\\.signInWithPassword/);
+  assert.match(route, /supabase\\.auth\\.signUp/);
+  assert.match(route, /response\\.cookies\\.set\\(\\{ name, value, \\.\\.\\.options \\}\\)/);
+  assert.match(route, /response\\.cookies\\.set\\('session_token'/);
+  assert.match(route, /issueActiveSession\\(supabase, data\\.user\\.id\\)/);
+});
+
+test('Google OAuth uses Vercel canonical www domain and carries callback session cookies', async () => {
+  for (const path of ['app/auth/google/route.ts', 'app/auth/callback/route.ts']) {
+    const code = await read(path);
+    assert.match(code, /https:\\/\\/www\\.lenxiq\\.online/);
+    assert.doesNotMatch(code, /NEXT_PUBLIC_SITE_URL/);
+  }
+  assert.match(await read('app/auth/callback/route.ts'), /response\\.cookies\\.set\\(\\{ name, value, \\.\\.\\.options \\}\\)/);
+});
