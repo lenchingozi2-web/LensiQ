@@ -48,7 +48,7 @@ export default function Home() {
           <div className="mb-5 flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-[#9A5D00]">
             <span className="h-2 w-2 rounded-full bg-[#E8A23D]" /> Medical study hub · Learn at your pace
           </div>
-          <h1 className="max-w-3xl text-4xl font-black leading-[1.02] tracking-[-0.055em] text-[#0B1220] sm:text-6xl lg:text-7xl">Study with a plan. Practise with purpose.</h1>
+          <h1 className="max-w-3xl text-3xl font-black leading-[1.08] tracking-[-0.055em] text-[#0B1220] sm:text-6xl lg:text-7xl">Study with a plan. Practise with purpose.</h1>
           <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">LenxiQ AI brings your curriculum, preserved past questions, grounded AI teaching, and realtime voice learning into one focused study system.</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/curriculum" className="rounded-xl bg-[#0B1220] px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800">Open my study path</Link>
