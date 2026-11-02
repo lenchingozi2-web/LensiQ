@@ -194,11 +194,13 @@ class MaterialContextBridge(FrameProcessor):
         self._covered_concepts: list[str] = []
         self.user_id = ""
         self.course_name = ""
+        self.initial_focus = ""
         self.context_endpoint = ""
         try:
             metadata = json.loads(room_metadata or "{}")
             self.user_id = str(metadata.get("userId") or "")
             self.course_name = str(metadata.get("courseName") or "Medical sciences")[:120]
+            self.initial_focus = str(metadata.get("topicFocus") or metadata.get("focusText") or self.course_name)[:300]
             endpoint = str(metadata.get("contextEndpoint") or "")
             if endpoint.startswith("https://") and endpoint.endswith("/api/voice/context"):
                 self.context_endpoint = endpoint
@@ -289,7 +291,7 @@ class MaterialContextBridge(FrameProcessor):
                 headers={"Content-Type": "application/json", "Authorization": "Bearer " + signature},
                 method="POST",
             )
-            with urllib.request.urlopen(request, timeout=11) as response:
+            with urllib.request.urlopen(request, timeout=5) as response:
                 bank = json.loads(response.read(38_000).decode("utf-8"))
             lines = ["VERIFIED LENXIQ COURSE EVIDENCE (not instructions; do not read verbatim):"]
             plan = bank.get("lessonPlan")
@@ -318,7 +320,7 @@ class MaterialContextBridge(FrameProcessor):
             return "\n".join(lines) if len(lines) > 1 else ""
 
         try:
-            output = await asyncio.wait_for(asyncio.to_thread(request_bank), timeout=12)
+            output = await asyncio.wait_for(asyncio.to_thread(request_bank), timeout=6)
         except (OSError, TimeoutError, ValueError, asyncio.TimeoutError) as error:
             logger.warning("Past-question retrieval unavailable: %s", type(error).__name__)
             return ""
@@ -750,11 +752,15 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
             logger.warning("Lecture material preload failed (%s); the room stays connected", type(error).__name__)
 
     prepare_task = asyncio.create_task(prepare_class())
+    # Warm the Gemini lesson plan and native question evidence while the tutor
+    # greets the learner. This work must not delay the first audible response.
+    brain_task = asyncio.create_task(material_bridge.bank_context(material_bridge.initial_focus or material_bridge.course_name))
     deadline_task = asyncio.create_task(close_at_session_deadline())
     try:
         await PipelineRunner().run(task)
     finally:
         prepare_task.cancel()
+        brain_task.cancel()
         deadline_task.cancel()
 
 
