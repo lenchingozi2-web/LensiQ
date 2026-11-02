@@ -190,6 +190,7 @@ class MaterialContextBridge(FrameProcessor):
         self._loaded = False
         self._load_lock = asyncio.Lock()
         self._bank_cache: dict[str, str] = {}
+        self._current_gemini_plan = ""
         self._lecture_cursor = 0
         self._covered_concepts: list[str] = []
         self.user_id = ""
@@ -269,20 +270,24 @@ class MaterialContextBridge(FrameProcessor):
             self.chunks.extend(source_chunks)
         logger.info("Loaded %d compact lecture excerpts from %d uploaded sources", len(self.chunks), len(self.urls))
 
-    async def bank_context(self, query: str) -> str:
-        """Retrieve native LenxiQ evidence for the active lesson on demand."""
+    async def bank_context(self, query: str, include_plan: bool = True) -> str:
+        """Retrieve evidence, reusing a previously prepared Gemini lesson plan."""
         query = re.sub(r"\s+", " ", query).strip()[:300]
         if not query or not self.user_id or not self.context_endpoint:
             return ""
-        if query in self._bank_cache:
-            return self._bank_cache[query]
+        cache_key = ("plan:" if include_plan else "fast:") + query
+        full_cache_key = "plan:" + query
+        if cache_key in self._bank_cache:
+            return self._bank_cache[cache_key]
+        if not include_plan and full_cache_key in self._bank_cache:
+            return self._bank_cache[full_cache_key]
         secret = os.getenv("LIVEKIT_API_SECRET", "")
         if not secret:
             return ""
-        payload = json.dumps(
-            {"userId": self.user_id, "courseName": self.course_name, "query": query},
-            ensure_ascii=False, separators=(",", ":"),
-        )
+        data = {"userId": self.user_id, "courseName": self.course_name, "query": query}
+        if not include_plan:
+            data["includePlan"] = False
+        payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
         signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
 
         def request_bank() -> str:
@@ -309,8 +314,11 @@ class MaterialContextBridge(FrameProcessor):
                 if activity:
                     lines.append("Optional learner manipulation or clinical thought experiment: " + activity)
                 logger.info("Gemini lesson brain delivered a plan for course=%s", self.course_name)
+                self._current_gemini_plan = "\n".join(lines[1:])
+            elif self._current_gemini_plan:
+                lines.append(self._current_gemini_plan)
             else:
-                logger.warning("No Gemini lesson plan; Groq will use retrieved source evidence without a brain plan")
+                logger.info("Gemini lesson plan not ready; Groq will use relevant verified evidence")
             for entry in bank.get("knowledge", [])[:3]:
                 if isinstance(entry, dict):
                     lines.append(f"Source {entry.get('title', 'lecture')}: {str(entry.get('excerpt', ''))[:650]}")
@@ -326,7 +334,7 @@ class MaterialContextBridge(FrameProcessor):
             return ""
         if len(self._bank_cache) >= 12:
             self._bank_cache.pop(next(iter(self._bank_cache)))
-        self._bank_cache[query] = output
+        self._bank_cache[cache_key] = output
         return output
 
     def _relevant(self, query: str) -> str:
@@ -451,7 +459,9 @@ class MaterialContextBridge(FrameProcessor):
                     self.last_user_query = query
                 evidence_query = self.last_user_query or self.course_name
                 notes = self.continue_source() if internal_continue else self._relevant(evidence_query)
-                bank = await self.bank_context(evidence_query)
+                # Gemini has already designed the lesson; student follow-ups
+                # need fresh evidence, not another blocking planning request.
+                bank = await self.bank_context(evidence_query, include_plan=not bool(self._current_gemini_plan))
                 messages[:] = [message for message in messages if not (
                     isinstance(message, dict) and message.get("role") == "system"
                     and str(message.get("content", "")).startswith(("SOURCE NOTES:", "NATIVE PAST QUESTIONS:"))
