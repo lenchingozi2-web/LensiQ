@@ -897,8 +897,8 @@ function VoiceTutorContent() {
       sessionIdRef.current = tokenData.sessionId;
       const conversation = activeConversation;
       if (!conversation) throw new Error('Unable to create Live Class history.');
-      const linkResponse = await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: tokenData.sessionId, action: 'link', conversationId: activeConversation.id }) });
-      if (!linkResponse.ok) throw new Error('Unable to save this Live Class history.');
+      // Linking history is important, but should not hold the microphone or
+      // first audio connection hostage. It is saved asynchronously below.
       setQuota(tokenData.quota ?? null);
       const parsedDeadline = typeof tokenData.quota?.expiresAt === 'string' ? Date.parse(tokenData.quota.expiresAt) : NaN;
       sessionDeadlineAtRef.current = Number.isFinite(parsedDeadline) ? parsedDeadline : null;
@@ -1155,8 +1155,17 @@ function VoiceTutorContent() {
       sessionStartedAtRef.current = null;
       elapsedSecondsRef.current = 0;
       setElapsedSeconds(0);
-      try { await startRecording(microphonePublication.track); } catch { setAmbienceNotice('Live Class is active, but this browser cannot record the session locally.'); }
       setConnected(true);
+      void startRecording(microphonePublication.track).catch(() => {
+        setAmbienceNotice('Live Class is active, but this browser cannot record the session locally.');
+      });
+      void fetch('/api/voice/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: tokenData.sessionId, action: 'link', conversationId: conversation.id }),
+      }).then((response) => {
+        if (!response.ok) console.warn('Live Class history linking will need retry');
+      }).catch(() => console.warn('Live Class history linking connection interrupted'));
       // Keep the premium preparation screen in place until the greeting is
       // audible, with a strict ten-second escape hatch above for diagnostics
       // and mobile autoplay recovery.
