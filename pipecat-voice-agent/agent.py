@@ -23,7 +23,7 @@ from typing import Any, AsyncGenerator
 from urllib.parse import urlparse
 
 from livekit import api
-from pipecat.frames.frames import EndFrame, ErrorFrame, Frame, InputTextRawFrame, TTSTextFrame, LLMFullResponseEndFrame, LLMContextFrame, TTSAudioRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
+from pipecat.frames.frames import EndFrame, ErrorFrame, Frame, InputTextRawFrame, TTSTextFrame, LLMFullResponseStartFrame, LLMFullResponseEndFrame, LLMContextFrame, TTSAudioRawFrame, TTSSpeakFrame, TextFrame, TranscriptionFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -487,6 +487,16 @@ class ConversationalKokoroTTSService(KokoroTTSService):
             await self.stop_ttfb_metrics()
 
 
+class SuppressPrivateControlFrames(FrameProcessor):
+    """Never allow an internal lesson-control instruction into voice synthesis."""
+
+    async def process_frame(self, frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+        if isinstance(frame, InputTextRawFrame):
+            return
+        await self.push_frame(frame, direction)
+
+
 class LiveClassDataBridge(FrameProcessor):
     """Mirror completed user and tutor turns to the browser data channel."""
 
@@ -495,6 +505,7 @@ class LiveClassDataBridge(FrameProcessor):
         self.transport = transport
         self.role = role
         self._spoken_visual_buffer = ""
+        self._llm_turn_active = False
 
     async def publish(self, payload: dict[str, Any]) -> None:
         client = getattr(self.transport, "_client", None)
@@ -516,7 +527,9 @@ class LiveClassDataBridge(FrameProcessor):
             # Expose only the learner's actual transcribed speech to the
             # authorized room for feedback; never replay internal control text.
             await self.publish({"type": "live_class_user_transcript", "content": frame.text.strip()})
-        elif self.role == "assistant" and isinstance(frame, TTSTextFrame) and frame.text.strip():
+        elif isinstance(frame, LLMFullResponseStartFrame) and self.role == "assistant":
+            self._llm_turn_active = True
+        elif self.role == "assistant" and self._llm_turn_active and isinstance(frame, TTSTextFrame) and frame.text.strip():
             # TTSTextFrame is emitted by Kokoro's serialized audio queue after
             # the corresponding utterance has been synthesized. LLM tokens can
             # arrive far ahead of audible speech; they must never drive the board.
@@ -532,6 +545,7 @@ class LiveClassDataBridge(FrameProcessor):
                     await self.publish({"type": "live_class_visual_step", "content": spoken})
                     await self.publish({"type": "live_class_state", "state": "TEACHING"})
         elif isinstance(frame, LLMFullResponseEndFrame) and self.role == "assistant":
+            self._llm_turn_active = False
             if self._spoken_visual_buffer.strip():
                 spoken = self._spoken_visual_buffer.strip()
                 self._spoken_visual_buffer = ""
@@ -633,7 +647,7 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
             logger.warning("Ignoring malformed Live Class deadline metadata")
     pipeline = Pipeline([
         transport.input(), stt, user_bridge, user_aggregator, material_bridge, llm,
-        tts, assistant_bridge, transport.output(), assistant_aggregator,
+        SuppressPrivateControlFrames(), tts, assistant_bridge, transport.output(), assistant_aggregator,
     ])
     task = PipelineTask(pipeline, params=PipelineParams(allow_interruptions=True, enable_metrics=True))
     wrapup_queued = False
