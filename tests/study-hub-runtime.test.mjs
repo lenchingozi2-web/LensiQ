@@ -87,8 +87,8 @@ test('Google sign-in works after restoring a mobile history page', async () => {
 test('Google OAuth uses a single allow-list-compatible callback while preserving return path', async () => {
   const google = await read('app/auth/google/route.ts');
   const callback = await read('app/auth/callback/route.ts');
-  assert.match(google, /redirectTo: \`\\$\\{origin\\}\\/auth\\/callback\`/);
-  assert.match(google, /lensiq_oauth_next/);
-  assert.match(callback, /request\\.cookies\\.get\\('lensiq_oauth_next'\\)/);
-  assert.match(callback, /response\\.cookies\\.delete\\('lensiq_oauth_next'\\)/);
+  assert.ok(google.includes('redirectTo: `' + '${origin}/auth/callback' + '`'));
+  assert.ok(google.includes('lensiq_oauth_next'));
+  assert.ok(callback.includes("request.cookies.get('lensiq_oauth_next')"));
+  assert.ok(callback.includes("response.cookies.delete('lensiq_oauth_next')"));
 });
