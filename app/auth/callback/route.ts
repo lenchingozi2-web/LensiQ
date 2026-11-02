@@ -1,8 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { getOrCreateProfile } from '../../../lib/profile';
-import { issueActiveSession } from '../../../lib/auth/active-session';
 
 function siteOrigin(requestUrl: URL) {
   if (process.env.NODE_ENV !== 'production') return requestUrl.origin;
@@ -60,7 +58,9 @@ export async function GET(request: Request) {
   // The generic server client uses a request-scoped cookie adapter and can
   // otherwise exchange the code successfully while the browser receives no
   // refreshed Supabase cookie.
-  const response = NextResponse.redirect(new URL(next, origin));
+  const completion = new URL('/auth/complete', origin);
+  completion.searchParams.set('next', next);
+  const response = NextResponse.redirect(completion, { status: 303 });
   response.headers.set('Cache-Control', 'no-store');
   const requestCookies = await cookies();
   let authCookieWriteObserved = false;
@@ -96,41 +96,12 @@ export async function GET(request: Request) {
     return noStoreRedirect(origin, `/login?error=${encodeURIComponent('Google sign-in could not complete its secure callback. Please try again from this page.')}&next=${encodeURIComponent(next)}`);
   }
 
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
-    console.error('[AuthDiag] Google OAuth user lookup failed', {
-      authCookieWriteObserved,
-      hasUser: Boolean(user),
-      authErrorCode: userError?.code || null,
-      authErrorStatus: typeof userError?.status === 'number' ? userError.status : null,
-      authErrorName: userError?.name || null,
-    });
-    return noStoreRedirect(origin, `/login?error=${encodeURIComponent('Google sign-in did not return a valid account.')}&next=${encodeURIComponent(next)}`);
-  }
-  const { error: bootstrapError } = await getOrCreateProfile(supabase, user);
-  if (bootstrapError) {
-    console.error('[AuthDiag] Google account bootstrap failed', { hasError: true, errorCode: 'code' in bootstrapError ? bootstrapError.code || null : null });
-    return noStoreRedirect(origin, `/login?error=${encodeURIComponent('Your account could not be initialized. Please try again.')}&next=${encodeURIComponent(next)}`);
-  }
-
-  const { token: activeToken, error: activeSessionError } = await issueActiveSession(supabase, user.id);
-  if (activeSessionError || !activeToken) {
-    console.error('[AuthDiag] Google active-session issuance failed', { hasError: true });
-    await supabase.auth.signOut({ scope: 'local' });
-    return noStoreRedirect(origin, `/login?error=${encodeURIComponent('Your account session could not be secured. Please try again.')}&next=${encodeURIComponent(next)}`);
-  }
-  // Make the application session cookie explicit on the same response too.
-  response.cookies.set('session_token', activeToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-  });
-  console.error('[AuthDiag] Google OAuth callback completed', {
+  // Verifying the new session and creating the app-specific session token
+  // on a SECOND request prevents OAuth's first redirect from racing cookie
+  // propagation in browsers on Android and desktop.
+  console.info('[Auth] Google callback exchanged code', {
     authCookieWriteObserved,
-    activeSessionCookieWritten: true,
     callbackHost: requestUrl.host,
-    redirectHost: new URL(origin).host,
   });
   return response;
 }
