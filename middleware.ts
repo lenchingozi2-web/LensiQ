@@ -29,7 +29,7 @@ function sessionReplacedResponse(request: NextRequest) {
 export async function middleware(request: NextRequest) {
   // The callback must exchange the OAuth code and set the session cookies
   // before middleware attempts to validate the authenticated request.
-  if (request.nextUrl.pathname === '/auth/callback') {
+  if (['/auth/google', '/auth/callback', '/auth/complete'].includes(request.nextUrl.pathname)) {
     return NextResponse.next();
   }
 
