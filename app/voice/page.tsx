@@ -69,11 +69,11 @@ const RUNTIME_COPY: Record<LiveRuntimeState, { label: string; detail: string }> 
   ERROR: { label: 'Needs attention', detail: 'The live classroom needs your attention.' },
 };
 
-function Waveform({ active, level = 0 }: { active: boolean; level?: number }) {
+function Waveform({ active, level = 0, compact = false }: { active: boolean; level?: number; compact?: boolean }) {
   const intensity = Math.min(1, Math.max(0, level));
-  const baseHeights = [16, 28, 42, 24, 36, 20, 32, 18, 27];
-  return <div className={`flex h-10 items-center justify-center gap-1.5 ${active ? 'text-[#E8A23D]' : 'text-white/25'}`} aria-hidden="true">
-    {baseHeights.map((height, index) => <span key={index} className="w-1.5 rounded-full transition-[height,opacity] duration-200" style={{ height: `${Math.max(4, height * (0.22 + intensity * 0.78))}px`, opacity: active ? 0.65 + intensity * 0.35 : 0.35 }} />)}
+  const baseHeights = compact ? [8, 17, 11, 21, 9] : [16, 28, 42, 24, 36, 20, 32, 18, 27];
+  return <div className={`flex shrink-0 items-center justify-center ${compact ? 'h-7 gap-[3px]' : 'h-10 gap-1.5'} ${active ? 'text-emerald-300' : 'text-white/30'}`} aria-hidden="true">
+    {baseHeights.map((height, index) => <span key={index} className={`${compact ? 'w-[3px]' : 'w-1.5'} rounded-full bg-current transition-[height,opacity] duration-150`} style={{ height: `${Math.max(compact ? 3 : 4, height * (0.27 + intensity * 0.73))}px`, opacity: active ? 0.75 + intensity * 0.25 : 0.45 }} />)}
   </div>;
 }
 
@@ -397,7 +397,7 @@ function VoiceTutorContent() {
       const payload = new TextEncoder().encode(JSON.stringify({ type: 'lesson_continue', segment: lessonSegmentCountRef.current }));
       void room.localParticipant.publishData(payload, { reliable: true, topic: 'lensiq.live_class.lesson_control' })
         .catch(() => { lessonSegmentCompleteRef.current = true; });
-    }, 2800);
+    }, Math.max(1500, 2800 - (Date.now() - lastLearnerSpeechAtRef.current)));
   };
 
   const materialBranches = Array.from(new Set(materialProfiles.flatMap((profile) => profile.detectedBranches)));
@@ -1248,6 +1248,7 @@ function VoiceTutorContent() {
   };
   const runtimeCopy = RUNTIME_COPY[runtimeState];
   const tutorAudioLive = agentAudioSubscribed && audioState === 'playing' && !tutorMuted;
+  const micHearing = connected && !micMuted && micLevel > 0.035;
   const latestMessage = messages[messages.length - 1];
   const sessionElapsed = elapsedSeconds;
 
@@ -1296,21 +1297,25 @@ function VoiceTutorContent() {
         )}
       </aside>}
       {error && <div role="alert" className="absolute bottom-24 left-3 right-3 z-40 mx-auto max-w-xl rounded-xl border border-red-300/40 bg-red-950/90 px-4 py-3 text-xs font-semibold text-red-100">{error}</div>}
-      <section className="absolute bottom-3 left-3 right-3 z-30 mx-auto flex max-w-3xl items-center justify-between gap-2 rounded-2xl border border-white/15 bg-[#0d1726]/85 px-3 py-2 text-white shadow-[0_12px_44px_#0007] backdrop-blur-xl sm:bottom-5 sm:px-5" aria-label="Live Class controls">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${voiceActive ? 'animate-pulse bg-[#e8a23d]' : micMuted ? 'bg-rose-400' : 'bg-emerald-400'}`} />
-          <div className="min-w-0"><p className="truncate text-xs font-bold">{voiceActive ? 'Tutor speaking' : runtimeState === 'THINKING' ? 'Preparing explanation' : autoLesson ? 'Lesson flowing' : 'Lesson paused'}</p><p className="truncate text-[10px] text-white/55">{micMuted ? 'Mic muted' : lastHeard ? `Heard: ${lastHeard}` : 'Interrupt anytime'}</p></div>
+      <section className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-2 right-2 z-30 mx-auto grid max-w-4xl grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-white/15 bg-[#0d1726]/90 px-2.5 py-2 text-white shadow-[0_12px_44px_#0007] backdrop-blur-xl sm:bottom-5 sm:left-5 sm:right-5 sm:gap-5 sm:px-5" aria-label="Live Class controls">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${voiceActive ? 'animate-pulse bg-[#e8a23d]' : micMuted ? 'bg-rose-400' : micHearing ? 'bg-emerald-300' : 'bg-emerald-500/70'}`} />
+          <Waveform active={micHearing} level={micMuted ? 0 : micLevel} compact />
+          <div className="min-w-0" aria-live="polite">
+            <p className="truncate text-[11px] font-bold sm:text-xs">{micMuted ? 'Mic muted' : micHearing ? 'Hearing you' : voiceActive ? 'Tutor speaking' : runtimeState === 'THINKING' ? 'Preparing answer' : 'Listening'}</p>
+            <p className="hidden truncate text-[10px] text-white/55 sm:block">{micMuted ? 'Tap mic to unmute' : micHearing ? 'Your voice is reaching the class' : lastHeard ? `Heard: ${lastHeard}` : 'Speak anytime · interrupt naturally'}</p>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <button type="button" onClick={() => {
             const next = !autoLessonRef.current;
             autoLessonRef.current = next;
             setAutoLesson(next);
             if (next) requestNextLessonSegment();
             else clearLessonContinueTimer();
-          }} aria-label={autoLesson ? 'Pause after this teaching segment' : 'Continue teaching automatically'} aria-pressed={autoLesson} className="rounded-xl border border-white/15 bg-white/10 px-2.5 py-2 text-[11px] font-bold">{autoLesson ? 'Pause' : 'Resume'}</button>
-          <button type="button" onClick={() => setShowTranscript((value) => !value)} aria-label={showTranscript ? 'Hide transcript' : 'Show transcript'} aria-pressed={showTranscript} className="rounded-xl border border-white/15 bg-white/10 px-2.5 py-2 text-[11px] font-bold">Notes</button>
-          <button type="button" onClick={() => void toggleTutorAudio()} aria-label={tutorMuted ? 'Unmute tutor audio' : 'Mute tutor audio'} className={`rounded-xl border px-2.5 py-2 text-[11px] font-bold ${tutorMuted ? 'border-rose-300/40 bg-rose-900/60' : 'border-white/15 bg-white/10'}`}>{tutorMuted ? 'Audio off' : audioState === 'blocked' ? 'Enable sound' : 'Sound'}</button>
+          }} aria-label={autoLesson ? 'Pause after this teaching segment' : 'Continue teaching automatically'} aria-pressed={autoLesson} className="min-h-10 rounded-xl border border-white/15 bg-white/10 px-2 py-2 text-[11px] font-bold sm:px-3">{autoLesson ? 'Pause' : 'Resume'}</button>
+          <button type="button" onClick={() => setShowTranscript((value) => !value)} aria-label={showTranscript ? 'Hide transcript' : 'Show transcript'} aria-pressed={showTranscript} className="min-h-10 rounded-xl border border-white/15 bg-white/10 px-2 py-2 text-[11px] font-bold sm:px-3">Notes</button>
+          <button type="button" onClick={() => void toggleTutorAudio()} aria-label={tutorMuted ? 'Unmute tutor audio' : 'Mute tutor audio'} className={`min-h-10 rounded-xl border px-2 py-2 text-[11px] font-bold sm:px-3 ${tutorMuted ? 'border-rose-300/40 bg-rose-900/60' : 'border-white/15 bg-white/10'}`}>{tutorMuted ? 'Audio off' : audioState === 'blocked' ? 'Enable sound' : 'Sound'}</button>
           <button type="button" onClick={() => void toggleMicrophone()} aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'} className={`flex h-10 w-10 items-center justify-center rounded-xl text-base font-black ${micMuted ? 'bg-rose-900 text-white' : 'bg-[#e8a23d] text-[#0b1422]'}`}>{micMuted ? '×' : '●'}</button>
         </div>
       </section>
