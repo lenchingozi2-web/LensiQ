@@ -158,6 +158,8 @@ function VoiceTutorContent() {
   const visualContextRef = useRef<VisualContext>(visualContext);
   const explicitVisualThisTurnRef = useRef(false);
   const teachingStepsRef = useRef<string[]>([]);
+  const visualSpeechQueueRef = useRef<string[]>([]);
+  const visualSpeechTimerRef = useRef<number | null>(null);
   const [autoLesson, setAutoLesson] = useState(true);
   const autoLessonRef = useRef(true);
   const lessonSegmentCompleteRef = useRef(false);
@@ -345,6 +347,28 @@ function VoiceTutorContent() {
         markdown: teachingStepsRef.current.map((step) => '- ' + step).join('\n'),
       });
     }
+  };
+
+  // TTS emits text faster than an Android handset can play the corresponding
+  // audio. Reveal one point at a time at a natural spoken cadence.
+  const clearVisualSpeechQueue = () => {
+    visualSpeechQueueRef.current = [];
+    if (visualSpeechTimerRef.current !== null) {
+      window.clearTimeout(visualSpeechTimerRef.current);
+      visualSpeechTimerRef.current = null;
+    }
+  };
+
+  const advanceVisualSpeechQueue = () => {
+    if (visualSpeechTimerRef.current !== null) return;
+    const speech = visualSpeechQueueRef.current.shift();
+    if (!speech) return;
+    applyTutorTranscript(speech);
+    const playbackMs = Math.min(13_000, Math.max(2_700, speech.length * 65));
+    visualSpeechTimerRef.current = window.setTimeout(() => {
+      visualSpeechTimerRef.current = null;
+      advanceVisualSpeechQueue();
+    }, playbackMs);
   };
 
   const clearLessonContinueTimer = () => {
@@ -724,6 +748,7 @@ function VoiceTutorContent() {
     }
     setRuntimeState('ENDING');
     clearLessonContinueTimer();
+    clearVisualSpeechQueue();
     lessonSegmentCompleteRef.current = false;
     const activeSessionId = sessionIdRef.current;
     const activeConversationId = conversationIdRef.current;
@@ -827,6 +852,7 @@ function VoiceTutorContent() {
     setSelectedStructure('');
     explicitVisualThisTurnRef.current = false;
     teachingStepsRef.current = [];
+    clearVisualSpeechQueue();
     setLastHeard('');
     lessonSegmentCountRef.current = 0;
     lessonSegmentCompleteRef.current = false;
@@ -936,7 +962,9 @@ function VoiceTutorContent() {
           if (data.type === 'live_class_visual_step' && data.content?.trim()) {
             lastTutorActivityAtRef.current = Date.now();
             setError('');
-            applyTutorTranscript(data.content);
+            visualSpeechQueueRef.current.push(data.content.trim());
+            if (visualSpeechQueueRef.current.length > 16) visualSpeechQueueRef.current.shift();
+            advanceVisualSpeechQueue();
             return;
           }
           if (data.type === 'live_class_segment_complete') {
@@ -1037,7 +1065,10 @@ function VoiceTutorContent() {
             }
             if (data.state === 'THINKING') {
               setError('');
-              if (data.source !== 'autocontinue') lessonSegmentCountRef.current = 0;
+              if (data.source !== 'autocontinue') {
+                lessonSegmentCountRef.current = 0;
+                clearVisualSpeechQueue();
+              }
               lessonSegmentCompleteRef.current = false;
               clearLessonContinueTimer();
               // A new learner turn may choose a new model, simulation, or board.
@@ -1057,8 +1088,8 @@ function VoiceTutorContent() {
           if (transcriptIdsRef.current.has(key)) return;
           transcriptIdsRef.current.add(key);
           const message: Message = { id: data.id ?? undefined, role: data.role, content };
-          if (data.role === 'assistant') applyTutorTranscript(content);
-          else explicitVisualThisTurnRef.current = false;
+          // Visual packets are synchronized to TTS; text transcript alone must
+          // not advance the stage ahead of audible speech.
           runtimeStateRef.current = 'TEACHING';
           setRuntimeState('TEACHING');
           setError('');
@@ -1088,8 +1119,8 @@ function VoiceTutorContent() {
           if (participant?.isLocal || !segment.final || !segment.text.trim()) continue;
           const message: Message = { role: 'assistant', content: segment.text.trim() };
           if (/^(?:i(?:'m| am)\\s+)?listening(?:\\s+to\\s+you)?[.!\\s]*$/i.test(message.content)) continue;
-          if (message.role === 'assistant') applyTutorTranscript(message.content);
-          else explicitVisualThisTurnRef.current = false;
+          // WebRTC transcript packets are history only; TTS visual packets
+          // independently control the displayed teaching concept.
           runtimeStateRef.current = 'TEACHING';
           setRuntimeState('TEACHING');
           setError('');
