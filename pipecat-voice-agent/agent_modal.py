@@ -156,17 +156,15 @@ def poll_livekit_rooms() -> None:
                     continue
                 if any(p.identity.startswith(AGENT_NAME) for p in participants.participants):
                     continue
-                # A worker can take several seconds to boot Whisper/Kokoro. Claim the
-                # room before spawning so the next 10-second poll cannot launch a
-                # second worker with the same LiveKit identity. Expire a stale claim
-                # after two minutes so a genuinely failed worker can be retried.
+                # Prevent duplicate workers, but recover quickly from failed launches.
                 try:
                     metadata = json.loads(room.metadata or "{}")
                 except json.JSONDecodeError:
                     metadata = {}
                 claimed_at = float(metadata.get("agentLaunchRequestedAt", 0) or 0)
-                if time.time() - claimed_at < 120:
+                if time.time() - claimed_at < 75:
                     continue
+                original_metadata = dict(metadata)
                 metadata["agentLaunchRequestedAt"] = time.time()
                 metadata["agentLaunchRequestedBy"] = AGENT_NAME
                 claimed_metadata = json.dumps(metadata, separators=(",", ":"))
@@ -186,9 +184,16 @@ def poll_livekit_rooms() -> None:
                 try:
                     await run_voice_room.spawn.aio(room.name, claimed_metadata)
                 except Exception as error:
-                    # Leave the claim to expire so a failed cold start can be retried,
-                    # while keeping the scheduled poller healthy for other rooms.
                     print(f"Unable to start voice worker for {room.name}: {type(error).__name__}")
+                    try:
+                        await api_client.room.update_room_metadata(
+                            api.UpdateRoomMetadataRequest(
+                                room=room.name,
+                                metadata=json.dumps(original_metadata, separators=(",", ":")),
+                            )
+                        )
+                    except Exception as cleanup_error:
+                        print(f"Unable to release failed worker claim: {type(cleanup_error).__name__}")
         finally:
             await api_client.aclose()
 
