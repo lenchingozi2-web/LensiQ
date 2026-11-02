@@ -65,3 +65,21 @@ test('Google OAuth uses Vercel canonical www domain and carries callback session
   }
   assert.match(await read('app/auth/callback/route.ts'), /response\.cookies\.set\(\{ name, value, \.\.\.options \}\)/);
 });
+
+test('Live Class clock and listening begin on real tutor speech, not silent playback', async () => {
+  const code = await read('app/voice/page.tsx');
+  assert.match(code, /const markFirstTutorSpeech =/);
+  assert.match(code, /if \(room\.canPlaybackAudio && !tutorMutedRef\.current\) markFirstTutorSpeech\(\)/);
+  assert.match(code, /sessionStartedAtRef\.current = Date\.now\(\)/);
+  assert.doesNotMatch(code, /sessionStartedAtRef\.current = 1/);
+  assert.match(code, /liveStarted \? formatClock\(elapsedSeconds\) : 'Timer paused'/);
+});
+
+test('Google sign-in works after restoring a mobile history page', async () => {
+  const button = await read('components/GoogleSignInButton.tsx');
+  const middleware = await read('middleware.ts');
+  assert.match(button, /href=\{href\}/);
+  assert.doesNotMatch(button, /pointer-events-none|setStarting|useState/);
+  assert.match(middleware, /hasPkceVerifier/);
+  assert.match(middleware, /new URL\('\/auth\/callback'/);
+});

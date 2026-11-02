@@ -60,7 +60,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(fallback, { headers: { 'Cache-Control': 'no-store' } });
   }
 
-  const response = NextResponse.redirect(data.url, { headers: { 'Cache-Control': 'no-store' } });
+  // Diagnose provider setup without logging authorization codes or tokens.
+  console.info('[Auth] Google OAuth redirect issued', {
+    requestHost: requestUrl.host,
+    pkceCookieIssued: outgoingCookies.some(({ name }) => name.startsWith('sb-') && name.includes('code-verifier')),
+  });
+  const response = NextResponse.redirect(data.url, { headers: { 'Cache-Control': 'private, no-store' } });
   for (const cookie of outgoingCookies) {
     response.cookies.set({ name: cookie.name, value: cookie.value, ...(cookie.options || {}) });
   }

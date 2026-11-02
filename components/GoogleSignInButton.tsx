@@ -1,11 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-
 type GoogleSignInButtonProps = { next: string; className?: string };
 
 export default function GoogleSignInButton({ next, className = '' }: GoogleSignInButtonProps) {
-  const [starting, setStarting] = useState(false);
   const href = `/auth/google?next=${encodeURIComponent(next)}`;
 
   // A real link works in mobile browsers even if JavaScript initializes late.
@@ -14,9 +11,7 @@ export default function GoogleSignInButton({ next, className = '' }: GoogleSignI
     <a
       href={href}
       aria-label="Continue with Google"
-      aria-busy={starting}
-      onClick={() => setStarting(true)}
-      className={`flex w-full min-h-12 items-center justify-center gap-3 ${starting ? 'pointer-events-none opacity-70' : ''} ${className}`}
+      className={`flex w-full min-h-12 items-center justify-center gap-3 ${className}`}
     >
       <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
         <path fill="#4285F4" d="M21.6 12.23c0-.7-.06-1.4-.18-2.07H12v3.92h5.39a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.89-1.74 2.97-4.3 2.97-7.38Z"/>
@@ -24,7 +19,7 @@ export default function GoogleSignInButton({ next, className = '' }: GoogleSignI
         <path fill="#FBBC05" d="M6.38 13.91a6 6 0 0 1 0-3.82V7.51H3.05a10 10 0 0 0 0 8.98l3.33-2.58Z"/>
         <path fill="#EA4335" d="M12 5.96c1.47 0 2.8.51 3.83 1.51l2.87-2.87A9.59 9.59 0 0 0 12 2a10 10 0 0 0-8.95 5.51l3.33 2.58C7.17 7.72 9.39 5.96 12 5.96Z"/>
       </svg>
-      {starting ? 'Connecting to Google…' : 'Continue with Google'}
+      Continue with Google
     </a>
   );
 }

@@ -27,6 +27,21 @@ function sessionReplacedResponse(request: NextRequest) {
 }
 
 export async function middleware(request: NextRequest) {
+  // Supabase can fall back to its Site URL when the callback URL is not
+  // allow-listed. Recover PKCE codes landing on / or /login before rendering.
+  const landingPath = request.nextUrl.pathname;
+  const hasPkceVerifier = request.cookies.getAll().some(({ name }) =>
+    name.startsWith('sb-') && name.includes('code-verifier'));
+  if (hasPkceVerifier && (landingPath === '/' || landingPath === '/login' || landingPath === '/signup') &&
+      (request.nextUrl.searchParams.has('code') || request.nextUrl.searchParams.has('error_description'))) {
+    const callback = new URL('/auth/callback', request.url);
+    callback.search = request.nextUrl.search;
+    return NextResponse.redirect(callback, {
+      status: 307,
+      headers: { 'Cache-Control': 'private, no-store' },
+    });
+  }
+
   // The callback must exchange the OAuth code and set the session cookies
   // before middleware attempts to validate the authenticated request.
   if (['/auth/google', '/auth/callback', '/auth/complete'].includes(request.nextUrl.pathname)) {
