@@ -25,16 +25,43 @@
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  max-width: 100%;
+  overflow-x: clip;
+  scroll-padding-top: 5rem;
+}
 
 body {
   margin: 0;
+  max-width: 100%;
+  overflow-x: clip;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
 
 button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
+
+/* Reusable responsiveness for every route, without changing 3D canvas sizing. */
+main, article, section, nav, header, footer { min-width: 0; }
+img, video, iframe { max-width: 100%; }
+:where(.prose, .lesson-content, .markdown-body) { overflow-wrap: anywhere; }
+:where(.prose, .lesson-content, .markdown-body) pre {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+@media (max-width: 640px) {
+  :where(.prose, .lesson-content, .markdown-body) table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea, select { font-size: max(1rem, 16px); }
+}
 
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
   outline: 3px solid rgba(232, 162, 61, 0.55);
