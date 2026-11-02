@@ -92,7 +92,12 @@ export async function POST(request: Request) {
   const userId = typeof body?.userId === 'string' ? body.userId.trim() : '';
   const courseName = typeof body?.courseName === 'string' ? body.courseName.trim().slice(0, 120) : '';
   const query = typeof body?.query === 'string' ? body.query.trim().slice(0, 300) : '';
-  const payload = JSON.stringify({ userId, courseName, query });
+  // Reuse the Gemini lesson plan during rapid student follow-ups. All calls
+  // still retrieve relevant source notes and verified past-question evidence.
+  const includePlan = body?.includePlan !== false;
+  const payload = JSON.stringify(includePlan
+    ? { userId, courseName, query }
+    : { userId, courseName, query, includePlan: false });
 
   if (!userId || !courseName || !query || !isValidBearer(request, payload)) {
     return NextResponse.json({ error: 'Invalid Live Class context request.' }, { status: 401 });
@@ -101,7 +106,7 @@ export async function POST(request: Request) {
   try {
     const supabase = createServiceClient();
     const context = await buildTeachingContext(supabase, courseName, [{ role: 'user', content: query }]);
-    const lessonPlan = await planLessonWithGemini(courseName, query, context);
+    const lessonPlan = includePlan ? await planLessonWithGemini(courseName, query, context) : null;
     return NextResponse.json({
       lessonPlan,
       knowledge: context.knowledgeSources.slice(0, 6).map((source) => ({
