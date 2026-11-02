@@ -32,7 +32,7 @@ export default async function DashboardPage() {
   return (
     <main className="min-h-[calc(100vh-64px)] bg-slate-50 px-4 py-8 sm:px-6 sm:py-12">
       <div className="mx-auto max-w-6xl">
-        <header className="rounded-3xl bg-gradient-to-br from-[#0B1220] to-[#1c2d46] p-8 text-white shadow-xl sm:p-10">
+        <header className="rounded-3xl bg-gradient-to-br from-[#0B1220] to-[#1c2d46] p-5 text-white shadow-xl sm:p-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-[#E8A23D]">Learner dashboard</p>
             <Link href="/subscription" className={`rounded-full border px-3 py-2 text-xs font-black transition-colors ${isPremium ? 'border-emerald-300/30 bg-emerald-200/15 text-emerald-100 hover:bg-emerald-200/25' : 'border-white/20 bg-white/10 text-slate-200 hover:bg-white/20'}`}>
@@ -41,7 +41,7 @@ export default async function DashboardPage() {
           </div>
           <div className="mt-4 flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div>
-              <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Welcome back to LenxiQ.</h1>
+              <h1 className="text-2xl font-black tracking-tight sm:text-4xl">Welcome back to LenxiQ.</h1>
               <p className="mt-3 max-w-xl text-base leading-7 text-slate-300">A clear place to continue studying, practise exam questions, and manage your learning resources.</p>
             </div>
             <div className="flex flex-wrap gap-3">
