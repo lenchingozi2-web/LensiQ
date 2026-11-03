@@ -1,7 +1,7 @@
 'use client';
 
-import { Component, Suspense, useEffect, useMemo, type ReactNode } from 'react';
-import { Html, OrbitControls, Stage, useGLTF } from '@react-three/drei';
+import { Component, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { OrbitControls, Stage, useGLTF } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -11,11 +11,13 @@ type ModelProps = {
   highlightStructure?: string;
   highlightColor?: string;
   viewMode?: 'normal' | 'xray' | 'isolate';
+  onReady?: () => void;
 };
 
 type AnatomyModelErrorBoundaryProps = {
   modelUrl: string;
   children: ReactNode;
+  onFailure: () => void;
 };
 
 class AnatomyModelErrorBoundary extends Component<AnatomyModelErrorBoundaryProps, { failed: boolean }> {
@@ -25,32 +27,16 @@ class AnatomyModelErrorBoundary extends Component<AnatomyModelErrorBoundaryProps
     return { failed: true };
   }
 
+  componentDidCatch() {
+    this.props.onFailure();
+  }
+
   render() {
-    if (this.state.failed) {
-      return (
-        <Html center>
-          <div className="max-w-[min(80vw,22rem)] rounded-2xl border border-white/10 bg-[#101827]/95 px-5 py-4 text-center shadow-2xl backdrop-blur-xl">
-            <p role="alert" className="text-xs font-black uppercase tracking-[0.16em] text-[#ffd68d]">3D model unavailable</p>
-            <p className="mt-2 text-xs leading-5 text-white/70">The tutor can continue while this model is unavailable. Check your connection or try again.</p>
-            <button
-              type="button"
-              onClick={() => {
-                useGLTF.clear(this.props.modelUrl);
-                this.setState({ failed: false });
-              }}
-              className="pointer-events-auto mt-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-[10px] font-bold text-white transition hover:bg-white/15"
-            >
-              Retry model
-            </button>
-          </div>
-        </Html>
-      );
-    }
-    return this.props.children;
+    return this.state.failed ? null : this.props.children;
   }
 }
 
-function Model({ url, onStructureSelect, highlightStructure, highlightColor, viewMode = 'normal' }: ModelProps) {
+function Model({ url, onStructureSelect, highlightStructure, highlightColor, viewMode = 'normal', onReady }: ModelProps) {
   const { scene: sourceScene } = useGLTF(url);
   const scene = useMemo(() => {
     const clonedScene = sourceScene.clone(true);
@@ -129,6 +115,8 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor, vie
     });
   }, [scene, viewMode, highlightStructure, materialState]);
 
+  useEffect(() => { onReady?.(); }, [scene, onReady]);
+
   const originalEmissive = useMemo(() => {
     const baseline = new Map<THREE.Material, { color: THREE.Color; intensity: number }>();
     scene.traverse((child) => {
@@ -188,28 +176,42 @@ export type AnatomyViewerProps = {
 };
 
 export default function AnatomyViewer({ modelUrl, onStructureSelect, highlightStructure, highlightColor, viewMode = 'normal' }: AnatomyViewerProps) {
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const markReady = useCallback(() => { setReady(true); setFailed(false); }, []);
+  const markFailed = useCallback(() => { setFailed(true); setReady(false); }, []);
   useGLTF.preload(modelUrl);
 
   return (
-    <div className="h-full w-full overflow-hidden bg-slate-900">
+    <div className="relative h-full w-full overflow-hidden bg-slate-900">
       <Canvas camera={{ position: [0, 0, 5], fov: 50 }} dpr={[1, 1.5]}>
         <color attach="background" args={['#080d16']} />
-        <AnatomyModelErrorBoundary key={modelUrl} modelUrl={modelUrl}>
-          <Suspense fallback={<Html center><div className="rounded-full border border-white/10 bg-[#101827]/90 px-4 py-2 text-xs font-bold text-white/75 shadow-xl backdrop-blur-xl">Preparing 3D medical model…</div></Html>}>
+        <AnatomyModelErrorBoundary key={modelUrl + ':' + attempt} modelUrl={modelUrl} onFailure={markFailed}>
+          <Suspense fallback={null}>
             <Stage adjustCamera={1.2} environment="studio" intensity={0.8}>
-              <Model url={modelUrl} onStructureSelect={onStructureSelect} highlightStructure={highlightStructure} highlightColor={highlightColor} viewMode={viewMode} />
+              <Model url={modelUrl} onStructureSelect={onStructureSelect} highlightStructure={highlightStructure} highlightColor={highlightColor} viewMode={viewMode} onReady={markReady} />
             </Stage>
           </Suspense>
         </AnatomyModelErrorBoundary>
-        <OrbitControls
-          makeDefault
-          enablePan
-          enableZoom
-          enableRotate
-          enableDamping
-          dampingFactor={0.08}
-        />
+        <OrbitControls makeDefault enablePan enableZoom enableRotate enableDamping dampingFactor={0.08} />
       </Canvas>
+      {!ready && !failed && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center" data-testid="model-loading">
+          <span className="rounded-full border border-white/10 bg-[#101827]/90 px-4 py-2 text-xs font-bold text-white/75 shadow-xl backdrop-blur-xl">Preparing 3D medical model…</span>
+        </div>
+      )}
+      {failed && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#080d16]/85 px-4" data-testid="model-failed">
+          <div className="max-w-[min(80vw,22rem)] rounded-2xl border border-white/10 bg-[#101827] px-5 py-4 text-center shadow-2xl">
+            <p role="alert" className="text-xs font-black uppercase tracking-[0.16em] text-[#ffd68d]">3D model unavailable</p>
+            <p className="mt-2 text-xs leading-5 text-white/70">The tutor can continue without this model. Check your connection or try again.</p>
+            <button type="button" onClick={() => { useGLTF.clear(modelUrl); setFailed(false); setReady(false); setAttempt(x => x + 1); }} className="mt-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-[10px] font-bold text-white transition hover:bg-white/15">
+              Retry model
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
