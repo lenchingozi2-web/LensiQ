@@ -109,6 +109,8 @@ def transform(row):
         old=row.get(field)
         if isinstance(old,str):
             value=cleanup(old)
+            if field=='model_answer' and kind(row)=='practical' and value.startswith('The answer pages describe '):
+                value='The specimen shows '+value[len('The answer pages describe '):]
             if value!=old:changes[field]=value
             if DAMAGED.search(value):warnings.append('unresolved_glyph')
     if not (changes.get('question_text',row.get('question_text')) or '').strip():warnings.append('blank_question')
