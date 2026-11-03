@@ -181,7 +181,15 @@ def build(output):
     output.mkdir(parents=True,exist_ok=True)
     files=[]
     for item in selected:
-        entry=download_one(item,output)
+        try:
+            entry=download_one(item,output)
+        except RuntimeError as exc:
+            # Tiny HRA references can have insufficient geometry for a useful 3D class.
+            if "Insufficient 3D mesh geometry:" not in str(exc):
+                raise
+            print("SKIPPED_LOW_DETAIL",item["name"],str(exc))
+            (output/(item["slug"]+".glb")).unlink(missing_ok=True)
+            continue
         print("VALIDATED",entry["name"],entry["bytes"],"mesh nodes",entry["selectableMeshNodes"],"renamed",entry["crosswalkRenamed"])
         files.append(entry)
     total=sum(x["bytes"] for x in files)
