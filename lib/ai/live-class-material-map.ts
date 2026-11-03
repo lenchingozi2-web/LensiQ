@@ -7,6 +7,27 @@ import { LIVE_CLASS_MODEL_ASSETS, LIVE_CLASS_MOLECULE_ASSETS } from '@/lib/voice
 type Visual = {type:'whiteboard'|'model'|'molecule';topic:string;markdown?:string;modelKey?:string;note?:string};
 function visualFor(title:string,content:string):Visual {
   const subject=(title+' '+content.slice(0,400)).toLowerCase();
+  const approvedConcepts:[RegExp,keyof typeof LIVE_CLASS_MODEL_ASSETS][]=[
+    [/\b(?:gram[- ]positive|gram[- ]negative|peptidoglycan|lipopolysaccharide|outer bacterial membrane)\b/i, 'gramCellEnvelope'],
+    [/\b(?:bacterial endospores?|endospore coat|spore formation|sporulation)\b/i, 'bacterialEndospore'],
+    [/\b(?:viral envelope|enveloped virus|viral capsid|nucleocapsid|viral glycoprotein spikes?)\b/i, 'envelopedVirus'],
+    [/\b(?:septate hyphae?|fungal hyphae?|hyphal branching|aspergillus morphology)\b/i, 'septateFungalHypha'],
+    [/\b(?:biofilm|extracellular polymeric substances?)\b/i, 'bacterialBiofilm'],
+    [/\b(?:antibody structure|immunoglobulin structure|antigen[- ]antibody binding|fab region|fc region|antibody binding site)\b/i, 'antibodyAntigen'],
+    [/\b(?:opsoni[sz]ation|phagocytosis|phagocytic engulfment|c3b opsonin)\b/i, 'opsonisation'],
+    [/\b(?:megaloblastic|megaloblasts?|nuclear[- ]cytoplasmic asynchrony)\b/i, 'megaloblastic'],
+    [/\b(?:thrombosis|thromboembolism|embolism|vascular occlusion|thromboemboli)\b/i, 'thrombosisEmbolism'],
+    [/\b(?:platelet aggregation|fibrin mesh|fibrin network|platelet plug|primary haemostasis)\b/i, 'plateletFibrin'],
+    [/\b(?:acute inflammation|diapedesis|neutrophil extravasation|leukocyte rolling|leucocyte adhesion|vascular changes in inflammation)\b/i, 'acuteInflammation'],
+    [/\b(?:coagulative necrosis|ischaemic necrosis|ischemic necrosis)\b/i, 'coagulativeNecrosis'],
+    [/\b(?:apoptosis|apoptotic bodies|apoptotic cell|membrane blebbing)\b/i, 'apoptosis'],
+    [/\b(?:glomerulonephritis|glomerular inflammation|mesangial proliferation|glomerular capillary)\b/i, 'glomerularInflammation'],
+    [/\b(?:cirrhosis|fibrous septa|regenerative nodules?|hepatic fibrosis)\b/i, 'cirrhosis'],
+    [/\b(?:invasive carcinoma|tumou?r invasion|basement membrane invasion|malignant cell invasion)\b/i, 'invasiveCarcinoma'],
+    [/\b(?:cholinergic synapse|acetylcholine release|neuromuscular junction|synaptic acetylcholine)\b/i, 'cholinergicSynapse'],
+    [/\b(?:agonist versus antagonist|agonists? and antagonists?|receptor occupancy|competitive antagonism|full agonists?|partial agonists?)\b/i, 'receptorOccupancy'],
+    [/\b(?:voltage[- ]gated sodium channels?|sodium channel blockers?|local anaesthetic mechanism|lidocaine mechanism|lignocaine mechanism)\b/i, 'sodiumChannelBlockade'],
+  ];
   const models:[RegExp,keyof typeof LIVE_CLASS_MODEL_ASSETS][]=[
     [/renal anatomy|kidney structure|nephron|renal cortex/,'kidneys'],
     [/leukemia blast|leukaemia blast/,'leukemiaBlastMorphology'],
@@ -25,6 +46,7 @@ function visualFor(title:string,content:string):Visual {
   ];
   const note=content.replace(/\s+/g,' ').slice(0,245);
   for(const [pattern,modelKey] of molecules)if(pattern.test(subject))return{type:'molecule',topic:title,modelKey,note};
+  for(const [pattern,modelKey] of approvedConcepts)if(pattern.test(subject))return{type:'model',topic:title,modelKey,note};
   for(const [pattern,modelKey] of models)if(pattern.test(subject))return{type:'model',topic:title,modelKey,note};
   const sentences=content.replace(/\s+/g,' ').split(/(?<=[.!?])\s+/).filter(s=>s.length>22).slice(0,4);
   return{type:'whiteboard',topic:title,markdown:'### '+title+'\n\n'+sentences.map(s=>'- '+s.slice(0,180)).join('\n')};
