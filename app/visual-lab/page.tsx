@@ -61,7 +61,7 @@ export default function VisualLabPage() {
         </select>
         <span className="text-xs text-white/50">Real GLB assets · rotate, tap, isolate, or change the variables</span>
       </section>
-      <div className="relative h-[min(75dvh,800px)] min-h-[420px] w-full overflow-hidden" data-testid="visual-lab-stage">
+      <div className="relative h-[min(75dvh,800px)] min-h-[420px] w-full overflow-hidden" data-testid="visual-lab-stage" data-tutor-contract="v3">
         <LiveClassVisualStage key={choice} visualContext={visualContext}
           selectedStructure={structure}
           onStructureSelect={name => setStructure(name)}
