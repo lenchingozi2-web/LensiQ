@@ -1,11 +1,6 @@
 name: Install additive Live Class concept models
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/generate_live_class_concept_pack.py'
-      - '.github/workflows/install-live-class-concepts.yml'
   workflow_dispatch:
 
 permissions:
