@@ -216,7 +216,7 @@ jobs:
               --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
               --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
               --header "Content-Type: $content_type" \
-              --header "x-upsert: true" \
+              --header "x-upsert: false" \
               --data-binary "@$asset" \
               "$base_url/$SUPABASE_BUCKET/$encoded_path"
             echo "Uploaded $relative ($(wc -c < "$asset") bytes)"
@@ -231,27 +231,9 @@ jobs:
             --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
             --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
             --header "Content-Type: application/json" \
-            --header "x-upsert: true" \
+            --header "x-upsert: false" \
             --data-binary "@$OUTPUT_DIR/manifest.json" \
             "${SUPABASE_URL%/}/storage/v1/object/$SUPABASE_BUCKET/manifest.json"
-
-      - name: Remove excluded and superseded system placeholders
-        shell: bash
-        run: |
-          set -euo pipefail
-          for path in \
-            systems/Integumentary_System.glb systems/Skeletal_System.glb systems/Muscular_System.glb \
-            systems/Nervous_System.glb systems/Endocrine_System.glb systems/Cardiovascular_System.glb \
-            systems/Lymphatic_System.glb systems/Respiratory_System.glb systems/Digestive_System.glb \
-            systems/Urinary_System.glb systems/Reproductive_System.glb \
-            organs/Heart.glb organs/Brain.glb organs/Liver.glb organs/Lungs.glb; do
-            curl --fail --silent --show-error --location \
-              --request DELETE \
-              --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-              --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-              "${SUPABASE_URL%/}/storage/v1/object/$SUPABASE_BUCKET/$path" || true
-            echo "Removed superseded system asset: $path"
-          done
 
       - name: Save validated assets as a short-lived workflow artifact
         uses: actions/upload-artifact@v4
