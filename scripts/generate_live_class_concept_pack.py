@@ -213,7 +213,7 @@ def build_pack():
     bar("Cell membrane",(-2,-.53,0),(2,-.53,0),.20,"blue")
     for x,tag in [(-1.03,"Agonist"),(1.03,"Antagonist")]:
         bar(f"{tag} receptor", (x,-.50,.20),(x,.55,.20),.23,"green")
-        ball(f"{tag} ligand",(x,.96,.20),.29,.27,.25,"yellow" if tag=="Agonist" else "red")
+        ball(f"{tag} ligand",x,.96,.20,.29,.27,.25,"yellow" if tag=="Agonist" else "red")
     ball("Agonist-induced intracellular signal",-1.03,-1.08,.18,.22,.22,.19,"teal")
 
     start("pharmacology/Voltage_Gated_Sodium_Channel.glb")
