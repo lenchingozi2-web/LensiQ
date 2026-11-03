@@ -92,3 +92,42 @@ test('Google OAuth uses a single allow-list-compatible callback while preserving
   assert.ok(callback.includes("request.cookies.get('lensiq_oauth_next')"));
   assert.ok(callback.includes("response.cookies.delete('lensiq_oauth_next')"));
 });
+
+
+test('deployed Live Class tutor selection and numerical simulator feedback use the same protocol', async () => {
+  const live = await read('app/voice/page.tsx');
+  const stage = await read('components/LiveClassVisualStage.tsx');
+  const simulator = await read('components/PhysiologySimulator.tsx');
+  const worker = await read('pipecat-voice-agent/agent.py');
+  const modal = await read('pipecat-voice-agent/agent_modal.py');
+  const session = await read('app/api/voice/token/route.ts');
+
+  assert.ok(live.includes("topic: 'lensiq.live_class.visual_feedback'"));
+  assert.ok(live.includes("type: 'structure_selected'"));
+  assert.ok(live.includes("type: 'simulation_result'"));
+  assert.ok(live.includes("type: 'simulation_state'"));
+  assert.ok(live.includes("data.type === 'live_class_interaction_ack'"));
+  assert.ok(live.includes("learnerModelFocusUntilRef.current"));
+  assert.ok(stage.includes('onSimulationResult={onSimulationResult}'));
+  assert.ok(simulator.includes('onSimulationResult({ preset, variables: { ...values }, result, unit: model.unit })'));
+  assert.ok(worker.includes('VisualPacer(material_bridge.approved_models, material_bridge.approved_molecules)'));
+  assert.ok(worker.includes('focus = interaction_focus(data, material_bridge.approved_models)'));
+  assert.ok(worker.includes('"live_class_interaction_ack"'));
+  assert.ok(worker.includes('if data.get("type") == "simulation_state":'));
+  assert.ok(modal.includes('.add_local_file(HERE / "visual_tutor.py", "/root/visual_tutor.py")'));
+  assert.ok(session.includes('version: 3,'));
+  assert.ok(session.includes('approvedModelAssets: LIVE_CLASS_MODEL_ASSETS'));
+});
+
+test('3D context and audio synthesis remain distinct; model interaction does not replace the voice pipeline', async () => {
+  const worker = await read('pipecat-voice-agent/agent.py');
+  const visual = await read('pipecat-voice-agent/visual_tutor.py');
+  const viewer = await read('components/AnatomyViewer.tsx');
+  assert.ok(worker.includes('transport.input(), stt, user_bridge, user_aggregator, material_bridge, llm,'));
+  assert.ok(worker.includes('SuppressPrivateControlFrames(), tts, assistant_bridge, transport.output(), assistant_aggregator'));
+  assert.ok(worker.includes('allow_interruptions=True'));
+  assert.ok(viewer.includes('onStructureSelect?.(structureName(event.object))'));
+  assert.ok(viewer.includes("viewMode === 'isolate'"));
+  assert.ok(visual.includes('REFERENCE_KEYS'));
+  assert.ok(visual.includes('simulation_snapshot'));
+});
