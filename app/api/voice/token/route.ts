@@ -250,7 +250,7 @@ export async function POST(req: Request) {
         { type: 'show_3d_model', modelUrl: 'exact HTTPS URL from approvedModelAssets', structureId: 'optional matching structure name', highlightColor: '#E8A23D' },
         { type: 'show_molecular_model', modelUrl: 'exact HTTPS URL from approvedMoleculeAssets' },
         { type: 'highlight_structure', structureId: 'structure name that matches the active GLB mesh', color: '#E8A23D' },
-        { type: 'show_physiology_simulation', preset: 'cardiac_output | mean_arterial_pressure | alveolar_ventilation', title: 'current concept' },
+        { type: 'show_physiology_simulation', preset: 'cardiac_output | mean_arterial_pressure | alveolar_ventilation | acid_base_balance | anion_gap | drug_half_life | competitive_antagonism | oxygen_content | renal_clearance', title: 'current concept' },
         { type: 'show_medical_media', mediaUrl: 'URL from supplied study materials only', caption: 'short label' },
         { type: 'show_whiteboard', topic: 'current concept', markdown: 'concise mechanism, sequence, or equations with up to five main points' },
       ],
