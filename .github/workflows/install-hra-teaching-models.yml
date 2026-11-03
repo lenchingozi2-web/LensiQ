@@ -1,0 +1,61 @@
+name: Install verified HRA clinical 3D reference models
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/install_hra_teaching_models.py'
+      - '.github/workflows/install-hra-teaching-models.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: lensiq-install-hra-clinical-models
+  cancel-in-progress: false
+
+jobs:
+  build-and-verify:
+    name: Validate organ geometry and verify every Supabase asset
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 55
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate approved target before downloading
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${SUPABASE_URL%/}" = "https://hixvbcrrklyajhkyliay.supabase.co" || { echo "::error::Unexpected Supabase project"; exit 1; }
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Private storage credential is not configured"; exit 1; }
+      - name: Install pinned safe YAML parser
+        run: python3 -m pip install --disable-pip-version-check "PyYAML==6.0.2"
+      - name: Build verified human-reference-organ collection and check storage before write
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/install_hra_teaching_models.py scripts/supabase_storage_preflight.py
+          python3 scripts/install_hra_teaching_models.py --output-dir "$RUNNER_TEMP/hra-model-pack" --upload
+      - name: Save provenance and geometry inspection report
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lensiq-hra-verified-organ-manifest
+          path: ${{ runner.temp }}/hra-model-pack/hra-model-manifest.json
+          retention-days: 7
+      - name: Publish verified model library result
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA"             -f state=success -f context=lenxiq/hra-models-verified             -f description="HRA reference organ models uploaded and public-file SHA verified"             -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+      - name: Report blocked install without touching originals
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA"             -f state=failure -f context=lenxiq/hra-models-verified             -f description="HRA model install did not fully pass validation"             -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
