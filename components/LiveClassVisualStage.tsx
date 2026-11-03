@@ -66,7 +66,7 @@ export default function LiveClassVisualStage({ visualContext, selectedStructure,
   if (visualContext.type === 'simulation') {
     return (
       <section className="flex h-full w-full items-center justify-center overflow-y-auto bg-[radial-gradient(circle_at_50%_25%,rgba(35,57,85,.7),#070b13_68%)] px-4 py-20 sm:px-8" aria-label="Interactive physiology simulation">
-        <PhysiologySimulator preset={visualContext.preset} title={visualContext.title} />
+        <PhysiologySimulator preset={visualContext.preset} title={visualContext.title} onConceptSelect={onConceptSelect} />
       </section>
     );
   }
