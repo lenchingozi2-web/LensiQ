@@ -24,7 +24,8 @@ try {
   let loaded=false;
   for(let i=0;i<14;i++){
     const res=await page.goto(url,{waitUntil:'domcontentloaded',timeout:45000}).catch(()=>null);
-    if(res?.status()===200 && await page.getByRole('heading',{name:'Hands-on medical learning'}).count()) {
+    if(res?.status()===200 && await page.getByRole('heading',{name:'Hands-on medical learning'}).count()
+       && await page.locator('[data-tutor-contract="v3"]').count()) {
       loaded=true;break;
     }
     await page.waitForTimeout(12000);
