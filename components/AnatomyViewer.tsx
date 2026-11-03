@@ -80,11 +80,11 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor, vie
     while (current && current !== scene) {
       const candidate = current.name?.trim();
       if (candidate && !/^(?:mesh[_ .-]*\\d+|node[_ .-]*\\d+|scene|object[_ .-]*\\d+|liveclassmedicalmodel)$/i.test(candidate)) {
-        return candidate;
+        return candidate.replace(/_+/g, ' ').replace(/\\s+/g, ' ').trim();
       }
       current = current.parent;
     }
-    return node.name || 'Unlabelled model part';
+    return (node.name || 'Unlabelled model part').replace(/_+/g, ' ').trim();
   };
   const materialState = useMemo(() => {
     const baseline = new Map<THREE.Material, { opacity: number; transparent: boolean; depthWrite: boolean }>();
