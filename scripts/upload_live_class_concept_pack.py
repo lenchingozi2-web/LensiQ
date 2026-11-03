@@ -43,19 +43,19 @@ def main():
     planned: dict[str, tuple[Path, int, str]] = {}
     for item in assets:
         relative = item.get("path", "")
-        if not isinstance(relative, str) or
+        if (not isinstance(relative, str) or
             not relative.endswith(".glb") or
             not relative.startswith(("microbiology/", "immunology/", "haematology/", "pathology/", "pharmacology/")) or
-            ".." in relative or "\\" in relative:
+            ".." in relative or "\\" in relative):
             raise SystemExit("Invalid GLB path in reviewed pack")
         path = (source / relative).resolve()
         if source not in path.parents:
             raise SystemExit("Source path escapes model pack")
         raw = path.read_bytes()
-        if len(raw) > MAX_SINGLE_ASSET_BYTES or len(raw) < 1024 or
+        if (len(raw) > MAX_SINGLE_ASSET_BYTES or len(raw) < 1024 or
             raw[:4] != b"glTF" or
             hashlib.sha256(raw).hexdigest() != item.get("sha256") or
-            len(raw) != item.get("bytes"):
+            len(raw) != item.get("bytes")):
             raise SystemExit("GLB integrity check failed: " + relative)
         planned[PREFIX + relative] = (path, len(raw), "model/gltf-binary")
 
