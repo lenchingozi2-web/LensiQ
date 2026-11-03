@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 concurrency:
   group: lenxiq-modal-production
@@ -52,3 +53,22 @@ jobs:
 
       - name: Deploy LenxiQ worker
         run: modal deploy pipecat-voice-agent/agent_modal.py
+
+      - name: Publish verified Modal worker deployment result
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            -f state=success -f context=lenxiq/modal-voice-deployment \
+            -f description="Pipecat voice worker and visual interaction tests deployed to Modal" \
+            -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+      - name: Mark blocked Modal deployment
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            -f state=failure -f context=lenxiq/modal-voice-deployment \
+            -f description="Modal voice worker deployment failed; prior worker remains in service" \
+            -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
