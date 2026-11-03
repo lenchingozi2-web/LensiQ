@@ -63,6 +63,7 @@ function InspectableImage({ src, alt }: { src: string; alt: string }) {
 }
 
 export default function LiveClassVisualStage({ visualContext, selectedStructure, onStructureSelect, onConceptSelect }: LiveClassVisualStageProps) {
+  const [modelViewMode, setModelViewMode] = useState<'normal' | 'xray' | 'isolate'>('normal');
   if (visualContext.type === 'simulation') {
     return (
       <section className="flex h-full w-full items-center justify-center overflow-y-auto bg-[radial-gradient(circle_at_50%_25%,rgba(35,57,85,.7),#070b13_68%)] px-4 py-20 sm:px-8" aria-label="Interactive physiology simulation">
@@ -88,6 +89,7 @@ export default function LiveClassVisualStage({ visualContext, selectedStructure,
           modelUrl={visualContext.modelUrl}
           highlightStructure={focusedStructure}
           highlightColor={visualContext.highlightColor}
+          viewMode={modelViewMode}
           onStructureSelect={onStructureSelect}
         />
         <div className="pointer-events-none absolute left-4 top-[6.25rem] max-w-[min(78vw,24rem)] rounded-2xl border border-white/10 bg-[#101827]/65 px-4 py-3 shadow-xl backdrop-blur-xl sm:left-8 sm:top-28 sm:px-5">
@@ -104,6 +106,11 @@ export default function LiveClassVisualStage({ visualContext, selectedStructure,
                 : <span className="text-white/45">{sourceLabel ? `${sourceLabel} · ` : ''}{licenseLabel}</span>)}
             </div>
           )}
+        </div>
+        <div className="pointer-events-auto absolute bottom-[5.8rem] right-3 z-20 flex flex-wrap items-center gap-1 rounded-xl border border-white/15 bg-[#101827]/85 p-1.5 shadow-lg backdrop-blur-xl sm:bottom-8 sm:right-8" aria-label="3D model inspection controls">
+          <button type="button" onClick={() => setModelViewMode('normal')} aria-pressed={modelViewMode === 'normal'} className={`rounded-lg px-3 py-2 text-[11px] font-semibold ${modelViewMode === 'normal' ? 'bg-[#e8a23d] text-[#101827]' : 'text-white/80 hover:bg-white/10'}`}>3D</button>
+          <button type="button" onClick={() => setModelViewMode('xray')} aria-pressed={modelViewMode === 'xray'} className={`rounded-lg px-3 py-2 text-[11px] font-semibold ${modelViewMode === 'xray' ? 'bg-[#e8a23d] text-[#101827]' : 'text-white/80 hover:bg-white/10'}`}>X-ray</button>
+          <button type="button" disabled={!focusedStructure} onClick={() => setModelViewMode('isolate')} aria-pressed={modelViewMode === 'isolate'} title={focusedStructure ? 'Hide other parts and focus on the selected structure' : 'Select a structure first'} className={`rounded-lg px-3 py-2 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-35 ${modelViewMode === 'isolate' ? 'bg-[#e8a23d] text-[#101827]' : 'text-white/80 hover:bg-white/10'}`}>Isolate</button>
         </div>
       </section>
     );
