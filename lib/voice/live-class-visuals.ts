@@ -16,6 +16,25 @@ export const LIVE_CLASS_MODEL_ASSETS = {
   tumorMicroenvironment: `${assetRoot}/pathology/Tumor_Microenvironment.glb`,
   granulomatousInflammation: `${assetRoot}/pathology/Granulomatous_Inflammation.glb`,
   fattyLiver: `${assetRoot}/histology/Fatty_Liver.glb`,
+  gramCellEnvelope: `${assetRoot}/concepts/v1/microbiology/Gram_Cell_Envelope.glb`,
+  bacterialEndospore: `${assetRoot}/concepts/v1/microbiology/Bacterial_Endospore.glb`,
+  envelopedVirus: `${assetRoot}/concepts/v1/microbiology/Enveloped_Virus.glb`,
+  septateFungalHypha: `${assetRoot}/concepts/v1/microbiology/Septate_Fungal_Hypha.glb`,
+  bacterialBiofilm: `${assetRoot}/concepts/v1/microbiology/Bacterial_Biofilm.glb`,
+  antibodyAntigen: `${assetRoot}/concepts/v1/immunology/Antibody_Antigen_Binding.glb`,
+  opsonisation: `${assetRoot}/concepts/v1/immunology/Opsonisation_Phagocytosis.glb`,
+  megaloblastic: `${assetRoot}/concepts/v1/haematology/Megaloblastic_Maturation.glb`,
+  plateletFibrin: `${assetRoot}/concepts/v1/haematology/Platelet_Fibrin_Thrombus.glb`,
+  acuteInflammation: `${assetRoot}/concepts/v1/pathology/Acute_Inflammation_Diapedesis.glb`,
+  coagulativeNecrosis: `${assetRoot}/concepts/v1/pathology/Coagulative_Necrosis.glb`,
+  apoptosis: `${assetRoot}/concepts/v1/pathology/Apoptosis_Blebbing.glb`,
+  thrombosisEmbolism: `${assetRoot}/concepts/v1/pathology/Thrombosis_Embolism.glb`,
+  glomerularInflammation: `${assetRoot}/concepts/v1/pathology/Glomerular_Inflammation.glb`,
+  cirrhosis: `${assetRoot}/concepts/v1/pathology/Cirrhosis_Fibrous_Septa.glb`,
+  invasiveCarcinoma: `${assetRoot}/concepts/v1/pathology/Invasive_Epithelial_Carcinoma.glb`,
+  cholinergicSynapse: `${assetRoot}/concepts/v1/pharmacology/Cholinergic_Synapse.glb`,
+  receptorOccupancy: `${assetRoot}/concepts/v1/pharmacology/Receptor_Agonist_Antagonist.glb`,
+  sodiumChannelBlockade: `${assetRoot}/concepts/v1/pharmacology/Voltage_Gated_Sodium_Channel.glb`,
 } as const;
 
 export type MoleculeAsset = {
@@ -69,6 +88,25 @@ const MODEL_LABELS: Record<string, string> = {
   [LIVE_CLASS_MODEL_ASSETS.tumorMicroenvironment]: 'Tumour microenvironment · schematic',
   [LIVE_CLASS_MODEL_ASSETS.granulomatousInflammation]: 'Granulomatous inflammation · schematic',
   [LIVE_CLASS_MODEL_ASSETS.fattyLiver]: 'Fatty-liver steatosis · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.gramCellEnvelope]: 'Gram-positive and Gram-negative cell envelopes · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.bacterialEndospore]: 'Bacterial endospore and cortex · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.envelopedVirus]: 'Enveloped virus and nucleocapsid · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.septateFungalHypha]: 'Septate fungal hypha and branching · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.bacterialBiofilm]: 'Bacterial biofilm and extracellular matrix · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.antibodyAntigen]: 'Antibody structure and antigen binding · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.opsonisation]: 'Opsonisation and phagocyte recognition · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.megaloblastic]: 'Megaloblastic erythropoiesis · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.plateletFibrin]: 'Platelet–fibrin thrombus · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.acuteInflammation]: 'Acute inflammation and neutrophil diapedesis · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.coagulativeNecrosis]: 'Coagulative necrosis and tissue cell outlines · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.apoptosis]: 'Apoptosis, blebbing and nuclear fragments · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.thrombosisEmbolism]: 'Thrombosis and embolism · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.glomerularInflammation]: 'Glomerular inflammation and capillary loops · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.cirrhosis]: 'Cirrhosis, regenerative nodules and fibrosis · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.invasiveCarcinoma]: 'Epithelial carcinoma and basement-membrane invasion · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.cholinergicSynapse]: 'Cholinergic synapse and acetylcholine transmission · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.receptorOccupancy]: 'Agonists and antagonists at receptors · schematic',
+  [LIVE_CLASS_MODEL_ASSETS.sodiumChannelBlockade]: 'Voltage-gated sodium-channel blockade · schematic',
 };
 
 export function getLiveClassModelLabel(modelUrl: string) {
@@ -250,6 +288,33 @@ export function inferLiveClassVisual(speech: string, courseName: string): Visual
   }
   if (/\b(beta.?blocker|β.?blocker|carazolol|propranolol|carvedilol|beta.?2.?adrenergic|β2.?adrenergic|adrenoceptor)\b/i.test(text)) {
     return moleculeContext(LIVE_CLASS_MOLECULE_ASSETS.beta2Adrenergic);
+  }
+
+  // New concept models are narrow visual matches; they do not change speech,
+  // tutor turn-taking, simulation timing or lesson progression.
+  const clinicalConcepts: Array<[RegExp, keyof typeof LIVE_CLASS_MODEL_ASSETS]> = [
+    [/\b(?:gram[- ]positive|gram[- ]negative|peptidoglycan|lipopolysaccharide|outer bacterial membrane)\b/i, 'gramCellEnvelope'],
+    [/\b(?:bacterial endospores?|endospore coat|spore formation|sporulation)\b/i, 'bacterialEndospore'],
+    [/\b(?:viral envelope|enveloped virus|viral capsid|nucleocapsid|viral glycoprotein spikes?)\b/i, 'envelopedVirus'],
+    [/\b(?:septate hyphae?|fungal hyphae?|hyphal branching|aspergillus morphology)\b/i, 'septateFungalHypha'],
+    [/\b(?:biofilm|extracellular polymeric substances?)\b/i, 'bacterialBiofilm'],
+    [/\b(?:antibody structure|immunoglobulin structure|antigen[- ]antibody binding|fab region|fc region|antibody binding site)\b/i, 'antibodyAntigen'],
+    [/\b(?:opsoni[sz]ation|phagocytosis|phagocytic engulfment|c3b opsonin)\b/i, 'opsonisation'],
+    [/\b(?:megaloblastic|megaloblasts?|nuclear[- ]cytoplasmic asynchrony)\b/i, 'megaloblastic'],
+    [/\b(?:thrombosis|thromboembolism|embolism|vascular occlusion|thromboemboli)\b/i, 'thrombosisEmbolism'],
+    [/\b(?:platelet aggregation|fibrin mesh|fibrin network|platelet plug|primary haemostasis)\b/i, 'plateletFibrin'],
+    [/\b(?:acute inflammation|diapedesis|neutrophil extravasation|leukocyte rolling|leucocyte adhesion|vascular changes in inflammation)\b/i, 'acuteInflammation'],
+    [/\b(?:coagulative necrosis|ischaemic necrosis|ischemic necrosis)\b/i, 'coagulativeNecrosis'],
+    [/\b(?:apoptosis|apoptotic bodies|apoptotic cell|membrane blebbing)\b/i, 'apoptosis'],
+    [/\b(?:glomerulonephritis|glomerular inflammation|mesangial proliferation|glomerular capillary)\b/i, 'glomerularInflammation'],
+    [/\b(?:cirrhosis|fibrous septa|regenerative nodules?|hepatic fibrosis)\b/i, 'cirrhosis'],
+    [/\b(?:invasive carcinoma|tumou?r invasion|basement membrane invasion|malignant cell invasion)\b/i, 'invasiveCarcinoma'],
+    [/\b(?:cholinergic synapse|acetylcholine release|neuromuscular junction|synaptic acetylcholine)\b/i, 'cholinergicSynapse'],
+    [/\b(?:agonist versus antagonist|agonists? and antagonists?|receptor occupancy|competitive antagonism|full agonists?|partial agonists?)\b/i, 'receptorOccupancy'],
+    [/\b(?:voltage[- ]gated sodium channels?|sodium channel blockers?|local anaesthetic mechanism|lidocaine mechanism|lignocaine mechanism)\b/i, 'sodiumChannelBlockade'],
+  ];
+  for (const [pattern, key] of clinicalConcepts) {
+    if (pattern.test(text)) return modelContext(key);
   }
 
   if (/\b(sickle cell|sickle-cell|drepanocytosis|erythrocyte|red blood cell|haemoglobin|hemoglobin|oxygen transport)\b/i.test(text)) {
