@@ -1,8 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 export type PhysiologyPreset = 'cardiac_output' | 'mean_arterial_pressure' | 'alveolar_ventilation' | 'acid_base_balance' | 'anion_gap' | 'drug_half_life' | 'competitive_antagonism' | 'oxygen_content' | 'renal_clearance';
+
+export type SimulationSnapshot = { preset: PhysiologyPreset; variables: Record<string, number>; result: number; unit: string };
+
 
 const PRESETS = {
   cardiac_output: {
@@ -135,12 +138,30 @@ const PRESETS = {
   caution?: string;
 }>;
 
-export default function PhysiologySimulator({ preset, title, onConceptSelect }: { preset: PhysiologyPreset; title: string; onConceptSelect?: (concept: string, index: number) => void }) {
+type SimulatorProps = {
+  preset: PhysiologyPreset;
+  title: string;
+  onConceptSelect?: (concept: string, index: number) => void;
+  onSimulationState?: (snapshot: SimulationSnapshot) => void;
+  onSimulationResult?: (snapshot: SimulationSnapshot) => void;
+};
+export default function PhysiologySimulator({ preset, title, onConceptSelect, onSimulationState, onSimulationResult }: SimulatorProps) {
   const model = PRESETS[preset];
   const [values, setValues] = useState<Record<string, number>>({ ...model.initial });
   const result = useMemo(() => model.calculate(values), [model, values]);
   const baseline = model.calculate(model.initial);
   const relative = baseline > 0 ? Math.max(0, Math.min(1, result / (baseline * 1.8))) : 0;
+  const stateCallbackRef = useRef(onSimulationState);
+  useEffect(() => { stateCallbackRef.current = onSimulationState; }, [onSimulationState]);
+  useEffect(() => {
+    if (!stateCallbackRef.current) return;
+    // Slider motion updates the tutor's most recent lab state without making
+    // it interrupt speech. The learner explicitly requests a spoken answer.
+    const timer = window.setTimeout(() => {
+      stateCallbackRef.current?.({ preset, variables: { ...values }, result, unit: model.unit });
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [preset, values, result, model.unit]);
 
   return (
     <section className="w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#101827]/90 text-white shadow-[0_30px_120px_rgba(0,0,0,.45)] backdrop-blur-xl" aria-label={`${model.label} interactive physiology simulation`}>
@@ -168,7 +189,13 @@ export default function PhysiologySimulator({ preset, title, onConceptSelect }: 
           <p className="mt-3 text-sm font-bold text-white">{model.equation}</p>
           <div className="mt-6 h-3 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-[#4ca59b] via-[#e8a23d] to-[#ed735f] transition-[width] duration-300" style={{ width: `${Math.max(4, relative * 100)}%` }} /></div>
           <p className="mt-3 text-xs leading-5 text-slate-400">Baseline: {baseline.toFixed(1)} {model.unit}. {("caution" in model ? model.caution : undefined) ?? "This is a simplified teaching model, not clinical decision support."}</p>
-          {onConceptSelect && <button type="button" onClick={() => onConceptSelect(`${model.label}. ${model.equation}. My selected values are ${model.variables.map(v => `${v.label}: ${values[v.key]} ${v.unit}`).join("; ")}. Calculated ${model.output}: ${result.toFixed(2)} ${model.unit}. Explain the mechanism and clinical interpretation of these changes, without assuming this is a real patient.`, 0)} className="mt-5 self-start rounded-xl bg-[#e8a23d] px-4 py-2 text-xs font-black text-[#101827] hover:bg-[#f2c072]">Ask tutor to explain my result</button>}
+          {(onSimulationResult || onConceptSelect) && <button type="button" onClick={() => {
+              if (onSimulationResult) {
+                onSimulationResult({ preset, variables: { ...values }, result, unit: model.unit });
+              } else {
+                onConceptSelect?.(`${model.label}. ${model.equation}. My selected values are ${model.variables.map(v => `${v.label}: ${values[v.key]} ${v.unit}`).join("; ")}. Calculated ${model.output}: ${result.toFixed(2)} ${model.unit}. Explain the mechanism and clinical interpretation of these changes, without assuming this is a real patient.`, 0);
+              }
+            }} className="mt-5 self-start rounded-xl bg-[#e8a23d] px-4 py-2 text-xs font-black text-[#101827] hover:bg-[#f2c072]">Ask tutor to explain my result</button>}
           <button type="button" onClick={() => setValues({ ...model.initial })} className="mt-5 self-start rounded-xl border border-white/15 px-3 py-2 text-xs font-black text-white hover:bg-white/10">Reset to baseline</button>
         </div>
       </div>
