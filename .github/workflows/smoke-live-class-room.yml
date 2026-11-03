@@ -1,0 +1,61 @@
+name: Verify deployed voice tutor in isolated LiveKit room
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/smoke_live_class_room.py'
+      - '.github/workflows/smoke-live-class-room.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: lenxiq-voice-smoke-proof
+  cancel-in-progress: false
+
+jobs:
+  real-livekit-room:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 12
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate worker source and synthetic-room test
+        run: |
+          python -m py_compile pipecat-voice-agent/agent.py pipecat-voice-agent/visual_tutor.py scripts/smoke_live_class_room.py
+          python -m unittest discover -s pipecat-voice-agent -p 'test_visual_tutor.py' -v
+      - name: Require connected Modal auth
+        shell: bash
+        run: |
+          test -n "$MODAL_TOKEN_ID" && test -n "$MODAL_TOKEN_SECRET" || { echo "::error::Modal production authentication unavailable"; exit 1; }
+      - name: Install Modal for disposable smoke room
+        run: python -m pip install 'modal>=1.0,<2'
+      - name: Run isolated real LiveKit/Modal visual-selection and audio-track test
+        run: modal run scripts/smoke_live_class_room.py
+      - name: Publish successful isolated voice proof
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            -f state=success -f context=lenxiq/livekit-tutor-e2e \
+            -f description="Deployed Modal tutor joined LiveKit room, accepted selection and published audio" \
+            -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+      - name: Publish failed isolated voice proof
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            -f state=failure -f context=lenxiq/livekit-tutor-e2e \
+            -f description="Deployed LiveKit tutor smoke test failed; examine room/worker output" \
+            -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
