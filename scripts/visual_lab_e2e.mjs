@@ -12,9 +12,11 @@ const context=await browser.newContext({viewport:{width:1365,height:900},deviceS
 const page=await context.newPage();
 page.on('pageerror',e=>errors.push(e.message));
 let loadedGlb=false;
+let loadedRealHra=false;
 page.on('response',res=>{
   if(res.url().includes('/storage/v1/object/public/medical-models/') && res.url().endsWith('.glb') && res.status()===200) {
     loadedGlb=true;console.log('REAL_GLB_HTTP_200',res.url());
+    if(res.url().includes('/hra-v25/heart.glb')) loadedRealHra=true;
   }
 });
 try {
@@ -60,6 +62,13 @@ try {
   await isolate.click();
   if(await isolate.getAttribute('aria-pressed')!=='true')throw new Error('Structure isolation failed');
   console.log('PASS_ISOLATION');
+  await page.locator('#lab-visual').selectOption('model:https://hixvbcrrklyajhkyliay.supabase.co/storage/v1/object/public/medical-models/hra-v25/heart.glb');
+  await page.waitForFunction(() => !document.querySelector('[data-testid="model-loading"]'), { timeout: 90000 });
+  if(await page.locator('[data-testid="model-failed"]').count())throw new Error('Real HRA organ failed 3D rendering');
+  if(!loadedRealHra)throw new Error('Browser did not fetch the real HRA heart GLB');
+  await page.waitForTimeout(1400);
+  await page.screenshot({path:output+'/desktop-real-hra-heart.png',fullPage:true});
+  console.log('PASS_HRA_HEART_REAL_WEBGL');
   await page.locator('#lab-visual').selectOption('simulation:acid_base_balance');
   await page.getByText('Calculated arterial pH').waitFor({timeout:20000});
   const range=page.getByRole('slider',{name:'Plasma bicarbonate'});
