@@ -467,13 +467,21 @@ class MaterialContextBridge(FrameProcessor):
                               if isinstance(message, dict) and message.get("role") == "user"), "")
                 query = str(query).strip()
                 internal_continue = query.startswith("Resume the current medical lesson from exactly where you stopped")
-                if not internal_continue and query:
+                visual_interaction = query.startswith((
+                    "The learner tapped the labelled structure",
+                    "The learner changed an interactive medical simulation",
+                    "The learner selected this teaching-board concept",
+                ))
+                if not internal_continue and not visual_interaction and query:
                     self.last_user_query = query
                 evidence_query = self.last_user_query or self.course_name
                 notes = self.continue_source() if internal_continue else self._relevant(evidence_query)
-                # Gemini has already designed the lesson; student follow-ups
-                # need fresh evidence, not another blocking planning request.
-                bank = await self.bank_context(evidence_query, include_plan=not bool(self._current_gemini_plan))
+                # A touch or slider change refers to the current lesson, not
+                # a new subject. Do not interrupt it with fresh lesson planning.
+                bank = await self.bank_context(
+                    evidence_query,
+                    include_plan=not visual_interaction and not bool(self._current_gemini_plan),
+                )
                 messages[:] = [message for message in messages if not (
                     isinstance(message, dict) and message.get("role") == "system"
                     and str(message.get("content", "")).startswith(("SOURCE NOTES:", "NATIVE PAST QUESTIONS:", "LEARNER SIMULATION SNAPSHOT:"))
@@ -491,7 +499,8 @@ class MaterialContextBridge(FrameProcessor):
                         messages.insert(insert_at, {"role": "system", "content": "NATIVE PAST QUESTIONS: background teaching evidence; use one question after a substantive lesson segment, not after every sentence. Never quote the source block verbatim.\n" + bank})
                     if notes:
                         messages.insert(insert_at, {"role": "system", "content": "SOURCE NOTES: follow these uploaded lecture excerpts when relevant; do not quote this block.\n" + notes})
-                        await self.publish_visual(evidence_query)
+                        if not visual_interaction:
+                            await self.publish_visual(evidence_query)
         await self.push_frame(frame, direction)
 
 class ConversationalKokoroTTSService(KokoroTTSService):
