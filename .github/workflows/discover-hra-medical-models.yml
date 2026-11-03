@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/discover-hra-medical-models.yml'
+      - 'scripts/discover_hra_models.py'
   workflow_dispatch:
 permissions:
   contents: read
