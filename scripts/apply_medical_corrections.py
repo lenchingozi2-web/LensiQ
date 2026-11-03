@@ -76,7 +76,7 @@ def main():
 
     stem='Potassium channel blocker used for treating androgenic alopecia'
     set_value(MINOXIDIL_ID,'question_text',stem,MINOXIDIL_STEM)
-    set_value(MINOXIDIL_ID,'model_answer','Minoxidil',MINOXIDIL_ANSWER)
+    # The expanded minoxidil answer is managed by the guarded supplemental repair below.
 
     for ident,answer in ANSWERS.items():
         existing=rows[ident].get('model_answer')
