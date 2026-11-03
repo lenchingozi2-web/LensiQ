@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 jobs:
   inventory:
@@ -65,3 +66,16 @@ jobs:
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
               out.write(f"### Study Hub storage (read only)\nTotal bytes: {total:,}\n\nAvailable under 500 MB safety limit: {max(0,500000000-total):,}\n")
           PY
+
+      - name: Mark successful read-only preflight
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" -f state=success -f context=lenxiq/live-class-storage-preflight -f description="Verified medical-models storage access and free-space inventory" -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+      - name: Mark failed read-only preflight
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" -f state=failure -f context=lenxiq/live-class-storage-preflight -f description="Model bucket inventory blocked; no assets modified" -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
