@@ -64,7 +64,9 @@ export default function VisualLabPage() {
         <LiveClassVisualStage key={choice} visualContext={visualContext}
           selectedStructure={structure}
           onStructureSelect={name => setStructure(name)}
-          onConceptSelect={text => setExperiment(text)} />
+          onConceptSelect={text => setExperiment(text)}
+          onSimulationState={snapshot => setExperiment('Lab state: ' + JSON.stringify(snapshot))}
+          onSimulationResult={snapshot => setExperiment('Ask tutor: ' + JSON.stringify(snapshot))} />
       </div>
       <div className="relative z-30 flex flex-wrap items-center gap-4 border-t border-white/10 bg-[#101827] px-4 py-3 text-xs sm:px-8">
         <p className="min-w-0"><span className="text-white/50">Active:</span> <span className="font-semibold">{label}</span></p>
