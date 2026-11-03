@@ -4,7 +4,6 @@ import { createClient } from '../../../../lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAuthRequestRejection } from '../../../../lib/auth/request-diagnostics';
 import { LIVE_CLASS_MODEL_ASSETS, LIVE_CLASS_MOLECULE_ASSETS } from '@/lib/voice/live-class-visuals';
-import { LIVE_CLASS_MODEL_CATALOG, LIVE_CLASS_MOLECULE_CATALOG } from '@/lib/voice/live-class-model-catalog';
 import { includesLiveClass } from '@/lib/plans';
 
 function normalizeLiveKitUrl(value: string) {
@@ -237,15 +236,15 @@ export async function POST(req: Request) {
     materialUrls,
     materialMapUrls,
     materialContext,
-    visualInstructions: 'You are teaching inside an interactive visual medical classroom, not an audio-only call. The visual stage is a first-class part of the lesson and is already available to you through the LiveKit data channel. Keep it synchronized with the exact concept being explained: before or as a new concept begins, publish the smallest useful approved visual command on lensiq.live_class.visual. The uploaded material is parsed text and is the primary source for this class. If the selected course toggle conflicts with the detected uploaded branch, explicitly say you are switching context and follow the uploaded material for the current lesson; do not blend Pharmacology and Pathology evidence without labelling the switch. If the learner changes subject, ask one short clarifying question or state the new context before continuing. You have a finite model inventory: use only the approved catalog below and be honest when a requested structure is not available. Use the approved 3D anatomy model for renal anatomy; use the labelled drug-target PDB model for its exact pharmacology concept; use the supplied original 3D schematics for pathology, histology, and cytology; use the matching interactive physiology simulation for cardiac output, mean arterial pressure, or alveolar ventilation; use medical media only when an actual supplied URL is relevant. If no suitable model exists for a non-visual mechanism, switch to a concise show_whiteboard mechanism/sequence/equation card, and keep it tied to what you are saying. Do not claim to display a micrograph, image, model, ligand, or simulation that is not in the catalogs. These cytology/histology/pathology schematics are simplified teaching aids, not clinical-grade or diagnostic imagery. For the beta-2 receptor structure, the bound ligand is carazolol (PDB 2RH1); never describe it as propranolol or carvedilol. The acetylcholinesterase model is bound to donepezil (4EY7), and the DHFR model to methotrexate (1U72). Use highlight_structure only with a matching structure name when useful. The learner can rotate/zoom the models and sends selection events on lensiq.live_class.visual_feedback; when a structure_selected event arrives, answer from that selected model/structure before broadening. Continue speaking after each visual change. Treat simulations as simplified education, never clinical decision support.',
+    // The actual worker is the source of model decisions. Keep metadata small:
+    // the browser alone owns the verbose attribution/ontology catalogue.
+    visualInstructions: 'Teach beside the real-time medical 3D viewer. The worker stages only approved anatomy, pathology schematics, pharmacology structures and numeric labs as speech is synthesized. Listen to validated structure selections and simulation results; explain changes and clinical significance without inventing visual details. Treat HRA organs as healthy reference anatomy, not diseased specimens. Use the uploaded study material as the primary course evidence; do not mix subjects without acknowledging a transition. Allow students to rotate, isolate, zoom and change lab variables before giving a concise explanation. Do not read source URLs, stage instructions or JSON aloud. Keep the current responsive voice and natural interruption handling unchanged.',
     visualProtocol: {
-      version: 2,
+      version: 3,
       dataChannelTopic: 'lensiq.live_class.visual',
       interactionTopic: 'lensiq.live_class.visual_feedback',
       approvedModelAssets: LIVE_CLASS_MODEL_ASSETS,
-      approvedModelCatalog: LIVE_CLASS_MODEL_CATALOG,
       approvedMoleculeAssets: LIVE_CLASS_MOLECULE_ASSETS,
-      approvedMoleculeCatalog: LIVE_CLASS_MOLECULE_CATALOG,
       commands: [
         { type: 'show_3d_model', modelUrl: 'exact HTTPS URL from approvedModelAssets', structureId: 'optional matching structure name', highlightColor: '#E8A23D' },
         { type: 'show_molecular_model', modelUrl: 'exact HTTPS URL from approvedMoleculeAssets' },
@@ -253,6 +252,8 @@ export async function POST(req: Request) {
         { type: 'show_physiology_simulation', preset: 'cardiac_output | mean_arterial_pressure | alveolar_ventilation | acid_base_balance | anion_gap | drug_half_life | competitive_antagonism | oxygen_content | renal_clearance', title: 'current concept' },
         { type: 'show_medical_media', mediaUrl: 'URL from supplied study materials only', caption: 'short label' },
         { type: 'show_whiteboard', topic: 'current concept', markdown: 'concise mechanism, sequence, or equations with up to five main points' },
+        { type: 'simulation_state', preset: 'approved clinical lab', variables: 'bounded numeric inputs', result: 'calculated value' },
+        { type: 'simulation_result', preset: 'approved clinical lab', variables: 'bounded numeric inputs', result: 'request tutor explanation' },
       ],
     },
   });
