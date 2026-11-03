@@ -1,0 +1,26 @@
+name: HRA organ source discovery (read only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/discover-hra-medical-models.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  statuses: write
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m pip install --disable-pip-version-check "PyYAML==6.0.2"
+      - run: python3 scripts/discover_hra_models.py
+      - if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" -f state=success -f context=lenxiq/hra-discovery -f description="Read-only HRA release source scan completed" -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+      - if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" -f state=failure -f context=lenxiq/hra-discovery -f description="HRA source inventory failed; no models changed" -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
