@@ -24,3 +24,13 @@ def walk(obj,trail=()):
 walk(doc)
 print("Matched organ-related fields:",len(urls))
 for trail,val in urls[:70]:print("ASSET",trail,val)
+
+print("Release groups:")
+groups=doc.get("content",[])[1].get("content",[])[1].get("releaseVersionData",[])
+for i,g in enumerate(groups[:3]):
+    print("GROUP",i,"fields",list(g.keys()),"release",str(g.get("version") or g.get("releaseVersion") or g.get("name"))[:80],"organs",len(g.get("organData",[])))
+for item in groups[0].get("organData",[]):
+    cards=item.get("cards",[])
+    if cards:
+        print("ORGAN",str(item.get("title") or item.get("name") or item.get("organ") or item)[:90],
+              str(cards[0].get("fileUrl",""))[:160])
