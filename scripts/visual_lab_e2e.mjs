@@ -22,16 +22,18 @@ page.on('response',res=>{
 try {
   const url=origin+'/visual-lab';
   let loaded=false;
-  for(let i=0;i<14;i++){
+  for(let i=0;i<16;i++){
     const res=await page.goto(url,{waitUntil:'domcontentloaded',timeout:45000}).catch(()=>null);
-    if(res?.status()===200 && await page.getByRole('heading',{name:'Hands-on medical learning'}).count()
-       && await page.locator('[data-tutor-contract="v3"]').count()) {
+    const interactive = await page.locator('[data-tutor-contract="v3"][data-interactive="true"]')
+      .waitFor({state:'attached',timeout:6500}).then(()=>true).catch(()=>false);
+    if(res?.status()===200 && interactive &&
+       await page.getByRole('heading',{name:'Hands-on medical learning'}).count()) {
       loaded=true;break;
     }
-    await page.waitForTimeout(12000);
+    console.log('DEPLOYMENT_NOT_YET_HYDRATED',i+1);
+    await page.waitForTimeout(8000);
   }
-  if(!loaded)throw new Error('Production visual laboratory route could not be reached');
-  await page.locator('[data-tutor-contract="v3"][data-interactive="true"]').waitFor({timeout:45000});
+  if(!loaded)throw new Error('Current production visual lab deployment or hydration unavailable');
   try {
     await page.locator('canvas').first().waitFor({state:'visible',timeout:55000});
   } catch (failure) {
