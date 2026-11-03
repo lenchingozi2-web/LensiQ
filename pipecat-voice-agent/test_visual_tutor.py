@@ -41,8 +41,8 @@ class VisualTutorContract(unittest.TestCase):
         first=pacer.next_for_spoken("The lung anatomy includes multiple pulmonary lobes.")
         self.assertIsNotNone(first)
         self.assertIsNone(pacer.next_for_spoken("Pneumonia is a common disease of the lung anatomy."))
-        self.assertIsNone(pacer.next_for_spoken("The heart anatomy has four chambers."))
-        second=pacer.next_for_spoken("The right ventricle pumps deoxygenated blood into the pulmonary artery.")
+        second=pacer.next_for_spoken("The heart anatomy has four chambers.")
+        self.assertIsNone(pacer.next_for_spoken("The right ventricle pumps deoxygenated blood into the pulmonary artery."))
         self.assertEqual(second["modelUrl"],MODELS["hraHeart"])
     def test_accepted_named_structure(self):
         self.assertIn("right ventricle",visual.structure_focus({
