@@ -37,7 +37,7 @@ jobs:
           set -euo pipefail
           [[ "$SUPABASE_URL" == "$TARGET_PROJECT" ]] || { echo "::error::Medical project mismatch"; exit 1; }
           [[ -n "$SUPABASE_SERVICE_ROLE_KEY" ]] || { echo "::error::No private storage credential"; exit 1; }
-      - name: Generate compact new medical teaching models
+      - name: Generate compact new medical teaching models (no existing assets modified)
         run: python3 scripts/generate_live_class_concept_pack.py --output-dir "$ASSET_DIR"
       - name: Validate all mesh names, GLB headers and manifest checksums
         shell: bash
