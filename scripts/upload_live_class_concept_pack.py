@@ -36,7 +36,7 @@ def main():
     assets = manifest.get("assets")
     if not isinstance(assets, list) or len(assets) != EXPECTED_MODELS:
         raise SystemExit("The 19-model teaching pack manifest is missing or incomplete.")
-    if not all(item.get("license") == "CC BY 4.0" and
+    if not all(item.get("license") == "Original LenxiQ teaching asset; reuse subject to LenxiQ terms" and
                item.get("source") == "Original LenxiQ diagrammatic teaching geometry" for item in assets):
         raise SystemExit("Source attribution or licence metadata is not valid.")
 
