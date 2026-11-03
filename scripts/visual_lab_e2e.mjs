@@ -31,6 +31,7 @@ try {
     await page.waitForTimeout(12000);
   }
   if(!loaded)throw new Error('Production visual laboratory route could not be reached');
+  await page.locator('[data-tutor-contract="v3"][data-interactive="true"]').waitFor({timeout:45000});
   try {
     await page.locator('canvas').first().waitFor({state:'visible',timeout:55000});
   } catch (failure) {
@@ -110,6 +111,7 @@ try {
   const mob=await mobile.newPage();
   await mob.goto(url,{waitUntil:'domcontentloaded',timeout:50000});
   await mob.getByRole('heading',{name:'Hands-on medical learning'}).waitFor();
+  await mob.locator('[data-tutor-contract="v3"][data-interactive="true"]').waitFor({timeout:45000});
   const mobileErrors=[];
   mob.on('pageerror',e=>mobileErrors.push(e.message));
   await mob.locator('#lab-visual').selectOption('simulation:drug_half_life');
