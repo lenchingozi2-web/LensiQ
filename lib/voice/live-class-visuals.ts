@@ -261,6 +261,18 @@ export function inferLiveClassVisual(speech: string, courseName: string): Visual
     return { type: 'simulation', preset: 'alveolar_ventilation', title: 'Alveolar ventilation' };
   }
 
+  const handsOnLabs: Array<[RegExp, PhysiologyPreset, string]> = [
+    [/\\b(?:henderson[-– ]hasselbalch|acid[-– ]base balance|acid[-– ]base equation|respiratory acidosis|metabolic acidosis|respiratory alkalosis|metabolic alkalosis)\\b/i, 'acid_base_balance', 'Acid–base balance'],
+    [/\\b(?:anion gap|unmeasured anions)\\b/i, 'anion_gap', 'Anion gap'],
+    [/\\b(?:drug half[-– ]life|elimination half[-– ]life|first[-– ]order elimination|half[-– ]life of a drug)\\b/i, 'drug_half_life', 'Drug elimination'],
+    [/\\b(?:competitive antagonism|competitive antagonist|receptor occupancy|dose[-– ]response curve|ec50|e\\s*max)\\b/i, 'competitive_antagonism', 'Competitive antagonism'],
+    [/\\b(?:arterial oxygen content|oxygen content of blood|calculated cao2|oxygen carrying capacity)\\b/i, 'oxygen_content', 'Arterial oxygen content'],
+    [/\\b(?:renal clearance equation|calculate renal clearance|solute clearance|urine plasma clearance)\\b/i, 'renal_clearance', 'Renal clearance'],
+  ];
+  for (const [pattern, preset, title] of handsOnLabs) {
+    if (pattern.test(text)) return { type: 'simulation', preset, title };
+  }
+
   const chemicalPathologyTopics: Array<[RegExp, string]> = [
     [/\b(liver function (?:tests?|panel)|lfts?|bilirubin|transaminases?|\balt\b|\bast\b|\bggt\b|\balp\b|alkaline phosphatase|albumin)\b/i, 'Chemical pathology · liver function'],
     [/\b(renal function test|urea and electrolytes|u\s*&\s*e|creatinine|estimated glomerular filtration|\begfr\b)\b/i, 'Chemical pathology · renal function and electrolytes'],
