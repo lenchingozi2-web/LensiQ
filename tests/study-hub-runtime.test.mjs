@@ -127,7 +127,7 @@ test('3D context and audio synthesis remain distinct; model interaction does not
   assert.ok(worker.includes('SuppressPrivateControlFrames(), tts, assistant_bridge, transport.output(), assistant_aggregator'));
   assert.ok(worker.includes('allow_interruptions=True'));
   assert.ok(viewer.includes('onStructureSelect?.(structureName(event.object))'));
-  assert.ok(viewer.includes("viewMode === 'isolate'"));
+  assert.ok(viewer.includes("viewMode !== 'isolate'"));
   assert.ok(visual.includes('REFERENCE_KEYS'));
   assert.ok(visual.includes('simulation_snapshot'));
 });
