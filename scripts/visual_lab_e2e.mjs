@@ -30,8 +30,16 @@ try {
     await page.waitForTimeout(12000);
   }
   if(!loaded)throw new Error('Production visual laboratory route could not be reached');
-  await page.locator('canvas').first().waitFor({state:'visible',timeout:70000});
-  await page.waitForFunction(()=>!document.body.innerText.includes('Preparing 3D medical model'),{timeout:70000});
+  try {
+    await page.locator('canvas').first().waitFor({state:'visible',timeout:55000});
+  } catch (failure) {
+    await page.screenshot({path:output+'/diagnostic-no-canvas.png',fullPage:true}).catch(()=>undefined);
+    console.log('DIAGNOSTIC_URL',page.url());
+    console.log('DIAGNOSTIC_PAGE_TEXT',(await page.locator('body').innerText().catch(()=>'' )).slice(0,3000));
+    console.log('DIAGNOSTIC_ERRORS',JSON.stringify(errors.slice(0,8)));
+    throw failure;
+  }
+  await page.locator('[data-testid="model-loading"]').waitFor({state:'hidden',timeout:70000});
   if(await page.getByText('3D model unavailable').count())throw new Error('Actual 3D model failed to render');
   await page.waitForTimeout(1600);
   if(!loadedGlb)throw new Error('No confirmed successful public GLB fetch inside real browser');
@@ -63,7 +71,7 @@ try {
   if(await isolate.getAttribute('aria-pressed')!=='true')throw new Error('Structure isolation failed');
   console.log('PASS_ISOLATION');
   await page.locator('#lab-visual').selectOption('model:https://hixvbcrrklyajhkyliay.supabase.co/storage/v1/object/public/medical-models/hra-v25/heart.glb');
-  await page.waitForFunction(() => !document.querySelector('[data-testid="model-loading"]'), { timeout: 90000 });
+  await page.locator('[data-testid="model-loading"]').waitFor({state:'hidden',timeout:90000});
   if(await page.locator('[data-testid="model-failed"]').count())throw new Error('Real HRA organ failed 3D rendering');
   if(!loadedRealHra)throw new Error('Browser did not fetch the real HRA heart GLB');
   await page.waitForTimeout(1400);
