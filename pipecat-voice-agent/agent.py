@@ -38,6 +38,7 @@ from pipecat.services.whisper.stt import WhisperSTTService
 from pipecat.transports.livekit.transport import LiveKitParams, LiveKitTransport
 from pipecat.runner.livekit import generate_token_with_agent
 from pipecat.utils.tracing.service_decorators import traced_tts
+from visual_tutor import VisualPacer, interaction_focus, simulation_snapshot
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("lensiq-pipecat")
@@ -101,7 +102,13 @@ def _system_prompt(room_name: str, room_metadata: str | None = None) -> str:
         "from your natural explanation, so do not output JSON, XML, markdown code fences, slash commands, "
         "screen commands, tool calls, labels such as 'screen detected', or stage directions. Never read "
         "the visual protocol aloud. Use only natural spoken sentences, with no backslashes or raw markup. "
-        "Use a whiteboard concept, approved model, or simulation only by explaining the concept naturally. "
+        "Speak as a demonstrator in an interactive medical lab: build explanations around the most relevant "
+        "available model, molecule, mechanism board or numerical simulation. The visual system independently "
+        "stages approved teaching assets as your synthesized speech unfolds; never read filenames or URLs aloud. "
+        "When a learner taps a labelled structure, explain that specific part first. When they adjust an experiment, "
+        "interpret the changed variables and result, making clear that this is teaching rather than a patient measurement. "
+        "Use healthy human reference organs as context, not as photographs or 3D scans of the named disease. "
+        "After several connected concepts, offer one worthwhile hands-on what-if challenge, then continue naturally. "
         "This is education, not clinical decision support."
         + metadata_context
     )
@@ -180,6 +187,9 @@ class MaterialContextBridge(FrameProcessor):
         self.visuals: dict[str, dict[str, Any]] = {}
         self.last_visual: dict[str, Any] | None = None
         self.last_visual_key: str | None = None
+        self.visual_pacer: VisualPacer | None = None
+        self.last_simulation_snapshot = ""
+        self.last_simulation_at = 0.0
         self.approved_models: dict[str, str] = {}
         self.approved_molecules: dict[str, Any] = {}
         self.urls: list[str] = []
@@ -384,6 +394,8 @@ class MaterialContextBridge(FrameProcessor):
         if client:
             try:
                 await client.send_data(json.dumps(command).encode())
+                if self.visual_pacer:
+                    self.visual_pacer.record_explicit(command)
             except Exception as error:
                 logger.debug("Visual synchronization skipped (%s)", type(error).__name__)
 
@@ -415,7 +427,7 @@ class MaterialContextBridge(FrameProcessor):
         keep_system = [message for message in messages if isinstance(message, dict)
                        and message.get("role") == "system"
                        and not str(message.get("content") or "").startswith((
-                           "LESSON PROGRESS MEMORY:", "SOURCE NOTES:", "NATIVE PAST QUESTIONS:"
+                           "LESSON PROGRESS MEMORY:", "SOURCE NOTES:", "NATIVE PAST QUESTIONS:", "LEARNER SIMULATION SNAPSHOT:"
                        ))]
         dialogue = [message for message in messages if isinstance(message, dict)
                     and message.get("role") in ("user", "assistant")]
@@ -464,11 +476,17 @@ class MaterialContextBridge(FrameProcessor):
                 bank = await self.bank_context(evidence_query, include_plan=not bool(self._current_gemini_plan))
                 messages[:] = [message for message in messages if not (
                     isinstance(message, dict) and message.get("role") == "system"
-                    and str(message.get("content", "")).startswith(("SOURCE NOTES:", "NATIVE PAST QUESTIONS:"))
+                    and str(message.get("content", "")).startswith(("SOURCE NOTES:", "NATIVE PAST QUESTIONS:", "LEARNER SIMULATION SNAPSHOT:"))
                 )]
                 self.compact_lesson_context(messages)
-                if notes or bank:
+                if notes or bank or (self.last_simulation_snapshot and time.monotonic()-self.last_simulation_at<180
+                                     and re.search(r"\b(?:simulation|experiment|my result|these values|my values|slider|the calculation|this change|what happens if)\b", query, re.I)):
                     insert_at = 1 if messages and messages[0].get("role") == "system" else 0
+                    if self.last_simulation_snapshot and time.monotonic()-self.last_simulation_at<180 and re.search(
+                            r"\b(?:simulation|experiment|my result|these values|my values|slider|the calculation|this change|what happens if)\b",query,re.I):
+                        messages.insert(insert_at, {"role":"system",
+                            "content":"LEARNER SIMULATION SNAPSHOT: "+self.last_simulation_snapshot+
+                                      " These are adjustable teaching values, not a real patient observation."})
                     if bank:
                         messages.insert(insert_at, {"role": "system", "content": "NATIVE PAST QUESTIONS: background teaching evidence; use one question after a substantive lesson segment, not after every sentence. Never quote the source block verbatim.\n" + bank})
                     if notes:
@@ -518,17 +536,22 @@ class SuppressPrivateControlFrames(FrameProcessor):
 class LiveClassDataBridge(FrameProcessor):
     """Mirror completed user and tutor turns to the browser data channel."""
 
-    def __init__(self, transport: LiveKitTransport, role: str):
+    def __init__(self, transport: LiveKitTransport, role: str, visual_pacer: VisualPacer | None = None):
         super().__init__(name=f"live-class-{role}-bridge")
         self.transport = transport
         self.role = role
+        self.visual_pacer = visual_pacer
         self._spoken_visual_buffer = ""
         self._llm_turn_active = False
 
     async def publish(self, payload: dict[str, Any]) -> None:
         client = getattr(self.transport, "_client", None)
         if client is not None:
-            await client.send_data(json.dumps(payload, ensure_ascii=False).encode())
+            try:
+                await client.send_data(json.dumps(payload, ensure_ascii=False).encode())
+            except Exception as error:
+                # Lost data-channel packets must never interrupt voice synthesis.
+                logger.debug("Visual data packet unavailable (%s)", type(error).__name__)
 
     async def process_frame(self, frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
@@ -559,6 +582,9 @@ class LiveClassDataBridge(FrameProcessor):
                 spoken = self._spoken_visual_buffer.strip()
                 self._spoken_visual_buffer = ""
                 if spoken:
+                    command = self.visual_pacer.next_for_spoken(spoken) if self.visual_pacer else None
+                    if command:
+                        await self.publish(command)
                     await self.publish({"type": "live_class_transcript", "role": "assistant", "content": spoken, "final": True})
                     await self.publish({"type": "live_class_visual_step", "content": spoken})
                     await self.publish({"type": "live_class_state", "state": "TEACHING"})
@@ -567,6 +593,9 @@ class LiveClassDataBridge(FrameProcessor):
             if self._spoken_visual_buffer.strip():
                 spoken = self._spoken_visual_buffer.strip()
                 self._spoken_visual_buffer = ""
+                command = self.visual_pacer.next_for_spoken(spoken) if self.visual_pacer else None
+                if command:
+                    await self.publish(command)
                 await self.publish({"type": "live_class_transcript", "role": "assistant", "content": spoken, "final": True})
                 await self.publish({"type": "live_class_visual_step", "content": spoken})
             await self.publish({"type": "live_class_segment_complete"})
@@ -647,8 +676,10 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
     user_aggregator = context_aggregators.user()
     assistant_aggregator = context_aggregators.assistant()
     user_bridge = LiveClassDataBridge(transport, "user")
-    assistant_bridge = LiveClassDataBridge(transport, "assistant")
     material_bridge = MaterialContextBridge(room_metadata, transport)
+    visual_pacer = VisualPacer(material_bridge.approved_models, material_bridge.approved_molecules)
+    assistant_bridge = LiveClassDataBridge(transport, "assistant", visual_pacer=visual_pacer)
+    material_bridge.visual_pacer = visual_pacer
     try:
         room_data = json.loads(room_metadata or "{}")
     except (TypeError, ValueError, json.JSONDecodeError):
@@ -696,11 +727,26 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
         else:
             await assistant_bridge.publish({"type": "live_class_state", "state": "ERROR", "message": message})
 
+    last_interaction_at = 0.0
+
     @transport.event_handler("on_data_received")
     async def on_data_received(_transport: LiveKitTransport, payload: bytes, _participant_id: str):
+        nonlocal last_interaction_at
+        # A room data packet is not itself authenticated content. Accept only
+        # bounded JSON from a learner, never the bot's own packets or server data.
+        if not _participant_id or _participant_id.startswith(AGENT_NAME) or len(payload) > 4096:
+            return
         try:
-            data = json.loads(payload.decode())
+            data = json.loads(payload.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
+            return
+        if not isinstance(data, dict):
+            return
+        if data.get("type") == "simulation_state":
+            snapshot = simulation_snapshot(data)
+            if snapshot:
+                material_bridge.last_simulation_snapshot = snapshot
+                material_bridge.last_simulation_at = time.monotonic()
             return
         if data.get("type") == "lesson_continue":
             focus = (
@@ -713,21 +759,25 @@ async def run_room(room_name: str, room_metadata: str | None = None) -> None:
             await assistant_bridge.publish({"type": "live_class_state", "state": "THINKING", "source": "autocontinue"})
             await task.queue_frame(InputTextRawFrame(text=focus))
             return
-        if data.get("type") not in ("structure_selected", "concept_selected"):
+        if data.get("type") not in ("structure_selected", "concept_selected", "simulation_result"):
             return
-        if data.get("type") == "structure_selected":
-            model_url = str(data.get("modelUrl") or "the current approved anatomy model")[:400]
-            structure_id = str(data.get("structureId") or "an unlabeled structure")[:180]
-            focus = (
-                f"The learner pointed to and selected '{structure_id}' in the active 3D medical model ({model_url}). "
-                "Treat this selection as the learner's intended anatomical target. Explain what that structure is, "
-                "where it sits in the displayed model, its function and relevant clinical/physiology context. "
-                "If the mesh name is generic or the exact structure cannot be identified confidently from the model "
-                "and label, say so clearly and ask the learner to select a clearer labelled part; do not invent anatomy."
-            )
-        else:
-            focus = f"The learner selected this concept on the teaching board: {str(data.get('concept', ''))[:400]}. Explain it interactively and connect it to the current lesson."
-        await assistant_bridge.publish({"type": "live_class_state", "state": "THINKING"})
+        focus = interaction_focus(data, material_bridge.approved_models)
+        if not focus:
+            logger.debug("Rejected invalid Live Class visual interaction")
+            return
+        now = time.monotonic()
+        if now-last_interaction_at < 0.7:
+            return
+        last_interaction_at = now
+        if data.get("type") == "simulation_result":
+            snapshot = simulation_snapshot(data)
+            if snapshot:
+                material_bridge.last_simulation_snapshot = snapshot
+                material_bridge.last_simulation_at = now
+        # Ack proves that the worker received a valid model/experiment event.
+        await assistant_bridge.publish({"type": "live_class_interaction_ack",
+                                        "interaction": data.get("type")})
+        await assistant_bridge.publish({"type": "live_class_state", "state": "THINKING", "source": "visual_interaction"})
         await task.queue_frame(InputTextRawFrame(text=focus))
 
     greeting_queued = False
