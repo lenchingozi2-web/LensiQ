@@ -110,8 +110,18 @@ try {
   const mob=await mobile.newPage();
   await mob.goto(url,{waitUntil:'domcontentloaded',timeout:50000});
   await mob.getByRole('heading',{name:'Hands-on medical learning'}).waitFor();
+  const mobileErrors=[];
+  mob.on('pageerror',e=>mobileErrors.push(e.message));
   await mob.locator('#lab-visual').selectOption('simulation:drug_half_life');
-  await mob.getByText('Drug amount remaining').waitFor();
+  try {
+    await mob.getByText('Drug amount remaining').waitFor({timeout:45000});
+  } catch (failure) {
+    await mob.screenshot({path:output+'/mobile-diagnostic.png',fullPage:true}).catch(()=>undefined);
+    console.log('MOBILE_DIAGNOSTIC_URL',mob.url());
+    console.log('MOBILE_DIAGNOSTIC_TEXT',(await mob.locator('body').innerText().catch(()=>'' )).slice(0,2800));
+    console.log('MOBILE_DIAGNOSTIC_ERRORS',JSON.stringify(mobileErrors));
+    throw failure;
+  }
   const heading=mob.locator('[data-testid="visual-lab-stage"]').getByRole('heading',{name:'Drug elimination lab'});
   const headingBounds=await heading.boundingBox();
   const mobileStage=await mob.locator('[data-testid="visual-lab-stage"]').boundingBox();
@@ -121,6 +131,7 @@ try {
   if((await mob.locator('input[type="range"]').count())<2)throw new Error('Mobile simulation sliders missing');
   console.log('PASS_MOBILE_LAB');
   await mobile.close();
+  if(mobileErrors.length)throw new Error('Mobile runtime exceptions: '+mobileErrors.slice(0,4).join(' | '));
   if(errors.length)throw new Error('Runtime exceptions: '+errors.slice(0,4).join(' | '));
   console.log('ALL_VISUAL_LAB_REAL_BROWSER_TESTS_PASSED');
 }finally{
