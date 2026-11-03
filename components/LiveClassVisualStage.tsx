@@ -5,7 +5,7 @@
 import dynamic from 'next/dynamic';
 import { useRef, useState } from 'react';
 import Whiteboard from '@/components/Whiteboard';
-import PhysiologySimulator from '@/components/PhysiologySimulator';
+import PhysiologySimulator, { type SimulationSnapshot } from '@/components/PhysiologySimulator';
 import type { VisualContext } from '@/lib/voice/live-class-visuals';
 import { getLiveClassModelLabel } from '@/lib/voice/live-class-visuals';
 import { getLiveClassModelCatalogEntry, getLiveClassMoleculeCatalogEntry } from '@/lib/voice/live-class-model-catalog';
@@ -18,6 +18,8 @@ type LiveClassVisualStageProps = {
   selectedStructure?: string;
   onStructureSelect?: (structureId: string) => void;
   onConceptSelect?: (concept: string, index: number) => void;
+  onSimulationState?: (snapshot: SimulationSnapshot) => void;
+  onSimulationResult?: (snapshot: SimulationSnapshot) => void;
 };
 
 function InspectableImage({ src, alt }: { src: string; alt: string }) {
@@ -62,12 +64,12 @@ function InspectableImage({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-export default function LiveClassVisualStage({ visualContext, selectedStructure, onStructureSelect, onConceptSelect }: LiveClassVisualStageProps) {
+export default function LiveClassVisualStage({ visualContext, selectedStructure, onStructureSelect, onConceptSelect, onSimulationState, onSimulationResult }: LiveClassVisualStageProps) {
   const [modelViewMode, setModelViewMode] = useState<'normal' | 'xray' | 'isolate'>('normal');
   if (visualContext.type === 'simulation') {
     return (
       <section className="flex h-full min-h-0 w-full items-start justify-center overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_50%_25%,rgba(35,57,85,.7),#070b13_68%)] px-4 pb-8 pt-6 sm:items-center sm:px-8 sm:py-20" aria-label="Interactive physiology simulation">
-        <PhysiologySimulator preset={visualContext.preset} title={visualContext.title} onConceptSelect={onConceptSelect} />
+        <PhysiologySimulator preset={visualContext.preset} title={visualContext.title} onConceptSelect={onConceptSelect} onSimulationState={onSimulationState} onSimulationResult={onSimulationResult} />
       </section>
     );
   }
