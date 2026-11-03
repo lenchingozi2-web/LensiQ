@@ -1,0 +1,70 @@
+name: Inspect Live Class model storage safely
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/live-class-storage-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    name: Read-only model bucket and free-space inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Confirm target and read inventory without modifications
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request, urllib.parse
+          base=os.environ.get('SUPABASE_URL','').rstrip('/')
+          key=os.environ.get('SUPABASE_SERVICE_ROLE_KEY','')
+          expected='https://hixvbcrrklyajhkyliay.supabase.co'
+          if base != expected or not key:
+              raise SystemExit('Expected Study Hub Supabase service credentials unavailable; no writes')
+          def request(path, body=None):
+              data=json.dumps(body).encode() if body is not None else None
+              q=urllib.request.Request(base+path,data=data,method='POST' if body is not None else 'GET',headers={'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'})
+              with urllib.request.urlopen(q, timeout=30) as r:
+                  return json.load(r)
+          buckets=request('/storage/v1/bucket')
+          if not isinstance(buckets,list) or not any(b.get('name')=='medical-models' for b in buckets):
+              raise SystemExit('medical-models bucket missing; no changes')
+          total=0
+          for b in buckets:
+              name=b['name']
+              seen=set(); files=0; size=0
+              def walk(prefix):
+                  nonlocal_placeholder=None
+                  global total
+                  nonlocal files,size
+                  if prefix in seen:return
+                  seen.add(prefix)
+                  offset=0
+                  while True:
+                      listing=request('/storage/v1/object/list/'+urllib.parse.quote(name,safe=''),{'prefix':prefix,'limit':1000,'offset':offset,'sortBy':{'column':'name','order':'asc'}})
+                      for obj in listing:
+                          child=(prefix.rstrip('/')+'/'+str(obj.get('name',''))).strip('/')
+                          if obj.get('id') is None and not obj.get('metadata'): walk(child+'/')
+                          else:
+                              files+=1
+                              size+=int((obj.get('metadata') or {}).get('size') or 0)
+                      if len(listing)<1000: break
+                      offset+=len(listing)
+              walk('')
+              total+=size
+              print(f"{name}: {files} files; {size:,} bytes")
+          print(f"TOTAL PROJECT STORAGE: {total:,} bytes")
+          print(f"Available beneath conservative 500,000,000-byte cap: {500000000-total:,} bytes")
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+              out.write(f"### Study Hub storage (read only)\nTotal bytes: {total:,}\n\nAvailable under 500 MB safety limit: {max(0,500000000-total):,}\n")
+          PY
