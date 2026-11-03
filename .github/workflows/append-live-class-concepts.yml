@@ -1,0 +1,73 @@
+name: Append-only Live Class concept models
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/append-live-class-concepts.yml'
+      - 'scripts/generate_live_class_concept_pack.py'
+      - 'scripts/upload_live_class_concept_pack.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: lenxiq-concept-model-upload
+  cancel-in-progress: false
+
+jobs:
+  models:
+    name: Validate and insert 19 small medical concept models
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 12
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python compilation and strict source verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/generate_live_class_concept_pack.py scripts/upload_live_class_concept_pack.py scripts/supabase_storage_preflight.py
+      - name: Build and validate original 3D model geometry offline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/generate_live_class_concept_pack.py --output-dir "$RUNNER_TEMP/lenxiq-concepts"
+          python3 - "$RUNNER_TEMP/lenxiq-concepts" <<'PY'
+          import json, pathlib, struct, sys
+          root=pathlib.Path(sys.argv[1])
+          manifest=json.loads((root/'manifest-concepts-v1.json').read_text())
+          assert len(manifest['assets'])==19
+          for asset in manifest['assets']:
+              content=(root/asset['path']).read_bytes()
+              header=struct.unpack('<4sII',content[:12])
+              assert header==(b'glTF',2,len(content))
+              size,chunk=struct.unpack('<I4s',content[12:20])
+              assert chunk==b'JSON'
+              obj=json.loads(content[20:20+size])
+              assert len(obj['meshes'])==asset['objects'] and len(obj['nodes'])==asset['objects']
+              assert all(m.get('primitives') for m in obj['meshes'])
+          print('Verified all 19 named, selectable GLB scene graphs offline.')
+          PY
+      - name: Check total project storage and insert only new assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/upload_live_class_concept_pack.py --asset-dir "$RUNNER_TEMP/lenxiq-concepts"
+      - name: Report verified model additions
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" -f state=success -f context=lenxiq/live-class-concept-models -f description="19 original selectable 3D models inserted and verified" -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+      - name: Report blocked or failed model additions
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" -f state=failure -f context=lenxiq/live-class-concept-models -f description="Model pack not fully verified; no existing bucket files changed" -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
