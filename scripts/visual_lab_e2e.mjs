@@ -77,6 +77,18 @@ try {
   await page.waitForTimeout(1400);
   await page.screenshot({path:output+'/desktop-real-hra-heart.png',fullPage:true});
   console.log('PASS_HRA_HEART_REAL_WEBGL');
+  const heartCanvas=page.locator('canvas').first();
+  const heartBounds=await heartCanvas.boundingBox();
+  if(!heartBounds)throw new Error('HRA heart canvas missing after rendering');
+  let heartPicked='';
+  for(const [x,y] of [[.50,.55],[.55,.5],[.48,.48],[.6,.55],[.45,.6],[.52,.42]]){
+    await page.mouse.click(heartBounds.x+heartBounds.width*x,heartBounds.y+heartBounds.height*y);
+    await page.waitForTimeout(240);
+    heartPicked=(await page.locator('[data-testid="selected-structure"]').innerText()).trim();
+    if(heartPicked && !heartPicked.includes('Tap a part of the 3D model'))break;
+  }
+  if(!heartPicked || heartPicked.includes('Tap a part of the 3D model'))throw new Error('Real HRA heart structure was not selectable');
+  console.log('PASS_HRA_ANATOMICAL_STRUCTURE_SELECTION',heartPicked);
   await page.locator('#lab-visual').selectOption('simulation:acid_base_balance');
   await page.getByText('Calculated arterial pH').waitFor({timeout:20000});
   const range=page.getByRole('slider',{name:'Plasma bicarbonate'});
@@ -95,6 +107,11 @@ try {
   await mob.getByRole('heading',{name:'Hands-on medical learning'}).waitFor();
   await mob.locator('#lab-visual').selectOption('simulation:drug_half_life');
   await mob.getByText('Drug amount remaining').waitFor();
+  const heading=mob.locator('[data-testid="visual-lab-stage"]').getByRole('heading',{name:'Drug elimination lab'});
+  const headingBounds=await heading.boundingBox();
+  const mobileStage=await mob.locator('[data-testid="visual-lab-stage"]').boundingBox();
+  if(!headingBounds || !mobileStage || headingBounds.y<mobileStage.y-5)
+    throw new Error('Mobile simulator heading is clipped above the stage scroll container');
   await mob.screenshot({path:output+'/mobile-half-life.png',fullPage:true});
   if((await mob.locator('input[type="range"]').count())<2)throw new Error('Mobile simulation sliders missing');
   console.log('PASS_MOBILE_LAB');
