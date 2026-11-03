@@ -338,7 +338,7 @@ def main():
         if size>600_000:raise SystemExit("Schematic too large: "+path)
         manifest["assets"].append({"path":path,"objects":num,"bytes":size,"sha256":digest,
                                    "source":"Original LenxiQ diagrammatic teaching geometry",
-                                   "license":"CC BY 4.0","clinical_fidelity":"schematic; not a diagnostic specimen"})
+                                   "license":"Original LenxiQ teaching asset; reuse subject to LenxiQ terms","clinical_fidelity":"schematic; not a diagnostic specimen"})
         print(path, num, size)
     total=sum(x["bytes"] for x in manifest["assets"])
     if total>8_000_000:raise SystemExit("Over the pack's 8 MB limit")
