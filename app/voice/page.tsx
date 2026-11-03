@@ -1009,7 +1009,7 @@ function VoiceTutorContent() {
             else pendingHighlightRef.current = { structureId: data.structureId, color: data.color };
             return;
           }
-          if (data.type === 'show_physiology_simulation' && data.preset && ['cardiac_output', 'mean_arterial_pressure', 'alveolar_ventilation'].includes(data.preset)) {
+          if (data.type === 'show_physiology_simulation' && data.preset && ['cardiac_output', 'mean_arterial_pressure', 'alveolar_ventilation', 'acid_base_balance', 'anion_gap', 'drug_half_life', 'competitive_antagonism', 'oxygen_content', 'renal_clearance'].includes(data.preset)) {
             explicitVisualThisTurnRef.current = true;
             pendingHighlightRef.current = null;
             setSelectedStructure('');
