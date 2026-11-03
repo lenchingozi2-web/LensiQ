@@ -42,11 +42,8 @@ jobs:
           total=0
           for b in buckets:
               name=b['name']
-              seen=set(); files=0; size=0
+              seen=set(); counter={'files':0,'size':0}
               def walk(prefix):
-                  nonlocal_placeholder=None
-                  global total
-                  nonlocal files,size
                   if prefix in seen:return
                   seen.add(prefix)
                   offset=0
@@ -56,13 +53,13 @@ jobs:
                           child=(prefix.rstrip('/')+'/'+str(obj.get('name',''))).strip('/')
                           if obj.get('id') is None and not obj.get('metadata'): walk(child+'/')
                           else:
-                              files+=1
-                              size+=int((obj.get('metadata') or {}).get('size') or 0)
+                              counter['files']+=1
+                              counter['size']+=int((obj.get('metadata') or {}).get('size') or 0)
                       if len(listing)<1000: break
                       offset+=len(listing)
               walk('')
-              total+=size
-              print(f"{name}: {files} files; {size:,} bytes")
+              total+=counter['size']
+              print(f"{name}: {counter['files']} files; {counter['size']:,} bytes")
           print(f"TOTAL PROJECT STORAGE: {total:,} bytes")
           print(f"Available beneath conservative 500,000,000-byte cap: {500000000-total:,} bytes")
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
