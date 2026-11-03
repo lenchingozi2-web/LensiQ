@@ -45,7 +45,10 @@ def verify_real_room():
         },separators=(",",":"))
         backend=api.LiveKitAPI(url=server_url,api_key=key,api_secret=secret)
         room=rtc.Room()
-        events={"agent":asyncio.Event(),"audio":asyncio.Event(),"ack":asyncio.Event()}
+        events={"agent":asyncio.Event(),"audio":asyncio.Event(),"ack":asyncio.Event(),
+                "audible_pcm":asyncio.Event()}
+        streams=[]
+        stream_tasks=[]
         transcript_count=0
         ack_type=None
 
@@ -55,11 +58,27 @@ def verify_real_room():
                 events["agent"].set()
                 print("PASS_REAL_MODAL_TUTOR_JOIN")
 
+        async def inspect_audio(stream):
+            import numpy as np
+            try:
+                async for event in stream:
+                    # Validate genuine decoded speech audio, not just a track.
+                    samples=np.frombuffer(event.frame.data,dtype=np.int16)
+                    if samples.size and np.max(np.abs(samples.astype(np.int32)[::max(1,samples.size//500)]))>100:
+                        events["audible_pcm"].set()
+                        print("PASS_ACTUAL_NONSILENT_TUTOR_PCM")
+                        return
+            except Exception as exc:
+                print("AUDIO_MONITOR_STATUS",type(exc).__name__)
+
         @room.on("track_subscribed")
         def on_track(track,pub,participant):
             if participant.identity.startswith("lensiq-voice-tutor") and track.kind==rtc.TrackKind.KIND_AUDIO:
                 events["audio"].set()
                 print("PASS_REAL_TUTOR_AUDIO_TRACK_SUBSCRIBED")
+                stream=rtc.AudioStream.from_track(track)
+                streams.append(stream)
+                stream_tasks.append(asyncio.create_task(inspect_audio(stream)))
 
         @room.on("data_received")
         def on_data(packet):
@@ -108,9 +127,15 @@ def verify_real_room():
             except TimeoutError:
                 # Do not claim audio was verified if no track subscribed.
                 raise RuntimeError("Tutor joined and validated the click but did not publish an audio track")
-            print("REAL_ROOM_E2E_OK: modal room joined, 3D selection acknowledged, audio track subscribed")
+            await asyncio.wait_for(events["audible_pcm"].wait(),timeout=55)
+            print("REAL_ROOM_E2E_OK: modal room joined, 3D selection acknowledged, audible PCM confirmed")
             print("TRANSCRIPT_PACKET_COUNT",transcript_count)
         finally:
+            for stream in streams:
+                try: await stream.aclose()
+                except Exception: pass
+            for pending in stream_tasks:
+                pending.cancel()
             try: await room.disconnect()
             except Exception: pass
             try: await backend.room.delete_room(api.DeleteRoomRequest(room=room_name))
