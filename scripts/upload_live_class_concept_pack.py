@@ -61,7 +61,9 @@ def main():
 
     if len(planned) != EXPECTED_MODELS:
         raise SystemExit("Duplicate model path in manifest")
-    planned[PREFIX + "manifest.json"] = (manifest_path, manifest_path.stat().st_size, "application/json")
+    # Never replace the original manifest; retain an immutable versioned provenance record.
+    manifest_digest = hashlib.sha256(manifest_path.read_bytes()).hexdigest()[:12]
+    planned[PREFIX + "manifest-" + manifest_digest + ".json"] = (manifest_path, manifest_path.stat().st_size, "application/json")
     if sum(entry[1] for entry in planned.values()) > PACK_CEILING_BYTES:
         raise SystemExit("Pack exceeds 8 MB budget")
 
