@@ -14,6 +14,7 @@ const MODEL_OPTIONS = [
   LIVE_CLASS_MODEL_ASSETS.receptorOccupancy,
   LIVE_CLASS_MODEL_ASSETS.glomerularInflammation,
   LIVE_CLASS_MODEL_ASSETS.invasiveCarcinoma,
+  ...Object.values(LIVE_CLASS_MODEL_ASSETS).filter(url => url.includes('/hra-v25/')),
 ] as const;
 const SIMULATIONS: Array<{preset:PhysiologyPreset;label:string}> = [
   { preset: 'acid_base_balance', label: 'Acid–base lab' },
