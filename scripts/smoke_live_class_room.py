@@ -76,7 +76,7 @@ def verify_real_room():
             if participant.identity.startswith("lensiq-voice-tutor") and track.kind==rtc.TrackKind.KIND_AUDIO:
                 events["audio"].set()
                 print("PASS_REAL_TUTOR_AUDIO_TRACK_SUBSCRIBED")
-                stream=rtc.AudioStream.from_track(track)
+                stream=rtc.AudioStream.from_track(track=track)
                 streams.append(stream)
                 stream_tasks.append(asyncio.create_task(inspect_audio(stream)))
 
