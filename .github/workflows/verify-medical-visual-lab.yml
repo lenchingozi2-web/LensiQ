@@ -1,0 +1,46 @@
+name: Verify actual deployed Live Class graphics and simulations
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-medical-visual-lab.yml'
+      - 'scripts/visual_lab_e2e.mjs'
+      - 'app/visual-lab/page.tsx'
+  workflow_dispatch:
+permissions:
+  contents: read
+  statuses: write
+jobs:
+  chromium:
+    name: Real desktop and Android-size WebGL interaction test
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Playwright and Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/visual-e2e"
+          npm install --prefix "$RUNNER_TEMP/visual-e2e" --no-audit --no-fund playwright@1.57.0
+          "$RUNNER_TEMP/visual-e2e/node_modules/.bin/playwright" install --with-deps chromium
+          cp scripts/visual_lab_e2e.mjs "$RUNNER_TEMP/visual-e2e/test.mjs"
+      - name: Load deployed Supabase GLBs in real Chromium and test actions
+        env:
+          SCREENSHOT_DIR: ${{ runner.temp }}/visual-evidence
+        run: node "$RUNNER_TEMP/visual-e2e/test.mjs"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lensiq-actual-browser-visual-proof
+          path: ${{ runner.temp }}/visual-evidence/*.png
+          if-no-files-found: ignore
+          retention-days: 7
+      - if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" -f state=success -f context=lenxiq/real-webgl-test -f description="Production GLB, mouse select, x-ray, isolation, mobile and slider passed" -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+      - if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" -f state=failure -f context=lenxiq/real-webgl-test -f description="Real browser interaction test failed; check screenshots and logs" -f target_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
