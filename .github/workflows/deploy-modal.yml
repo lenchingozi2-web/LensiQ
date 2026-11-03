@@ -44,6 +44,9 @@ jobs:
       - name: Check Python worker syntax
         run: python -m py_compile pipecat-voice-agent/agent.py pipecat-voice-agent/agent_modal.py
 
+      - name: Test clinical visual selection, model safety and numerical interaction
+        run: python -m unittest discover -s pipecat-voice-agent -p 'test_visual_tutor.py' -v
+
       - name: Install Modal CLI
         run: python -m pip install 'modal>=1.0,<2'
 
