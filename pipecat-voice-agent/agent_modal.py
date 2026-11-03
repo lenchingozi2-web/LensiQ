@@ -41,6 +41,7 @@ voice_image = (
         "livekit-api>=1.0.0,<2",
     )
     .add_local_file(HERE / "agent.py", "/root/lenxiq-agent.py")
+    .add_local_file(HERE / "visual_tutor.py", "/root/visual_tutor.py")
 )
 
 app = modal.App(APP_NAME)
