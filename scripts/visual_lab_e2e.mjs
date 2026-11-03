@@ -98,8 +98,12 @@ try {
   if(Number(changed)<=24)throw new Error('Clinical slider did not respond to input');
   await page.getByRole('button',{name:'Ask tutor to explain my result'}).click();
   const observation=await page.locator('[data-testid="simulator-observation"]').innerText();
-  if(!observation.includes('Calculated arterial pH'))throw new Error('Simulator did not emit structured tutor context');
-  console.log('PASS_SIMULATION_TUTOR_FEEDBACK',changed);
+  if(!observation.startsWith('Ask tutor: ') || !observation.includes('"preset":"acid_base_balance"') || !observation.includes('"result":'))
+    throw new Error('Simulator did not emit typed numerical tutor feedback');
+  const packet=JSON.parse(observation.slice('Ask tutor: '.length));
+  if(!packet.variables || packet.variables.bicarbonate!==Number(changed) || packet.preset!=='acid_base_balance' || !Number.isFinite(packet.result))
+    throw new Error('Simulation feedback lost selected values or computed result');
+  console.log('PASS_TYPED_SIMULATION_TUTOR_FEEDBACK',changed,packet.result);
   await page.screenshot({path:output+'/desktop-acid-base.png',fullPage:true});
   const mobile=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true});
   const mob=await mobile.newPage();
