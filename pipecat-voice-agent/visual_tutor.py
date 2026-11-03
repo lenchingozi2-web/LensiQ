@@ -130,13 +130,17 @@ class VisualPacer:
         self.steps_since_switch+=1
         cmd=select_visual(utterance,self.models,self.molecules)
         if cmd is None: return None
-        key=json.dumps(cmd,sort_keys=True)
+        key=self._identity(cmd)
         if key==self.last_visual_key or self.steps_since_switch<2: return None
         self.last_visual_key=key
         self.steps_since_switch=0
         return cmd
+    @staticmethod
+    def _identity(cmd: dict[str,Any]) -> str:
+        # A differing narration note must not reload the same GLB.
+        return "|".join(str(cmd.get(k,"")) for k in ("type","modelUrl","preset"))
     def record_explicit(self, cmd: dict[str,Any]) -> None:
-        self.last_visual_key=json.dumps(cmd,sort_keys=True)
+        self.last_visual_key=self._identity(cmd)
         self.steps_since_switch=0
 
 def clean_label(value: Any, limit: int=130) -> str:
