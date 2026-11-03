@@ -30,6 +30,7 @@ export default function VisualLabPage() {
   const [choice, setChoice] = useState('model:'+MODEL_OPTIONS[0]);
   const [structure, setStructure] = useState('');
   const [experiment, setExperiment] = useState('');
+  const [labState, setLabState] = useState('');
   const visualContext: VisualContext = choice.startsWith('simulation:')
     ? { type: 'simulation', preset: choice.slice('simulation:'.length) as PhysiologyPreset,
         title: SIMULATIONS.find(x => choice.endsWith(x.preset))?.label || 'Interactive laboratory' }
@@ -49,7 +50,7 @@ export default function VisualLabPage() {
         <label htmlFor="lab-visual" className="text-xs font-semibold text-white/70">Select an experiment</label>
         <select id="lab-visual" aria-label="Medical model or clinical simulation"
           value={choice}
-          onChange={e => { setChoice(e.target.value); setStructure(''); setExperiment(''); }}
+          onChange={e => { setChoice(e.target.value); setStructure(''); setExperiment(''); setLabState(''); }}
           className="min-w-[min(92vw,28rem)] max-w-full rounded-lg border border-white/20 bg-[#17273c] p-2.5 text-xs font-semibold text-white">
           <optgroup label="Manipulatable 3D medical models">
             {MODEL_OPTIONS.map(url => <option key={url} value={'model:'+url}>{getLiveClassModelLabel(url)}</option>)}
@@ -65,13 +66,13 @@ export default function VisualLabPage() {
           selectedStructure={structure}
           onStructureSelect={name => setStructure(name)}
           onConceptSelect={text => setExperiment(text)}
-          onSimulationState={snapshot => setExperiment('Lab state: ' + JSON.stringify(snapshot))}
+          onSimulationState={snapshot => setLabState('Lab state: ' + JSON.stringify(snapshot))}
           onSimulationResult={snapshot => setExperiment('Ask tutor: ' + JSON.stringify(snapshot))} />
       </div>
       <div className="relative z-30 flex flex-wrap items-center gap-4 border-t border-white/10 bg-[#101827] px-4 py-3 text-xs sm:px-8">
         <p className="min-w-0"><span className="text-white/50">Active:</span> <span className="font-semibold">{label}</span></p>
         {visualContext.type === 'model' && <p data-testid="selected-structure"><span className="text-white/50">Selected structure:</span> <span className="font-semibold text-[#ffd080]">{structure || 'Tap a part of the 3D model'}</span></p>}
-        {experiment && <p data-testid="simulator-observation" className="max-w-full truncate text-[#ffd080]">{experiment}</p>}
+        {(experiment || labState) && <p data-testid="simulator-observation" className="max-w-full truncate text-[#ffd080]">{experiment || labState}</p>}
       </div>
       <p className="px-4 pb-5 pt-2 text-[11px] text-white/50 sm:px-8">
         Models and clinical calculations are for teaching. This visual preview uses the same rendering components as Live Class; voice tutor interaction is available inside a signed-in Live Class session.
