@@ -10,6 +10,7 @@ type ModelProps = {
   onStructureSelect?: (meshName: string) => void;
   highlightStructure?: string;
   highlightColor?: string;
+  viewMode?: 'normal' | 'xray' | 'isolate';
 };
 
 type AnatomyModelErrorBoundaryProps = {
@@ -49,7 +50,7 @@ class AnatomyModelErrorBoundary extends Component<AnatomyModelErrorBoundaryProps
   }
 }
 
-function Model({ url, onStructureSelect, highlightStructure, highlightColor }: ModelProps) {
+function Model({ url, onStructureSelect, highlightStructure, highlightColor, viewMode = 'normal' }: ModelProps) {
   const { scene: sourceScene } = useGLTF(url);
   const scene = useMemo(() => {
     const clonedScene = sourceScene.clone(true);
@@ -87,6 +88,47 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor }: M
 
     return normalizedScene;
   }, [sourceScene]);
+  // A parent with an ontology label is preferred to generic mesh IDs.
+  const structureName = (node: THREE.Object3D) => {
+    let current: THREE.Object3D | null = node;
+    while (current && current !== scene) {
+      const candidate = current.name?.trim();
+      if (candidate && !/^(?:mesh[_ .-]*\\d+|node[_ .-]*\\d+|scene|object[_ .-]*\\d+|liveclassmedicalmodel)$/i.test(candidate)) {
+        return candidate;
+      }
+      current = current.parent;
+    }
+    return node.name || 'Unlabelled model part';
+  };
+  const materialState = useMemo(() => {
+    const baseline = new Map<THREE.Material, { opacity: number; transparent: boolean; depthWrite: boolean }>();
+    scene.traverse(child => {
+      if (!(child instanceof THREE.Mesh)) return;
+      for (const material of Array.isArray(child.material) ? child.material : [child.material]) {
+        baseline.set(material, { opacity: material.opacity, transparent: material.transparent, depthWrite: material.depthWrite });
+      }
+    });
+    return baseline;
+  }, [scene]);
+
+  useEffect(() => {
+    const target = highlightStructure?.trim().toLowerCase();
+    scene.traverse(child => {
+      if (!(child instanceof THREE.Mesh)) return;
+      const label = structureName(child).toLowerCase();
+      const selected = Boolean(target && (label === target || label.includes(target) || child.name.toLowerCase().includes(target)));
+      child.visible = viewMode !== 'isolate' || !target || selected;
+      for (const material of Array.isArray(child.material) ? child.material : [child.material]) {
+        const baseline = materialState.get(material);
+        if (!baseline) continue;
+        material.transparent = viewMode === 'xray' || baseline.transparent;
+        material.opacity = viewMode === 'xray' ? Math.min(baseline.opacity, selected ? 0.95 : 0.28) : baseline.opacity;
+        material.depthWrite = viewMode === 'xray' ? false : baseline.depthWrite;
+        material.needsUpdate = true;
+      }
+    });
+  }, [scene, viewMode, highlightStructure, materialState]);
+
   const originalEmissive = useMemo(() => {
     const baseline = new Map<THREE.Material, { color: THREE.Color; intensity: number }>();
     scene.traverse((child) => {
@@ -105,7 +147,8 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor }: M
     const target = highlightStructure?.trim().toLowerCase();
     scene.traverse((child) => {
       if (!(child instanceof THREE.Mesh)) return;
-      const matches = Boolean(target && child.name.toLowerCase().includes(target));
+      const label = structureName(child).toLowerCase();
+      const matches = Boolean(target && (label === target || label.includes(target) || child.name.toLowerCase().includes(target)));
       const materials = Array.isArray(child.material) ? child.material : [child.material];
       materials.forEach((material) => {
         if (!(material instanceof THREE.MeshStandardMaterial)) return;
@@ -130,7 +173,7 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor }: M
       object={scene}
       onClick={(event: { stopPropagation: () => void; object: THREE.Object3D }) => {
         event.stopPropagation();
-        onStructureSelect?.(event.object.name || 'Unnamed structure');
+        onStructureSelect?.(structureName(event.object));
       }}
     />
   );
@@ -141,9 +184,10 @@ export type AnatomyViewerProps = {
   onStructureSelect?: (meshName: string) => void;
   highlightStructure?: string;
   highlightColor?: string;
+  viewMode?: 'normal' | 'xray' | 'isolate';
 };
 
-export default function AnatomyViewer({ modelUrl, onStructureSelect, highlightStructure, highlightColor }: AnatomyViewerProps) {
+export default function AnatomyViewer({ modelUrl, onStructureSelect, highlightStructure, highlightColor, viewMode = 'normal' }: AnatomyViewerProps) {
   useGLTF.preload(modelUrl);
 
   return (
@@ -153,7 +197,7 @@ export default function AnatomyViewer({ modelUrl, onStructureSelect, highlightSt
         <AnatomyModelErrorBoundary key={modelUrl} modelUrl={modelUrl}>
           <Suspense fallback={<Html center><div className="rounded-full border border-white/10 bg-[#101827]/90 px-4 py-2 text-xs font-bold text-white/75 shadow-xl backdrop-blur-xl">Preparing 3D medical model…</div></Html>}>
             <Stage adjustCamera={1.2} environment="studio" intensity={0.8}>
-              <Model url={modelUrl} onStructureSelect={onStructureSelect} highlightStructure={highlightStructure} highlightColor={highlightColor} />
+              <Model url={modelUrl} onStructureSelect={onStructureSelect} highlightStructure={highlightStructure} highlightColor={highlightColor} viewMode={viewMode} />
             </Stage>
           </Suspense>
         </AnatomyModelErrorBoundary>
