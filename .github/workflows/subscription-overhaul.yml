@@ -1,0 +1,30 @@
+name: Study hub subscription overhaul
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/subscription-overhaul.yml', 'supabase/sql/four_tier_access.sql']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: lenxiq-medical-db-write
+  cancel-in-progress: false
+jobs:
+  subscriptions:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: hixvbcrrklyajhkyliay
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect medical access schema
+        run: |
+          python3 - <<'PY'
+          import os,json,urllib.request
+          query="select exists(select 1 from information_schema.tables where table_schema='public' and table_name='questions') and exists(select 1 from information_schema.tables where table_schema='public' and table_name='profiles') as medical_schema_verified;"
+          req=urllib.request.Request('https://api.supabase.com/v1/projects/'+os.environ['PROJECT_REF']+'/database/query/read-only',data=json.dumps({'query':query,'read_only':True}).encode(),headers={'Authorization':'Bearer '+os.environ['SUPABASE_ACCESS_TOKEN'],'Content-Type':'application/json'})
+          with urllib.request.urlopen(req) as r: result=json.load(r)
+          if not result or not result[0].get('medical_schema_verified'): raise SystemExit('Medical schema verification failed')
+          print('Medical questions and subscription profile tables verified in intended project.')
+          PY
