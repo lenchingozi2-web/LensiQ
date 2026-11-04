@@ -47,17 +47,9 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: 'ai_runtime_unavailable', message: 'Live Class is temporarily unavailable. Please try again later.' }, { status: 503 });
 
-  // The browser must join the same LiveKit Cloud deployment that the Modal
-  // worker polls. Never fall back to an old NEXT_PUBLIC_* Codespaces URL in
-  // production; a missing Cloud URL must produce a clear configuration error.
+  // Both real-time media and the Pipecat tutor are hosted on LiveKit Cloud.
+  // One authenticated session reserves a room before explicit agent dispatch.
   const rawLivekitUrl = process.env.LIVEKIT_PUBLIC_URL || process.env.LIVEKIT_URL;
-  // LIVEKIT_INTERNAL_URL is only for a Next.js server sharing a host with a
-  // self-hosted LiveKit container. Vercel cannot reach Codespaces/localhost;
-  // using that legacy value in production makes token generation fail even
-  // when the public LiveKit Cloud URL and credentials are correct.
-  const internalLivekitUrl = process.env.VERCEL
-    ? undefined
-    : process.env.LIVEKIT_INTERNAL_URL?.trim();
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
 
@@ -68,7 +60,6 @@ export async function POST(req: Request) {
   const rawLivekitUrls = Array.from(new Set([
     rawLivekitUrl,
     process.env.LIVEKIT_URL,
-    process.env.LIVEKIT_SELF_HOSTED_URL,
   ].filter((value): value is string => Boolean(value?.trim()))));
   const livekitUrls: string[] = [];
   for (const candidate of rawLivekitUrls) {
@@ -187,7 +178,6 @@ export async function POST(req: Request) {
   const sessionExpiresAt = typeof quota.expires_at === 'string' && Number.isFinite(Date.parse(quota.expires_at))
     ? quota.expires_at
     : new Date(Date.now() + maxDurationSeconds * 1000).toISOString();
-  const internalHost = internalLivekitUrl?.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:').replace(/\/$/, '');
   // Validate the exact Cloud project/key pairing before minting a browser
   // token. A token can be signed locally with any key, but the browser then
   // fails later with the unhelpful generic "voice server" message when the
@@ -197,7 +187,7 @@ export async function POST(req: Request) {
   let lastLivekitError: unknown = null;
   const handshakeDiagnostics: Array<{ host: string; status?: number; code?: string; message?: string }> = [];
   for (const candidateUrl of livekitUrls) {
-    const candidateHost = internalHost || candidateUrl.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:').replace(/\/$/, '');
+    const candidateHost = candidateUrl.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:').replace(/\/$/, '');
     try {
       const roomService = new RoomServiceClient(candidateHost, apiKey, apiSecret);
       await roomService.listRooms();
@@ -220,7 +210,7 @@ export async function POST(req: Request) {
     await releaseFailedStart();
     return NextResponse.json({
       error: 'livekit_credentials_rejected',
-      message: 'The configured LiveKit API credentials were rejected by every configured LiveKit project. Update Vercel and Modal to use the same LiveKit Cloud credentials.',
+      message: 'The configured LiveKit API credentials were rejected by every configured LiveKit project. Verify the LiveKit Cloud credentials configured in Vercel.',
       diagnostics: handshakeDiagnostics,
     }, { status: 503 });
   }
@@ -258,35 +248,20 @@ export async function POST(req: Request) {
     },
   });
   
-  // In room-poll mode the Modal poller launches from LiveKit room metadata;
-  // dispatch metadata is not delivered to it. Create the room explicitly so
-  // the worker receives the authenticated user ID and lesson context.
-  if (process.env.LIVEKIT_DISPATCH_MODE === 'room-poll') {
-    try {
-      const roomService = new RoomServiceClient(dispatchHost, apiKey, apiSecret);
-      await roomService.createRoom({ name: roomName, metadata: dispatchMetadata });
-    } catch (roomError) {
-      console.error('Live Class room metadata initialization failed:', roomError);
-      await releaseFailedStart();
-      return NextResponse.json({
-        error: 'livekit_room_setup_failed',
-        message: 'The Live Class room could not be prepared. Please try again.',
-      }, { status: 503 });
-    }
+  // Explicit dispatch starts only for an authorized, reserved Live Class.
+  try {
+    const dispatchClient = new AgentDispatchClient(dispatchHost, apiKey, apiSecret);
+    const agentName = process.env.LIVEKIT_AGENT_NAME?.trim() || 'lensiq-voice-tutor';
+    await dispatchClient.createDispatch(roomName, agentName, { metadata: dispatchMetadata });
+  } catch (dispatchError) {
+    console.error('LiveKit Cloud tutor dispatch failed:', dispatchError);
+    await releaseFailedStart();
+    return NextResponse.json({
+      error: 'livekit_tutor_dispatch_failed',
+      message: 'The Live Class tutor could not be dispatched. Please try again.',
+    }, { status: 503 });
   }
 
-  if (process.env.LIVEKIT_DISPATCH_MODE !== 'room-poll') {
-    try {
-      const dispatchClient = new AgentDispatchClient(dispatchHost, apiKey, apiSecret);
-      const agentName = process.env.LIVEKIT_AGENT_NAME?.trim() || 'lensiq-voice-tutor';
-      await dispatchClient.createDispatch(roomName, agentName, { metadata: dispatchMetadata });
-    } catch (dispatchError) {
-      console.error('Live Class agent dispatch failed:', dispatchError);
-      await releaseFailedStart();
-      return NextResponse.json({ error: 'The Live Class tutor could not be dispatched. Please try again.' }, { status: 503 });
-    }
-  }
-  
   const token = new AccessToken(apiKey, apiSecret, {
     identity: user.id,
     name: user.email ?? 'LenxiQ AI learner',
