@@ -142,3 +142,21 @@ test('Groq Mouth remains primary, Gemini remains the lesson brain and quota fall
   assert.match(token, /voiceGatewayToken/);
   assert.doesNotMatch(browser, /GROQ_API_KEY|GEMINI_API_KEY/);
 });
+
+test('six lecture files keep source-map slots and extracted text never silently loses final pages', async () => {
+  const setup = await read('components/PreClassSetup.tsx');
+  const token = await read('app/api/voice/token/route.ts');
+  const extractor = await read('lib/curriculum/extract-text.ts');
+  const mapping = await read('lib/ai/live-class-material-map.ts');
+  const materials = await read('app/api/voice/materials/route.ts');
+
+  assert.match(setup, /const keys = Array\.from\(uploadedUrlsRef\.current\.keys\(\)\)/);
+  assert.match(setup, /uploadedMapUrlsRef\.current\.get\(key\) \?\? ''/);
+  assert.match(token, /Array\.from\(\{ length: materialUrls\.length \}/);
+  assert.match(token, /return safeUrl\(candidate\) \? candidate : ''/);
+  assert.match(extractor, /MAX_EXTRACTED_CHARACTERS = 8_000_000/);
+  assert.match(extractor, /throw new Error\('Lecture text exceeds/);
+  assert.doesNotMatch(extractor, /\.trim\(\)\.slice\(0, MAX_EXTRACTED_CHARACTERS\)/);
+  assert.match(mapping, /content,visual:visualFor\(title,content\)/);
+  assert.match(materials, /parseError\.message\.startsWith\('Lecture text exceeds'\)/);
+});
