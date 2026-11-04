@@ -4,7 +4,7 @@ import { checkAccess } from '@/lib/gatekeeper';
 import { courseSubject, getCurriculumCourse, getCurriculumTopic } from '@/lib/curriculum';
 import { cleanSearchText, extractHighSignalTerms, searchQuestions } from '@/lib/curriculum-search';
 import { extractLectureText } from '@/lib/curriculum/extract-text';
-import { isFreeAnatomicalPathologySystem } from '@/lib/practical-catalogue';
+import { getSubscriptionAccess } from '@/lib/subscription-access';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,10 +21,6 @@ type SearchPayload = {
   mimeType?: string;
   sizeBytes?: number;
 };
-
-function visibleResults<T extends { subject: string; type: string; division?: string | null }>(results: T[], hasPremiumAccess: boolean, selectedFreePracticalBranch?: string | null) {
-  return hasPremiumAccess ? results : results.filter((result) => result.type !== 'practical' || (result.subject.toLowerCase() === 'pathology' && isFreeAnatomicalPathologySystem(result.division ?? '', selectedFreePracticalBranch)));
-}
 
 async function readSearchPayload(request: Request) {
   const contentType = request.headers.get('content-type') ?? '';
@@ -87,13 +83,8 @@ export async function POST(request: Request) {
       .select('plan,plan_expires_at,role,selected_free_course,selected_free_practical_branch')
       .eq('id', user.id)
       .maybeSingle();
-    const hasPremiumAccess = Boolean(
-      profile?.role === 'admin'
-      || (profile?.plan && profile.plan !== 'free' && (!profile.plan_expires_at || new Date(profile.plan_expires_at) > new Date())),
-    );
-    const freeSubject = !hasPremiumAccess && !course ? profile?.selected_free_course : null;
-    if (!hasPremiumAccess && !course && !freeSubject) return NextResponse.json({ error: 'Choose your free course from Browse before using global search.' }, { status: 403 });
-
+    const hasPremiumAccess = getSubscriptionAccess(profile).active;
+    const freeSubject = null; // Question RLS applies per-course starter branches to global search too.
     let extractedText = '';
     if (file) {
       try {
@@ -110,7 +101,7 @@ export async function POST(request: Request) {
     if (!searchText) return NextResponse.json({ error: 'No searchable text was found in this lecture file. Try a text-based document or enter a query.' }, { status: 422 });
 
     const results = await searchQuestions(supabase, searchText, { course, topic, subjectFilter: freeSubject, limit: 30 });
-    const safeResults = visibleResults(results, hasPremiumAccess, profile?.selected_free_practical_branch);
+    const safeResults = results;
 
     return NextResponse.json({
       query: rawQuery || topic?.title || sourceName,

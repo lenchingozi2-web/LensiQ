@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   if (!hasLiveClassEntitlement) {
     return NextResponse.json({
       error: 'live_class_plan_required',
-      message: 'Live Class is not included with the free or Premium Study plans. All Access at ₦9,870/month unlocks the interactive voice and visual classroom.',
+      message: 'Choose Scholar, Scholar Plus or Mastery to use Live Class. Free accounts have no Live Class access.',
     }, { status: 403 });
   }
 
@@ -141,9 +141,9 @@ export async function POST(req: Request) {
 
   if (!quota.allowed) {
     const limitMessage = quota.reason === 'premium_required'
-      ? 'Live Class is included with All Access only. Upgrade to unlock the interactive voice and visual classroom.'
+      ? 'Live Class is included with paid plans. Upgrade to unlock the interactive voice and visual classroom.'
       : quota.reason === 'free_monthly_exhausted'
-        ? 'Live Class is included with All Access only. Upgrade to unlock the interactive voice and visual classroom.'
+        ? 'Live Class is included with paid plans. Upgrade to unlock the interactive voice and visual classroom.'
         : quota.reason === 'voice_balance_empty'
           ? 'Your Premium Live Class allowance is used. Minutes refresh on your next monthly billing date; additional minute purchases are not available.'
           : quota.reason === 'active_session'

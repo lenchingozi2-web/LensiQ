@@ -436,6 +436,7 @@ do $$declare t text;begin
 end$$;
 -- Direct room creation/status edits bypass the reservation RPC. Only trusted services/RPCs write rooms.
 revoke insert,update,delete on public.live_class_sessions from authenticated;
+grant update(conversation_id,last_heartbeat_at) on public.live_class_sessions to authenticated;
 
 create or replace function public.get_admin_financial_summary()
 returns table (

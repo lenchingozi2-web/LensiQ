@@ -110,7 +110,7 @@ export async function POST(req: Request) {
       const isFreeTrial = liveSession?.is_free_trial === true;
       if (!isAdmin && (!hasLiveClassPlan || isFreeTrial)) {
         await supabase.from('live_class_sessions').update({ status: 'expired', ended_at: new Date().toISOString() }).eq('id', liveClassSessionId).eq('user_id', userId);
-        return NextResponse.json({ error: 'Live Class is available only with an active All Access plan.' }, { status: 403 });
+        return NextResponse.json({ error: 'Live Class is available only with an active paid plan.' }, { status: 403 });
       }
       if (!isAdmin) {
         const { data: chargeRows, error: chargeError } = await supabase.rpc('charge_live_class_session', {

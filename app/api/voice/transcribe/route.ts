@@ -1,3 +1,4 @@
+import { checkAccess } from '@/lib/gatekeeper';
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
 
@@ -7,6 +8,9 @@ export const dynamic = 'force-dynamic';
 const MAX_AUDIO_BYTES = 16 * 1024 * 1024;
 
 export async function POST(request: Request) {
+  const paid = await checkAccess('teaching');
+  if (!paid.allowed) return NextResponse.json({error:paid.message},{status:paid.status??403});
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Sign in to use voice typing.' }, { status: 401 });

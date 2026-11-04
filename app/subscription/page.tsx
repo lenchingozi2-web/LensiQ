@@ -12,8 +12,9 @@ export default async function SubscriptionPage() {
 
   // Database entitlement is the source of truth, never localStorage or a
   // client-side flag set after checkout.
+  await supabase.rpc('refresh_my_subscription');
   const { data: profile, error } = await supabase.from('profiles')
-    .select('role,plan,plan_expires_at,voice_minutes_balance,text_teaching_balance')
+    .select('role,plan,plan_expires_at,voice_minutes_balance,text_teaching_balance,quiz_attempts_used')
     .eq('id', user.id).maybeSingle();
   const access = getSubscriptionAccess(profile);
   return (
@@ -35,21 +36,22 @@ export default async function SubscriptionPage() {
           </div>
           {access.expiresAt && <p className="mt-4 text-sm text-slate-200">Valid until {new Date(access.expiresAt).toLocaleDateString('en-NG', {day:'numeric',month:'long',year:'numeric'})}</p>}
         </header>
-        {error || !profile ? <p role="alert" className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-900">We couldn't read your subscription status. Please refresh. Your payments and access records have not been changed.</p> : null}
+        {error || !profile ? <p role="alert" className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-900">We could not read your subscription status. Please refresh. Your payments and access records have not been changed.</p> : null}
         <section className="mt-6 grid gap-4 sm:grid-cols-2">
           <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">Guided text tutoring</p>
-            <h2 className="mt-3 text-xl font-black text-[#0B1220]">{access.textTutor ? 'Included' : 'Limited free access'}</h2>
-            <p className="mt-2 text-sm text-slate-500">{access.admin ? 'No credit deduction for administrators' : access.paid ? `${access.textCredits ?? 0} remaining teaching credits in your current cycle` : 'Upgrade to unlock Premium Study tutoring.'}</p>
+            <h2 className="mt-3 text-xl font-black text-[#0B1220]">{access.textTutor ? 'Included' : 'Not included'}</h2>
+            <p className="mt-2 text-sm text-slate-500">{access.admin ? 'No credit deduction for administrators' : access.paid ? `${access.textCredits ?? 0} AI responses remaining in your current cycle` : 'Choose a paid plan for AI explanations and teaching.'}</p>
             <Link href="/teach" className="mt-5 inline-flex rounded-xl bg-[#0B1220] px-4 py-3 text-sm font-bold text-white">Open Text Tutor</Link>
           </article>
           <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">Interactive Live Class</p>
-            <h2 className="mt-3 text-xl font-black text-[#0B1220]">{access.allAccess ? (access.admin ? 'Included · Administrator' : `${access.voiceMinutes ?? 0} minutes available`) : 'Requires All Access'}</h2>
-            <p className="mt-2 text-sm text-slate-500">Each class can last up to 90 minutes, subject to the remaining included minutes. Paid subscribers may start another class while eligible.</p>
-            <Link href={access.allAccess ? '/voice?mode=class' : '/pricing'} className="mt-5 inline-flex rounded-xl bg-[#E8A23D] px-4 py-3 text-sm font-bold text-[#0B1220]">{access.allAccess ? 'Enter Live Class' : 'View All Access'}</Link>
+            <h2 className="mt-3 text-xl font-black text-[#0B1220]">{access.allAccess ? (access.admin ? 'Included · Administrator' : `${access.voiceMinutes ?? 0} minutes available`) : 'Requires a paid plan'}</h2>
+            <p className="mt-2 text-sm text-slate-500">Live Class draws from your monthly minute allowance. Scholar classes last up to 30 minutes; Scholar Plus and Mastery classes last up to 90 minutes.</p>
+            <Link href={access.allAccess ? '/voice?mode=class' : '/pricing'} className="mt-5 inline-flex rounded-xl bg-[#E8A23D] px-4 py-3 text-sm font-bold text-[#0B1220]">{access.allAccess ? 'Enter Live Class' : 'View plans'}</Link>
           </article>
         </section>
+        <p className="mt-6 rounded-2xl border bg-white p-6 font-bold">Timed mocks: {access.mockExams === null ? 'Unlimited' : `${access.mockExams} remaining this month`}</p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link href="/pricing" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:border-amber-300">{access.active ? 'Change or renew plan' : 'Choose a subscription'}</Link>
           <Link href="/dashboard" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:border-amber-300">Back to dashboard</Link>

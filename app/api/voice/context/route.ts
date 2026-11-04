@@ -110,6 +110,9 @@ export async function POST(request: Request) {
 
   try {
     const supabase = createServiceClient();
+    const {data: active} = await supabase.from('live_class_sessions').select('id').eq('user_id',userId).eq('status','active').limit(1).maybeSingle();
+    const {data: eligible,error: entitlementError} = await supabase.rpc('live_class_gateway_allowed',{p_session:active?.id,p_user:userId});
+    if(entitlementError || eligible!==true) return NextResponse.json({error:'Active Live Class required.'},{status:403});
     const context = await buildTeachingContext(supabase, courseName, [{ role: 'user', content: query }]);
     const lessonPlan = includePlan ? await planLessonWithGemini(courseName, query, context, sourceOutline) : null;
     return NextResponse.json({

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
-import { isPaidPlan } from '../../../lib/plans';
+import { getSubscriptionAccess } from '@/lib/subscription-access';
 
 const DEFAULT_STORAGE_LIMIT = 100 * 1024 * 1024;
 
@@ -9,6 +9,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
 
+  await supabase.rpc('refresh_my_subscription');
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('role, plan, plan_expires_at, wallet_reset_at, voice_minutes_balance, text_teaching_balance, storage_limit_bytes, free_live_class_minutes_balance, free_live_class_reset_at')
@@ -19,7 +20,8 @@ export async function GET() {
   const { data: storageBytes, error: storageError } = await supabase.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id });
   if (storageError) return NextResponse.json({ error: 'Unable to load Teaching storage usage.' }, { status: 503 });
 
-  const activePremium = profile.role === 'admin' || (isPaidPlan(profile.plan) && (!profile.plan_expires_at || new Date(profile.plan_expires_at) > new Date()));
+  const access = getSubscriptionAccess(profile);
+  const activePremium = access.active;
   const { data: events, error: eventsError } = await supabase
     .from('billing_events')
     .select('id,event_type,units,revenue_amount_ngn,created_at,metadata')
@@ -28,8 +30,8 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(100);
   if (eventsError) return NextResponse.json({ error: 'Unable to load wallet history.' }, { status: 503 });
-  const voiceMinutes = Number(profile.voice_minutes_balance ?? 0);
-  const textCredits = Number(profile.text_teaching_balance ?? 0);
+  const voiceMinutes = access.voiceMinutes ?? 0;
+  const textCredits = access.textCredits ?? 0;
   const storageUsedBytes = Number(storageBytes ?? 0);
   const storageLimitBytes = Number(profile.storage_limit_bytes ?? DEFAULT_STORAGE_LIMIT);
 
@@ -39,7 +41,7 @@ export async function GET() {
     isPremium: activePremium && profile.role !== 'admin',
     planExpiresAt: profile.plan_expires_at,
     walletResetAt: profile.wallet_reset_at,
-    freeLiveClassMinutes: Number(profile.free_live_class_minutes_balance ?? 0),
+    freeLiveClassMinutes: 0,
     freeLiveClassResetAt: profile.free_live_class_reset_at,
     rollover: false,
     voiceMinutes,

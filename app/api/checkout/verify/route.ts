@@ -26,7 +26,7 @@ export async function GET(req: Request) {
 
     if (productType === 'topup') throw new Error('Voice-minute top-ups are no longer supported.');
 
-    const plan = getPaidPlan(transaction?.meta?.plan_id || 'premium_monthly');
+    const plan = getPaidPlan(transaction?.meta?.plan_id);
     // Never activate access from query parameters alone. Check the Flutterwave
     // transaction, the purchased plan, and its server-generated checkout ref.
     const txRef = typeof transaction?.tx_ref === 'string' ? transaction.tx_ref : '';

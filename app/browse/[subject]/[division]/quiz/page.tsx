@@ -1,6 +1,7 @@
 import { createClient } from '../../../../../lib/supabase/server';
 import CbtEngine from '../../../../../components/CbtEngine';
 import Link from 'next/link';
+import {checkAccess} from '@/lib/gatekeeper';
 
 export default async function QuizSetupPage({
   params,
@@ -23,6 +24,9 @@ export default async function QuizSetupPage({
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
+
+  const access=await checkAccess('quiz');
+  if(!access.allowed) return <main className="p-12 text-center"><h1>Timed mock access</h1><p>{access.message}</p><Link href="/pricing">View plans</Link></main>;
 
   // FIXED: Using % wildcards so Supabase ignores accidental spaces (e.g., "Microbiology ")
   const { data: questions, error } = await supabase
@@ -60,6 +64,7 @@ export default async function QuizSetupPage({
   return (
     <main className="p-2 sm:p-4 bg-slate-50 min-h-screen">
       <CbtEngine 
+        subject={subjectTitle} division={divisionName}
         questions={questions}
         testTitle={`${divisionName} Mock Exam`}
         initialQuestionCount={initialQuestionCount}

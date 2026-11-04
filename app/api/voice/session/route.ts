@@ -57,9 +57,9 @@ export async function POST(req: Request) {
     reason: charge.reason ?? null,
     message: charge.should_end
       ? charge.reason === 'session_time_limit'
-        ? 'The 90-minute Live Class has reached its protected end. Listen to the final puzzle questions before the room closes.'
+        ? 'This Live Class has reached its session limit. Listen to the final puzzle questions before the room closes.'
         : charge.reason === 'voice_balance_empty'
-          ? 'Your All Access Live Class minutes are used. The tutor is closing with a final puzzle.'
+          ? 'Your included Live Class minutes are used. The tutor is closing with a final puzzle.'
           : 'This Live Class has ended.'
       : null,
   });

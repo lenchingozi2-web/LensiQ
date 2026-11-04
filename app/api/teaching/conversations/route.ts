@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     const activePlan = Boolean(profile?.plan && includesLiveClass(profile.plan)
       && (!profile.plan_expires_at || new Date(profile.plan_expires_at) > new Date()));
     if (profile?.role !== 'admin' && !activePlan) {
-      return NextResponse.json({ error: 'Live Class is available only with an active All Access plan.' }, { status: 403 });
+      return NextResponse.json({ error: 'Live Class is available only with an active paid plan.' }, { status: 403 });
     }
   }
 

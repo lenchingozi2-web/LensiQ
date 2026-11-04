@@ -17,13 +17,12 @@ export async function POST(req: Request) {
     }
     if (!process.env.FLUTTERWAVE_SECRET_KEY) return NextResponse.json({ error: 'Payments are not configured yet.' }, { status: 503 });
 
-    const plan = getPublicPaidPlan(body?.planId || 'premium_monthly');
+    const plan = getPublicPaidPlan(body?.planId);
     if (!plan) return NextResponse.json({ error: 'Invalid subscription plan.' }, { status: 400 });
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.lenxiq.online';
     const txRef = `lenxiq_subscription_${user.id}_${plan.id}_${crypto.randomUUID()}`;
-    const includesLiveClass = plan.id !== 'premium_text_monthly';
-    const description = `${plan.label}: ${plan.durationMonths === 1 ? 'billed monthly' : `${plan.durationMonths} monthly billing cycles prepaid`}, with 50 text-teaching credits${includesLiveClass ? ' and 6 hours of Live Class per monthly cycle' : '; Live Class is not included'}`;
+    const description = `${plan.label}: monthly access, ${plan.aiCredits} AI responses, ${plan.voiceMinutes} Live Class minutes and ${plan.mockExams === -1 ? 'unlimited' : plan.mockExams} timed mocks per billing month`;
     const response = await fetch('https://api.flutterwave.com/v3/payments', {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`, 'Content-Type': 'application/json' },
@@ -34,7 +33,7 @@ export async function POST(req: Request) {
         redirect_url: `${siteUrl}/api/checkout/verify`,
         meta: { user_id: user.id, product_type: 'subscription', plan_id: plan.id, plan_duration: plan.durationMonths, plan_amount: plan.amountNaira },
         customer: { email: user.email, name: 'LenxiQ AI Scholar' },
-        customizations: { title: 'LenxiQ AI Hybrid Premium', description, logo: `${siteUrl}/icon.png` },
+        customizations: { title: 'LenxiQ Study Hub', description, logo: `${siteUrl}/icon.png` },
       }),
     });
 

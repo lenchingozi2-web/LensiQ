@@ -8,6 +8,8 @@ export async function getOrCreateProfile(supabase: SupabaseClient, user: User) {
       ? user.user_metadata.name
       : null;
 
+  await supabase.rpc('refresh_my_subscription');
+
   // The security-definer RPC is the primary path. It can read/repair the profile
   // without depending on a user-scoped SELECT policy or a Vercel service key.
   const provisioned = await supabase.rpc('ensure_user_profile', {

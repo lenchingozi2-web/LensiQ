@@ -1,7 +1,7 @@
 'use client'; 
 
 import { useState, useEffect } from 'react';
-import { saveExamResult } from '../app/actions';
+import { startTimedMock, submitTimedMock } from '../app/actions';
 
 type Question = {
   id: string;
@@ -20,9 +20,10 @@ type CbtEngineProps = {
   questions: Question[];
   testTitle: string;
   initialQuestionCount?: number;
+  subject: string; division: string;
 };
 
-export default function CbtEngine({ questions, testTitle, initialQuestionCount }: CbtEngineProps) {
+export default function CbtEngine({ questions, testTitle, initialQuestionCount, subject, division }: CbtEngineProps) {
   // Setup State
   const [isStarted, setIsStarted] = useState(false);
   const [selectedCount, setSelectedCount] = useState(() => {
@@ -37,16 +38,23 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount }
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [timeLeft, setTimeLeft] = useState(0); 
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [serverScore,setServerScore]=useState<number|null>(null);
   
   // Review Mode State
   const [isReviewMode, setIsReviewMode] = useState(false);
 
-  const handleStartExam = () => {
-    const shuffled = [...questions].sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, selectedCount);
-    
-    setActiveQuestions(selected);
-    setTimeLeft(selected.length * 50); 
+  const [attemptId,setAttemptId]=useState('');
+  const [deadline,setDeadline]=useState(0);
+  const [startError,setStartError]=useState('');
+  const [starting,setStarting]=useState(false);
+  const handleStartExam = async () => {
+    setStarting(true);setStartError('');
+    const result=await startTimedMock(subject,division,selectedCount);
+    setStarting(false);
+    if(!result.attempt){setStartError(result.error||'Unable to start mock.');return;}
+    setAttemptId(result.attempt.id);setDeadline(Date.parse(result.attempt.expiresAt));
+    setActiveQuestions(result.attempt.questions);
+    setTimeLeft(Math.max(0,Math.ceil((Date.parse(result.attempt.expiresAt)-Date.now())/1000)));
     setIsStarted(true);
   };
 
@@ -56,18 +64,10 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount }
   const handleFinalSubmit = async (forceSubmit = false) => {
     if (forceSubmit || window.confirm('Are you sure you want to submit this test?')) {
       
-      // Calculate Score Immediately
-      const finalScore = activeQuestions.reduce((acc, q, idx) => {
-        const correctLetter = q.correct_answer?.toLowerCase().trim() || '';
-        const isCorrect = answers[idx] === correctLetter;
-        return acc + (isCorrect ? 1 : 0);
-      }, 0);
-      const finalPercentage = Math.round((finalScore / activeQuestions.length) * 100);
+      const submitted = await submitTimedMock(attemptId,Object.fromEntries(activeQuestions.map((q,i)=>[q.id,answers[i]||''])));
+      if(!submitted.success){setStartError(submitted.error||'Result could not be saved.');return;}
 
-      // Fire the score off to the Supabase database in the background
-      saveExamResult(testTitle, finalScore, activeQuestions.length, finalPercentage)
-        .catch(err => console.error("Failed to save:", err));
-
+      setServerScore(Number(submitted.score));
       // Show the Results UI
       setIsSubmitted(true);
       setCurrentIndex(0); 
@@ -85,7 +85,7 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount }
       return () => window.clearTimeout(submitTimer);
     }
 
-    const timerId = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
+    const timerId = setInterval(() => setTimeLeft(Math.max(0,Math.ceil((deadline-Date.now())/1000))), 1000);
     return () => clearInterval(timerId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, isSubmitted, isStarted]);
@@ -123,15 +123,17 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount }
                 {num} Questions ({Math.ceil((num * 50) / 60)} mins)
               </option>
             ))}
-            <option value={questions.length}>All Questions ({questions.length})</option>
+
           </select>
           <p className="text-sm text-slate-400 mt-3 flex items-center gap-2">
             <span>ℹ️</span> 50 seconds allotted per question.
           </p>
         </div>
 
+        {startError&&<p role="alert" className="my-4 text-red-700">{startError}</p>}
         <button 
-          onClick={handleStartExam} 
+          disabled={starting}
+          onClick={()=>void handleStartExam()} 
           className="w-full bg-[#0B1220] hover:bg-slate-800 text-white font-bold py-4 px-6 rounded-xl transition-colors shadow-md"
         >
           Start Mock Exam &rarr;
@@ -144,7 +146,7 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount }
   // UI 2: POST-EXAM SUBMISSION (THE GRADER)
   // -------------------------------------------------------------
   if (isSubmitted && !isReviewMode) {
-    const score = activeQuestions.reduce((acc, q, idx) => {
+    const score = serverScore ?? activeQuestions.reduce((acc, q, idx) => {
       const correctLetter = q.correct_answer?.toLowerCase().trim() || '';
       const isCorrect = answers[idx] === correctLetter;
       return acc + (isCorrect ? 1 : 0);

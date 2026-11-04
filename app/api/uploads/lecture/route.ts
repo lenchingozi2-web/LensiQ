@@ -1,3 +1,4 @@
+import { checkPaidAccess } from '@/lib/paid-access';
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
 import { isSupportedLectureFile, normalizeLectureMimeType } from '@/lib/curriculum/file-types';
@@ -23,6 +24,9 @@ function safeFileName(fileName: string) {
 }
 
 export async function POST(request: Request) {
+  const paid = await checkPaidAccess();
+  if (!paid.allowed) return NextResponse.json({error:paid.message},{status:paid.status??403});
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });

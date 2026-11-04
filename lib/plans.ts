@@ -1,39 +1,13 @@
+/** The only current subscription products. Match public.subscription_plans. */
 export const PAID_PLANS = [
-  { id: 'premium_text_monthly', durationMonths: 1, amountNaira: 4570, label: 'Premium Study · Text & Catalogue' },
-  // Keep this identifier for existing subscribers and make it the new all-access tier.
-  { id: 'premium_monthly', durationMonths: 1, amountNaira: 9870, label: 'Premium All Access · Live Class' },
-  { id: 'premium_3mo', durationMonths: 3, amountNaira: 18000, label: '3-Month Premium' },
-  { id: 'premium_6mo', durationMonths: 6, amountNaira: 32400, label: '6-Month Premium' },
-  // Legacy terms remain valid for existing subscribers and verified renewals.
-  { id: '3mo', durationMonths: 3, amountNaira: 9000, label: 'Legacy 3 Months' },
-  { id: '6mo', durationMonths: 6, amountNaira: 13000, label: 'Legacy 6 Months' },
-  { id: '9mo', durationMonths: 9, amountNaira: 17000, label: 'Legacy 9 Months' },
-  { id: '12mo', durationMonths: 12, amountNaira: 20000, label: 'Legacy 12 Months' },
+  { id: 'scholar', durationMonths: 1, amountNaira: 4570, label: 'Scholar', aiCredits: 60, voiceMinutes: 30, mockExams: 20, sessionMinutes: 30 },
+  { id: 'all_access', durationMonths: 1, amountNaira: 9870, label: 'Scholar Plus', aiCredits: 200, voiceMinutes: 90, mockExams: -1, sessionMinutes: 90 },
+  { id: 'intensive', durationMonths: 1, amountNaira: 29900, label: 'Mastery', aiCredits: 600, voiceMinutes: 360, mockExams: -1, sessionMinutes: 90 },
 ] as const;
-
-export const PUBLIC_PAID_PLANS = [PAID_PLANS[0], PAID_PLANS[1]] as const;
-
-
+export const PUBLIC_PAID_PLANS = PAID_PLANS;
 export type PaidPlanId = (typeof PAID_PLANS)[number]['id'];
-
-export function getPaidPlan(planId: unknown) {
-  return PAID_PLANS.find((plan) => plan.id === planId);
-}
-
-export function getPublicPaidPlan(planId: unknown) {
-  return PUBLIC_PAID_PLANS.find((plan) => plan.id === planId);
-}
-
-export function isPaidPlan(planId: unknown): planId is PaidPlanId {
-  return PAID_PLANS.some((plan) => plan.id === planId);
-}
-
-
-export function isHybridPremiumPlan(planId: unknown) {
-  return isPaidPlan(planId);
-}
-
-export function includesLiveClass(planId: unknown) {
-  return planId === 'premium_monthly' || planId === 'premium_3mo' || planId === 'premium_6mo'
-    || planId === '3mo' || planId === '6mo' || planId === '9mo' || planId === '12mo';
-}
+export function getPaidPlan(id: unknown) { return PAID_PLANS.find(p => p.id === id); }
+export const getPublicPaidPlan = getPaidPlan;
+export function isPaidPlan(id: unknown): id is PaidPlanId { return Boolean(getPaidPlan(id)); }
+export const isHybridPremiumPlan = isPaidPlan;
+export const includesLiveClass = isPaidPlan;

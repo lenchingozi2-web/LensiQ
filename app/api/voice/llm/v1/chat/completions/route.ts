@@ -47,6 +47,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Live Class session is no longer active.' }, { status: 401 });
   }
 
+  const { data: eligible, error: eligibilityError } = await admin.rpc('live_class_gateway_allowed', {p_session:auth.session,p_user:auth.user});
+  if(eligibilityError || eligible !== true) return NextResponse.json({error:'Class allowance expired.'},{status:403});
+
   const lengthHeader = Number(request.headers.get('content-length') || 0);
   if (!Number.isFinite(lengthHeader) || lengthHeader > 240_000) {
     return NextResponse.json({ error: 'Voice request is too large.' }, { status: 413 });

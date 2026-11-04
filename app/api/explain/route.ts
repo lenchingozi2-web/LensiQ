@@ -1,3 +1,4 @@
+import { createServiceClient } from '@/lib/supabase/service';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -66,8 +67,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ content: 'Invalid explanation request.', flagged: false }, { status: 400 });
     }
 
+    const cacheService = createServiceClient();
     // 4. THE CACHE CHECK: Look for an existing explanation
-    const { data: cachedExplanation } = await supabase
+    const { data: cachedExplanation } = await cacheService
       .from('question_explanations')
       .select('*')
       .eq('question_id', questionId)
@@ -163,7 +165,7 @@ export async function POST(req: Request) {
     }
 
     // 6. SAVE TO CACHE for the next user
-    await supabase.from('question_explanations').insert({
+    await cacheService.from('question_explanations').insert({
       question_id: questionId,
       explanation_text: aiResponseJson.content,
       is_flagged: aiResponseJson.flagged

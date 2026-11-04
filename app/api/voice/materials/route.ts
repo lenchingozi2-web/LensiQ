@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   const activePlan = Boolean(accessProfile?.plan && includesLiveClass(accessProfile.plan)
     && (!accessProfile.plan_expires_at || new Date(accessProfile.plan_expires_at) > new Date()));
   if (accessProfile?.role !== 'admin' && !activePlan) {
-    return NextResponse.json({ error: 'Lecture uploads for Live Class require an active All Access plan.' }, { status: 403 });
+    return NextResponse.json({ error: 'Lecture uploads for Live Class require an active paid plan.' }, { status: 403 });
   }
 
   // Large files go directly from the learner's browser to private Supabase
