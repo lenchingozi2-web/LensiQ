@@ -6,6 +6,7 @@ No payment or email is sent. Usage costs remain in the anonymized usage ledger.
 import asyncio
 import audioop
 from array import array
+from collections import Counter
 from datetime import datetime,timedelta,timezone
 import hashlib
 import http.cookiejar
@@ -61,6 +62,7 @@ class StudentValidation:
         deadline=time.monotonic()+timeout
         while time.monotonic()<deadline:
             for event in self.events:
+                if event['at']>=after and event['data'].get('state')=='ERROR':raise RuntimeError('The classroom worker reported an error')
                 if event['at']>=after and predicate(event['data']):return event
             self.changed.clear()
             try:await asyncio.wait_for(self.changed.wait(),min(3,max(.01,deadline-time.monotonic())))
@@ -174,7 +176,7 @@ class StudentValidation:
         sent=time.monotonic()
         speech_ended=await self.speak_question()
         transcript=await self.wait(lambda d:d.get('type')=='live_class_user_transcript',after=sent,timeout=45)
-        if 'neutrophil' not in transcript['data'].get('content','').lower():raise RuntimeError('Spoken medical question was not recognized')
+        if 'inflammation' not in transcript['data'].get('content','').lower():raise RuntimeError('Spoken medical question was not recognized')
         answer=await self.wait(lambda d:d.get('type')=='live_class_spoken_cue',after=transcript['at'],timeout=60)
         self.report['timingsSeconds']['questionToFirstSpokenAnswer']=round(answer['at']-speech_ended,2)
         ended=await self.wait(lambda d:d.get('type')=='live_class_segment_complete',after=answer['at'],timeout=120)
@@ -192,7 +194,7 @@ class StudentValidation:
         await self.send({'type':'lesson_policy','autoContinue':True})
         await self.wait(lambda d:d.get('type')=='live_class_spoken_cue',after=paused,timeout=60)
         self.check('PAUSE_AND_RESUME_PRESERVE_THE_LESSON')
-        duration=max(0,min(90,int(os.environ.get('VALIDATION_MINUTES','8'))))
+        duration=max(8,min(90,int(os.environ.get('VALIDATION_MINUTES','8'))))
         while time.monotonic()-self.connected_at<duration*60:
             await asyncio.sleep(10)
             recent=[e for e in self.events if e['at']>time.monotonic()-90 and e['data'].get('type')=='live_class_spoken_cue']
@@ -238,6 +240,7 @@ async def main():
         error=type(exc).__name__+': '+str(exc)
         validation.report['error']=error
     finally:
+        validation.report['classroomStates']=dict(Counter(e['data']['state'] for e in validation.events if e['data'].get('state')))
         try:await validation.cleanup()
         except Exception as exc:
             validation.report['cleanupError']=type(exc).__name__
