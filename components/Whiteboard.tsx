@@ -34,7 +34,6 @@ export default function Whiteboard({ topic, markdown, onConceptSelect }: Whitebo
   const active = Math.max(0, Math.min(selected, steps.length - 1));
   const diagramSource = /(?:→|➡|\s->\s|^\s*#{1,3}\s+.*\b(?:mechanism|cascade|pathway|sequence|cycle|flowchart)\b|^\s*(?:flowchart|mechanism flow|pathway)\s*:)/im.test(markdown ?? '');
   const diagramMode = userSelectedMode ? mapMode : diagramSource;
-  const diagramStart = 0;
   const diagramSteps = steps;
   useEffect(() => {
     if (followTutor && steps.length) setSelected(steps.length - 1);
