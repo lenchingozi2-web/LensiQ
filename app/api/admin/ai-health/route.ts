@@ -44,19 +44,19 @@ async function checkGroq(): Promise<Probe> {
   try {
     // Read-only model listing, no generated tokens or per-class charges.
     const response = await fetch('https://api.groq.com/openai/v1/models', {
-      headers: { Authorization: `Bearer \${key}` },
+      headers: { Authorization: `Bearer ${key}` },
       cache: 'no-store',
       signal: AbortSignal.timeout(7000),
     });
     if (!response.ok) {
-      return { reachable: false, detail: `Groq model check returned HTTP \${response.status}.` };
+      return { reachable: false, detail: `Groq model check returned HTTP ${response.status}.` };
     }
     const data = await response.json() as { data?: Array<{ id?: string }> };
     const ready = data.data?.some((item) => item.id === model) ?? false;
     return {
       reachable: ready,
-      detail: ready ? `Groq \${model} is accessible. Model listing does not test speech.`
-        : `Groq credentials connected, but \${model} is not available for this account.`,
+      detail: ready ? `Groq ${model} is accessible. Model listing does not test speech.`
+        : `Groq credentials connected, but ${model} is not available for this account.`,
     };
   } catch {
     return { reachable: false, detail: 'Groq model metadata check could not connect.' };
