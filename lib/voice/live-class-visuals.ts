@@ -101,7 +101,7 @@ export type LiveClassMoleculeAsset = (typeof LIVE_CLASS_MOLECULE_ASSETS)[keyof t
 
 export type VisualContext =
   | { type: 'whiteboard'; topic: string; markdown?: string }
-  | { type: 'model'; modelUrl: string; structureId?: string; highlightColor?: string; note?: string }
+  | { type: 'model'; modelUrl: string; structureId?: string; highlightColor?: string; note?: string; title?: string; category?: string }
   | { type: 'molecule'; modelUrl: string; pdbId: string; title: string; ligand: string; note: string }
   | { type: 'simulation'; preset: PhysiologyPreset; title: string }
   | { type: 'media'; mediaUrl: string; caption?: string };
