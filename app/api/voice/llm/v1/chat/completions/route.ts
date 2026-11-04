@@ -20,7 +20,9 @@ export function selectVoiceContext(messages: VoiceMessage[]): VoiceMessage[] {
   const first = systems.slice(0, 1);
   const dynamic = systems.slice(1).slice(-6);
   const conversation = messages.filter((message) => message.role !== 'system').slice(-14);
-  return [...first, ...dynamic, ...conversation];
+  // Retain source fidelity and the actual visible model even in long lessons.
+  const pinned = ['UPLOADED SOURCE POLICY:', 'SOURCE NOTES:', 'CURRENT INTERACTIVE VISUAL:', 'CURRENT TEACHING BOARD:', 'OPTIONAL APPROVED VISUAL', 'LESSON PROGRESS MEMORY:'].flatMap(prefix=>{const latest=systems.findLast(message=>message.content.startsWith(prefix));return latest&&!dynamic.includes(latest)&&!first.includes(latest)?[latest]:[];});
+  return [...first, ...dynamic, ...pinned, ...conversation];
 }
 
 /** Private, session-scoped OpenAI-compatible gateway.

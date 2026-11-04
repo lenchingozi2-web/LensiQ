@@ -20,9 +20,14 @@ type LiveClassVisualStageProps = {
   onConceptSelect?: (concept: string, index: number) => void;
   onSimulationState?: (snapshot: SimulationSnapshot) => void;
   onSimulationResult?: (snapshot: SimulationSnapshot) => void;
+  onMediaSelect?: (point:{mediaUrl:string;caption:string;x:number;y:number}) => void;
 };
 
-function InspectableImage({ src, alt }: { src: string; alt: string }) {
+function InspectableImage({ src, alt, onSelect }: { src: string; alt: string; onSelect?:LiveClassVisualStageProps['onMediaSelect'] }) {
+  const imageRef=useRef<HTMLImageElement>(null);
+  const [point,setPoint]=useState<{x:number;y:number}|null>(null);
+  const pointers=useRef(new Map<number,{x:number;y:number}>());
+  const pinch=useRef<{distance:number;zoom:number}|null>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const pointerStart = useRef<{ id: number; x: number; y: number; offsetX: number; offsetY: number } | null>(null);
@@ -36,24 +41,36 @@ function InspectableImage({ src, alt }: { src: string; alt: string }) {
         onPointerDown={(event) => {
           if (event.button !== 0) return;
           event.currentTarget.setPointerCapture(event.pointerId);
+          pointers.current.set(event.pointerId,{x:event.clientX,y:event.clientY});
+          if(pointers.current.size===2){const [a,b]=[...pointers.current.values()];pinch.current={distance:Math.hypot(a.x-b.x,a.y-b.y),zoom};pointerStart.current=null;return;}
           pointerStart.current = { id: event.pointerId, x: event.clientX, y: event.clientY, offsetX: offset.x, offsetY: offset.y };
         }}
         onPointerMove={(event) => {
+          if(pointers.current.has(event.pointerId))pointers.current.set(event.pointerId,{x:event.clientX,y:event.clientY});
+          if(pinch.current&&pointers.current.size===2){const [a,b]=[...pointers.current.values()];setZoom(clampZoom(pinch.current.zoom*Math.hypot(a.x-b.x,a.y-b.y)/Math.max(1,pinch.current.distance)));return;}
           const start = pointerStart.current;
           if (!start || start.id !== event.pointerId) return;
           setOffset({ x: start.offsetX + event.clientX - start.x, y: start.offsetY + event.clientY - start.y });
         }}
-        onPointerUp={(event) => { if (pointerStart.current?.id === event.pointerId) pointerStart.current = null; }}
-        onPointerCancel={() => { pointerStart.current = null; }}
+        onPointerUp={(event) => {
+          const start=pointerStart.current;const bounds=imageRef.current?.getBoundingClientRect();
+          if(start?.id===event.pointerId&&bounds&&Math.hypot(event.clientX-start.x,event.clientY-start.y)<7){const x=(event.clientX-bounds.left)/bounds.width,y=(event.clientY-bounds.top)/bounds.height;if(x>=0&&x<=1&&y>=0&&y<=1){setPoint({x,y});onSelect?.({mediaUrl:src,caption:alt,x,y});}}
+          pointers.current.delete(event.pointerId);pinch.current=null;pointerStart.current=null;
+        }}
+        onPointerCancel={() => { pointerStart.current=null;pointers.current.clear();pinch.current=null; }}
       >
+        <div className="relative transition-transform duration-150" style={{transform:`translate(${offset.x}px, ${offset.y}px) scale(${zoom})`}}>
         <img
+          ref={imageRef}
           src={src}
           alt={alt}
           draggable={false}
           className="max-h-[78dvh] max-w-full select-none object-contain transition-transform duration-150"
-          style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }}
         />
+        {point&&<span aria-hidden="true" className="pointer-events-none absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-amber-300 bg-amber-300/20 shadow-[0_0_0_5px_#e8a23d30]" style={{left:`${point.x*100}%`,top:`${point.y*100}%`}}/>}
+        </div>
       </div>
+      {point&&<span role="status" className="pointer-events-none absolute right-3 top-3 rounded-full border border-amber-300/50 bg-slate-950/90 px-3 py-2 text-xs font-bold text-amber-100">Point selected · ask about this part</span>}
       <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-xl border border-white/10 bg-[#101827]/80 p-1.5 backdrop-blur-xl" aria-label="Image zoom controls">
         <button type="button" onClick={() => setZoom((value) => clampZoom(value - 0.2))} className="h-8 w-8 rounded-lg text-lg font-bold text-white/80 hover:bg-white/10" aria-label="Zoom out">−</button>
         <span className="min-w-11 text-center text-[10px] font-black tabular-nums text-white/60">{Math.round(zoom * 100)}%</span>
@@ -64,7 +81,7 @@ function InspectableImage({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-export default function LiveClassVisualStage({ visualContext, selectedStructure, onStructureSelect, onConceptSelect, onSimulationState, onSimulationResult }: LiveClassVisualStageProps) {
+export default function LiveClassVisualStage({ visualContext, selectedStructure, onStructureSelect, onConceptSelect, onSimulationState, onSimulationResult, onMediaSelect }: LiveClassVisualStageProps) {
   const [modelViewMode, setModelViewMode] = useState<'normal' | 'xray' | 'isolate'>('normal');
   if (visualContext.type === 'simulation') {
     return (
@@ -94,18 +111,10 @@ export default function LiveClassVisualStage({ visualContext, selectedStructure,
           viewMode={modelViewMode}
           onStructureSelect={onStructureSelect}
         />
-        <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[min(82vw,22rem)] rounded-xl border border-white/10 bg-[#101827]/55 px-3 py-2 shadow-lg backdrop-blur-md sm:left-6 sm:top-6 sm:px-4">
-          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#ffd68d]">Interactive 3D {modelCategory}</p>
-          <h2 className="mt-1 text-lg font-black tracking-tight text-white sm:text-2xl">{modelName}{focusedStructure && <span className="text-white/60"> · {focusedStructure}</span>}</h2>
-          <p className="mt-1 text-[10px] font-semibold text-white/55 sm:text-xs">Drag to rotate · pinch or scroll to zoom · tap a structure to focus</p>
-          {(sourceLinkUrl || licenseLabel) && (
-            <div className="pointer-events-auto mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[9px] font-bold uppercase tracking-[0.12em]">
-              {sourceLinkUrl && <a className="text-[#ffd68d] underline decoration-white/20 underline-offset-4 hover:text-white" href={sourceLinkUrl} target="_blank" rel="noreferrer">{recordUrl ? 'Source record' : sourceLabel ?? 'Source'}</a>}
-              {licenseLabel && (licenseUrl
-                ? <a className="text-white/55 underline decoration-white/20 underline-offset-4 hover:text-white" href={licenseUrl} target="_blank" rel="noreferrer">License · {licenseLabel}</a>
-                : <span className="text-white/45">{sourceLabel ? `${sourceLabel} · ` : ''}{licenseLabel}</span>)}
-            </div>
-          )}
+        <div className="absolute left-4 right-4 top-[5.2rem] z-10 sm:left-8 sm:right-8 sm:top-24">
+          <h2 className="pointer-events-none max-w-3xl text-2xl font-black leading-tight tracking-tight text-white drop-shadow-[0_2px_8px_#000] sm:text-4xl">{modelName}</h2>
+          {focusedStructure&&<p className="pointer-events-none mt-2 inline-block rounded-full border border-[#e8a23d]/40 bg-[#0b1422]/85 px-3 py-1.5 text-sm font-bold text-[#ffd080]">{focusedStructure}</p>}
+          {(sourceLinkUrl||licenseLabel)&&<details className="mt-2 w-fit rounded-lg bg-[#0b1422]/65 px-2 py-1 text-[10px] text-white/60"><summary className="cursor-pointer">Source</summary><div className="mt-2 flex max-w-xs flex-wrap gap-2">{sourceLinkUrl&&<a href={sourceLinkUrl} target="_blank" rel="noreferrer" className="underline">{sourceLabel||'Source record'}</a>}{licenseLabel&&(licenseUrl?<a href={licenseUrl} target="_blank" rel="noreferrer" className="underline">{licenseLabel}</a>:<span>{licenseLabel}</span>)}</div></details>}
         </div>
         <div className="pointer-events-auto absolute bottom-[5.8rem] right-3 z-20 flex flex-wrap items-center gap-1 rounded-xl border border-white/15 bg-[#101827]/85 p-1.5 shadow-lg backdrop-blur-xl sm:bottom-8 sm:right-8" aria-label="3D model inspection controls">
           <button type="button" onClick={() => setModelViewMode('normal')} aria-pressed={modelViewMode === 'normal'} className={`rounded-lg px-3 py-2 text-[11px] font-semibold ${modelViewMode === 'normal' ? 'bg-[#e8a23d] text-[#101827]' : 'text-white/80 hover:bg-white/10'}`}>3D</button>
@@ -126,16 +135,10 @@ export default function LiveClassVisualStage({ visualContext, selectedStructure,
           ligand={visualContext.ligand}
           ligandResidue={catalogEntry?.ligandResidue ?? 'CAU'}
         />
-        <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[min(82vw,22rem)] rounded-xl border border-white/10 bg-[#101827]/55 px-3 py-2 shadow-lg backdrop-blur-md sm:left-6 sm:top-6 sm:px-4">
-          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#ffd68d]">Interactive drug–target structure</p>
-          <h2 className="mt-1 text-lg font-black tracking-tight text-white sm:text-2xl">{visualContext.title}</h2>
-          <p className="mt-1 text-xs font-semibold text-white/65">Bound ligand · {visualContext.ligand} <span className="text-white/35">· PDB {visualContext.pdbId}</span></p>
-          <p className="mt-1 text-[10px] font-medium text-white/45">Drag to rotate · pinch or scroll to zoom · the ligand is highlighted</p>
-          {catalogEntry?.sourceUrl && (
-            <a className="pointer-events-auto mt-2 inline-flex text-[9px] font-bold uppercase tracking-[0.14em] text-[#ffd68d] underline decoration-white/20 underline-offset-4 hover:text-white" href={catalogEntry.sourceUrl} target="_blank" rel="noreferrer">
-              Source · RCSB PDB · CC0
-            </a>
-          )}
+        <div className="absolute left-4 right-4 top-[5.2rem] z-10 sm:left-8 sm:top-24">
+          <h2 className="pointer-events-none max-w-3xl text-2xl font-black leading-tight tracking-tight text-white drop-shadow-[0_2px_8px_#000] sm:text-4xl">{visualContext.title}</h2>
+          <p className="pointer-events-none mt-2 text-sm font-bold text-[#ffd080]">{visualContext.ligand}</p>
+          {catalogEntry?.sourceUrl&&<details className="mt-2 w-fit rounded-lg bg-[#0b1422]/65 px-2 py-1 text-[10px] text-white/60"><summary className="cursor-pointer">Source</summary><a href={catalogEntry.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block underline">RCSB PDB · {visualContext.pdbId} · CC0</a></details>}
         </div>
       </section>
     );
@@ -149,7 +152,7 @@ export default function LiveClassVisualStage({ visualContext, selectedStructure,
         <div className="relative flex max-h-[82dvh] max-w-6xl flex-col items-center">
           {isVideo
             ? <div className="overflow-hidden rounded-[2rem] border border-white/15 bg-black/30 shadow-[0_30px_120px_rgba(0,0,0,0.45)]"><video src={visualContext.mediaUrl} controls playsInline className="max-h-[78dvh] max-w-full object-contain" /></div>
-            : <InspectableImage src={visualContext.mediaUrl} alt={visualContext.caption || 'Medical concept visual'} />}
+            : <InspectableImage src={visualContext.mediaUrl} alt={visualContext.caption || 'Medical concept visual'} onSelect={onMediaSelect} />}
           {visualContext.caption && <p className="mt-3 max-w-4xl text-center text-xs font-bold text-white/70">{visualContext.caption}</p>}
         </div>
       </section>

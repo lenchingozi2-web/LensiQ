@@ -89,7 +89,7 @@ export async function POST(request: Request) {
   try {
     const normalizedName = normalizeLectureFileName(value.name, value.type);
     const normalizedFile = new File([await value.arrayBuffer()], normalizedName, { type: normalizeLectureMimeType(normalizedName, value.type) });
-    extractedText = await extractLectureText(normalizedFile);
+    extractedText = await extractLectureText(normalizedFile,{requireCompleteText:true});
   } catch (parseError) {
     console.error('Live Class document extraction error', {
       extension: getLectureFileExtension(value.name, value.type),
@@ -99,6 +99,7 @@ export async function POST(request: Request) {
     if (parseError instanceof Error && parseError.message.startsWith('Lecture text exceeds')) {
       return NextResponse.json({ error: parseError.message }, { status: 413 });
     }
+    if(parseError instanceof Error && parseError.message.startsWith('Lecture contains'))return NextResponse.json({error:parseError.message},{status:422});
     return NextResponse.json({
       error: 'This file could not be parsed. Check that the PDF is readable and not password-protected or image-only. Scanned PDFs currently need a text-readable version.',
     }, { status: 422 });

@@ -1,115 +1,30 @@
 'use client';
-
-import { useEffect, useMemo, useRef, useState } from 'react';
-
-type WhiteboardProps = {
-  topic: string;
-  markdown?: string;
-  onConceptSelect?: (concept: string, index: number) => void;
-};
-
-function conceptSteps(markdown: string): string[] {
-  return markdown
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/\`([^\`]+)\`/g, '$1')
-    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
-    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, '')
-    .replace(/\*\*|__/g, '')
-    .split(/\n+|(?<=[.!?])\s+/)
-    .map((part) => part.replace(/\s+/g, ' ').trim())
-    .filter((part) => part.length > 18 && !/^(?:the tutor's explanation|live teaching|lesson progress)$/i.test(part))
-    .slice(-12);
-}
-
-export default function Whiteboard({ topic, markdown, onConceptSelect }: WhiteboardProps) {
-  const steps = useMemo(() => conceptSteps(markdown ?? ''), [markdown]);
-  const [selected, setSelected] = useState(0);
-  const [followTutor, setFollowTutor] = useState(true);
-  // Spoken explanations are focused by default. A diagram is shown only for
-  // explicit mechanism/flow content, or when the learner requests Flow.
-  const [mapMode, setMapMode] = useState(false);
-  const [userSelectedMode, setUserSelectedMode] = useState(false);
-  const [zoom, setZoom] = useState(1);
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const active = Math.max(0, Math.min(selected, steps.length - 1));
-  const diagramSource = /(?:→|➡|\s->\s|^\s*#{1,3}\s+.*\b(?:mechanism|cascade|pathway|sequence|cycle|flowchart)\b|^\s*(?:flowchart|mechanism flow|pathway)\s*:)/im.test(markdown ?? '');
-  const diagramMode = userSelectedMode ? mapMode : diagramSource;
-  const diagramSteps = steps;
-  useEffect(() => {
-    if (followTutor && steps.length) setSelected(steps.length - 1);
-  }, [steps.length, markdown, followTutor]);
-  useEffect(() => {
-    if (!steps.length) return;
-    const frame = window.requestAnimationFrame(() => {
-      viewportRef.current?.querySelector('[data-lesson-step][aria-current="step"]')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [steps.length, selected, diagramMode]);
-
-  function choose(index: number) {
-    const next = Math.max(0, Math.min(index, steps.length - 1));
-    setFollowTutor(false);
-    setSelected(next);
-    setMapMode(false);
-    setUserSelectedMode(true);
-    if (steps[next]) onConceptSelect?.(steps[next], next);
-  }
-
-  return (
-    <section className="relative h-full w-full overflow-hidden bg-[#070e18] text-white" aria-label="Interactive medical teaching board">
-      <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(#ffffff0b_1px,transparent_1px),linear-gradient(90deg,#ffffff0b_1px,transparent_1px)] [background-size:42px_42px]" />
-      <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 border-b border-white/10 bg-[#0b1422]/85 px-3 pb-2 pt-[4.8rem] backdrop-blur-lg sm:px-6 sm:pt-24">
-        <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#ffd080]">Live concept board</p><h1 className="truncate text-sm font-bold text-white sm:text-xl">{topic || 'Medical lesson'}</h1></div>
-        <div className="flex shrink-0 items-center gap-1">
-          <button type="button" onClick={() => { setMapMode(!diagramMode); setUserSelectedMode(true); }} className="rounded-lg border border-white/15 px-2.5 py-2 text-[11px] font-semibold text-white/90" aria-pressed={diagramMode}>{diagramMode ? 'Focus' : 'Flow'}</button>
-          <button type="button" onClick={() => setZoom((z) => Math.max(.8, +(z-.1).toFixed(1)))} aria-label="Zoom out" className="rounded-lg border border-white/15 px-2.5 py-2 text-sm">−</button>
-          <button type="button" onClick={() => setZoom((z) => Math.min(1.4, +(z+.1).toFixed(1)))} aria-label="Zoom in" className="rounded-lg border border-white/15 px-2.5 py-2 text-sm">+</button>
-        </div>
-      </div>
-      <div ref={viewportRef} className="absolute inset-x-0 bottom-[5.5rem] top-[8.7rem] overflow-y-auto overscroll-contain px-3 py-5 sm:top-32 sm:bottom-24 sm:px-8" style={{ touchAction: 'pan-y' }}>
-        {steps.length === 0 ? (
-          <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-[#e8a23d]/35 bg-[#e8a23d]/10 text-3xl text-[#ffd080]">✦</div>
-            <h2 className="text-xl font-bold sm:text-3xl">{topic || 'Ready to explore'}</h2>
-            <p className="mt-3 max-w-md text-sm leading-6 text-white/60">As the tutor explains the first concept, its steps and relationships will build here. You can tap any step to discuss it.</p>
-          </div>
-        ) : (
-          <div className="mx-auto w-full max-w-4xl origin-top transition-transform duration-200" style={{ zoom }}>
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <p className="text-[11px] font-bold text-white/60">{diagramMode ? 'Concept flow · tap any step to ask' : 'Key notes · tap any point to ask'}</p>
-              {!followTutor && <button type="button" onClick={() => { setFollowTutor(true); setSelected(steps.length - 1); }} className="rounded-full border border-[#e8a23d]/40 bg-[#e8a23d]/15 px-3 py-1.5 text-[11px] font-bold text-[#ffd080]">Follow tutor ↗</button>}
-            </div>
-            {diagramMode ? (
-              <div className="flex flex-col items-stretch" aria-label="Interactive causal flow for the current concept">
-                {diagramSteps.map((step, index) => (
-                  <div key={index} className="flex flex-col items-center">
-                    <button type="button" data-lesson-step onClick={() => choose(index)} aria-current={active === index ? 'step' : undefined} aria-label={`Ask the tutor about concept ${index + 1}: ${step}`} className={`w-full rounded-2xl border px-4 py-4 text-left shadow-lg transition sm:px-6 ${active === index ? 'border-[#e8a23d] bg-[#e8a23d]/15 shadow-[#e8a23d]/10' : 'border-white/15 bg-[#142235]/85 hover:border-white/35'}`}>
-                      <span className="mb-2 block text-[10px] font-bold uppercase tracking-[.14em] text-[#ffd080]">Step {String(index + 1).padStart(2, '0')}{active === index && followTutor ? ' · now teaching' : ''}</span>
-                      <span className="block text-sm font-semibold leading-5 text-white/95 sm:text-base sm:leading-6">{step}</span>
-                    </button>
-                    {index < diagramSteps.length - 1 && <div aria-hidden="true" className="flex h-9 flex-col items-center"><div className="h-5 w-px bg-[#e8a23d]/50" /><span className="-mt-1 text-base text-[#e8a23d]/75">↓</span></div>}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mx-auto flex w-full max-w-5xl flex-col gap-3" aria-label="Progressive lesson notes">
-                {steps.map((step, index) => (
-                  <button key={index} type="button" data-lesson-step onClick={() => choose(index)} aria-current={active === index ? 'step' : undefined} aria-label={`Ask the tutor about note ${index + 1}: ${step}`} className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-4 text-left transition sm:px-6 ${active === index ? 'border-[#e8a23d] bg-[#e8a23d]/15 shadow-lg shadow-[#e8a23d]/10' : 'border-white/10 bg-[#142235]/75 hover:border-white/30'}`}>
-                    <span aria-hidden="true" className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${active === index ? 'bg-[#e8a23d] text-[#0b1422]' : 'bg-white/10 text-white/60'}`}>{index + 1}</span>
-                    <span className={`text-sm font-semibold leading-6 sm:text-base sm:leading-7 ${active === index ? 'text-white' : 'text-white/75'}`}>{step}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      {steps.length > 0 && <nav aria-label="Concept navigation" className="absolute bottom-[4.7rem] left-3 right-3 z-10 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#0b1422]/90 p-2 backdrop-blur-xl sm:bottom-20 sm:left-8 sm:right-8">
-        <button type="button" onClick={() => choose(active - 1)} disabled={active === 0} className="rounded-lg px-3 py-2 text-xs font-bold text-white disabled:opacity-30">← Previous</button>
-        <span className="text-xs font-semibold tabular-nums text-white/55">{active + 1} / {steps.length}</span>
-        <button type="button" onClick={() => choose(active + 1)} disabled={active === steps.length - 1} className="rounded-lg bg-[#e8a23d] px-4 py-2 text-xs font-bold text-[#0b1422] disabled:opacity-30">Next →</button>
-      </nav>}
-    </section>
-  );
+import {useMemo,useState} from 'react';
+import {lessonPoints,visibleFlowIndexes} from '@/lib/voice/lesson-presentation';
+type WhiteboardProps={topic:string;markdown?:string;onConceptSelect?:(concept:string,index:number)=>void};
+export default function Whiteboard({topic,markdown,onConceptSelect}:WhiteboardProps){
+ const steps=useMemo(()=>lessonPoints(markdown??''),[markdown]);
+ const [selected,setSelected]=useState(0);const [following,setFollowing]=useState(true);const [flow,setFlow]=useState(false);const [zoom,setZoom]=useState(1);
+ const active=Math.max(0,Math.min(following?steps.length-1:selected,steps.length-1));
+ const indexes=flow?visibleFlowIndexes(active):[active];
+ function browse(index:number){setFollowing(false);setSelected(Math.max(0,Math.min(index,steps.length-1)));}
+ return <section className="relative h-full w-full overflow-hidden bg-[#070e18] text-white" aria-label="Interactive medical teaching board">
+  <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(#ffffff0b_1px,transparent_1px),linear-gradient(90deg,#ffffff0b_1px,transparent_1px)] [background-size:42px_42px]"/>
+  <header className="absolute inset-x-0 top-[4.8rem] z-10 flex items-center justify-between gap-3 border-b border-white/10 bg-[#0b1422]/90 px-4 py-3 backdrop-blur-lg sm:top-24 sm:px-8">
+   <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[.18em] text-[#ffd080]">Live concept board</p><h1 className="mt-1 truncate text-base font-bold sm:text-xl">{topic||'Medical lesson'}</h1></div>
+   <div className="flex shrink-0 gap-1"><button onClick={()=>setFlow(!flow)} aria-pressed={flow} className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold">{flow?'Focus':'Flow'}</button><button onClick={()=>setZoom(z=>Math.max(.8,z-.1))} aria-label="Zoom out" className="rounded-lg border border-white/15 px-3 py-2">−</button><button onClick={()=>setZoom(z=>Math.min(1.4,z+.1))} aria-label="Zoom in" className="rounded-lg border border-white/15 px-3 py-2">+</button></div>
+  </header>
+  <div className="absolute inset-x-0 bottom-[9.8rem] top-[9.4rem] flex items-center justify-center overflow-y-auto px-5 py-5 sm:top-44 sm:px-12" style={{touchAction:'pan-y'}}>
+   {steps.length===0?<h2 className="text-center text-2xl font-bold text-white/75 sm:text-4xl">{topic||'Live Class'}</h2>:<div className="my-auto w-full max-w-3xl" style={{zoom}}>
+    {indexes.map((index,position)=><div key={index+'-'+steps[index]} className="animate-[lab-reveal_300ms_ease-out_both]">
+     {flow&&position>0&&<p aria-hidden="true" className="py-2 text-center text-xl text-[#e8a23d]/70">↓</p>}
+     <button type="button" onClick={()=>onConceptSelect?.(steps[index],index)} aria-current={index===active?'step':undefined} aria-label={`Ask about: ${steps[index]}`} className={`w-full rounded-3xl border p-6 text-left transition sm:p-9 ${index===active?'border-[#e8a23d]/60 bg-[#e8a23d]/[.10]':'border-white/10 bg-[#142235]/60'}`}>
+      <span className="mb-4 block text-[10px] font-bold uppercase tracking-[.18em] text-[#ffd080]">{index===active&&following?'Now exploring':'Earlier point'}</span>
+      <span className={`block font-semibold leading-snug tracking-tight ${flow?'text-xl sm:text-2xl':'text-2xl sm:text-4xl'} ${index===active?'text-white':'text-white/55'}`}>{steps[index]}</span>
+     </button>
+    </div>)}
+   </div>}
+  </div>
+  {steps.length>0&&<nav aria-label="Concept navigation" className="absolute bottom-[5.4rem] left-4 right-4 z-10 mx-auto flex max-w-3xl items-center justify-between rounded-xl border border-white/10 bg-[#0b1422]/90 p-2 text-xs font-bold backdrop-blur-xl sm:bottom-24"><button onClick={()=>browse(active-1)} disabled={active===0} className="rounded-lg px-3 py-2 disabled:opacity-30">← Back</button>{following?<span className="text-white/55">Follow tutor · {active+1}</span>:<button onClick={()=>setFollowing(true)} className="rounded-lg bg-[#e8a23d]/15 px-3 py-2 text-[#ffd080]">Follow tutor ↗</button>}<button onClick={()=>browse(active+1)} disabled={active===steps.length-1} className="rounded-lg px-3 py-2 disabled:opacity-30">Next →</button></nav>}
+ </section>;
 }

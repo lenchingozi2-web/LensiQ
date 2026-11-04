@@ -1,3 +1,5 @@
+import {createHash} from 'node:crypto';
+import {sourceChunks} from '@/lib/curriculum/source-chunks';
 /**
  * Prepare source-preserving thematic chunks before the LiveKit voice loop.
  * Gemini enriches the syllabus only; complete clinical text stays in each chunk.
@@ -82,28 +84,12 @@ function visualFor(title:string,content:string):Visual {
   return{type:'whiteboard',topic:title,markdown:'### '+title+'\n\n'+sentences.map(s=>'- '+s.slice(0,180)).join('\n')};
 }
 export async function createClassMaterialMap(text:string,sourceFileName:string) {
-  const portions:string[]=[];
-  for(let i=0;i<text.length;i+=2500)portions.push(text.slice(i,i+2750));
+  const ranges=sourceChunks(text);
+  const portions=ranges.map(range=>range.content);
   const titles=portions.map((part,i)=>part.split(/\n/).map(s=>s.trim()).find(s=>s.length>5&&s.length<100)||'Lecture section '+(i+1));
-  let enriched:string[]|null=null;
-  if(process.env.GEMINI_API_KEY&&portions.length<=32){
-    const model=process.env.GEMINI_CLASS_MAP_MODEL||'gemini-3.8-flash';
-    if(/^gemini-[a-z0-9.-]+$/.test(model))try{
-      const resp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{
-        method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':process.env.GEMINI_API_KEY},
-        signal:AbortSignal.timeout(12000),cache:'no-store',
-        body:JSON.stringify({contents:[{parts:[{text:'Create clinically precise, ordered headings for each numbered medical lecture excerpt. Return JSON object {"topics":["..."]}, exactly '+portions.length+' headings. Preserve pathophysiology, pharmacology mechanisms, clinical significance and evidence. Do not summarize the original text; it remains stored in full.\n'+portions.map((part,i)=>(i+1)+'. '+part.slice(0,540)).join('\n').slice(0,22000)}]}],generationConfig:{responseMimeType:'application/json',temperature:0.1,maxOutputTokens:1500}})
-      });
-      if(resp.ok){
-        const data=await resp.json();
-        const parsed=JSON.parse(data?.candidates?.[0]?.content?.parts?.[0]?.text||'{}');
-        if(Array.isArray(parsed.topics)&&parsed.topics.length===portions.length&&parsed.topics.every((s:unknown)=>typeof s==='string'&&s.length<120))enriched=parsed.topics;
-      }
-    }catch{/* Keep the source-preserving map when free-tier Gemini is throttled. */}
-  }
   const chunks=portions.map((content,i)=>{
-    const title=(enriched?.[i]||titles[i]).replace(/[\r\n]+/g,' ').slice(0,110);
-    return{id:'chunk-'+(i+1),title,content,visual:visualFor(title,content)};
+    const title=titles[i].replace(/[\r\n]+/g,' ').slice(0,110);
+    return{id:'chunk-'+(i+1),title,content,visual:visualFor(title,content),start:ranges[i].start,end:ranges[i].end};
   });
-  return{version:1,sourceFileName,mappedBy:enriched?'gemini':'source-preserving',syllabus:chunks.map(c=>({topic:c.title,chunkIds:[c.id]})),chunks};
+  return{version:2,sourceFileName,mappedBy:'source-preserving',sourceCharacterCount:text.length,sourceSha256:createHash('sha256').update(text,'utf8').digest('hex'),syllabus:chunks.map(c=>({topic:c.title,chunkIds:[c.id]})),chunks};
 }

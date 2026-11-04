@@ -75,17 +75,17 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor, vie
     return normalizedScene;
   }, [sourceScene]);
   // A parent with an ontology label is preferred to generic mesh IDs.
-  const structureName = (node: THREE.Object3D) => {
+  const structureName = useCallback((node: THREE.Object3D) => {
     let current: THREE.Object3D | null = node;
     while (current && current !== scene) {
       const candidate = current.name?.trim();
-      if (candidate && !/^(?:mesh[_ .-]*\\d+|node[_ .-]*\\d+|scene|object[_ .-]*\\d+|liveclassmedicalmodel)$/i.test(candidate)) {
-        return candidate.replace(/_+/g, ' ').replace(/\\s+/g, ' ').trim();
+      if (candidate && !/^(?:mesh[_ .-]*\d+|node[_ .-]*\d+|scene|object[_ .-]*\d+|liveclassmedicalmodel)$/i.test(candidate)) {
+        return candidate.replace(/_+/g, ' ').replace(/\s+/g, ' ').trim();
       }
       current = current.parent;
     }
     return (node.name || 'Unlabelled model part').replace(/_+/g, ' ').trim();
-  };
+  },[scene]);
   const materialState = useMemo(() => {
     const baseline = new Map<THREE.Material, { opacity: number; transparent: boolean; depthWrite: boolean }>();
     scene.traverse(child => {
@@ -113,7 +113,7 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor, vie
         material.needsUpdate = true;
       }
     });
-  }, [scene, viewMode, highlightStructure, materialState]);
+  }, [scene, viewMode, highlightStructure, materialState, structureName]);
 
   useEffect(() => { onReady?.(); }, [scene, onReady]);
 
@@ -146,7 +146,7 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor, vie
         material.needsUpdate = true;
       });
     });
-  }, [highlightColor, highlightStructure, originalEmissive, scene]);
+  }, [highlightColor, highlightStructure, originalEmissive, scene, structureName]);
 
   useEffect(() => () => {
     scene.traverse((child) => {
@@ -159,8 +159,9 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor, vie
   return (
     <primitive
       object={scene}
-      onClick={(event: { stopPropagation: () => void; object: THREE.Object3D }) => {
+      onClick={(event: { stopPropagation: () => void; object: THREE.Object3D; delta?:number }) => {
         event.stopPropagation();
+        if((event.delta??0)>7)return;
         onStructureSelect?.(structureName(event.object));
       }}
     />

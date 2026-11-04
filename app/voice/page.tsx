@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 26029)
+Total output lines: 1396
+
 'use client';
 
 import Link from 'next/link';
@@ -7,7 +10,8 @@ import type { Participant, Room as LiveKitRoom, Track as LiveKitTrack, Transcrip
 import PreClassSetup from '@/components/PreClassSetup';
 import LiveClassVisualStage from '@/components/LiveClassVisualStage';
 import type { PhysiologyPreset } from '@/components/PhysiologySimulator';
-import { inferLiveClassVisual, shouldApplyTutorTranscriptVisual, getMoleculeAsset, isApprovedMedicalModelUrl, isApprovedMoleculeModelUrl, type VisualContext } from '@/lib/voice/live-class-visuals';
+import { shouldApplyTutorTranscriptVisual, getMoleculeAsset, isApprovedMedicalModelUrl, isApprovedMoleculeModelUrl, type VisualContext } from '@/lib/voice/live-class-visuals';
+import {classroomStatus,conciseLessonPoint} from '@/lib/voice/lesson-presentation';
 import type { MaterialProfile } from '@/lib/curriculum/material-profile';
 
 type PermissionState = 'unknown' | 'granted' | 'denied';
@@ -161,14 +165,13 @@ function VoiceTutorContent() {
   const visualContextRef = useRef<VisualContext>(visualContext);
   const explicitVisualThisTurnRef = useRef(false);
   const teachingStepsRef = useRef<string[]>([]);
-  const visualSpeechQueueRef = useRef<string[]>([]);
-  const visualSpeechTimerRef = useRef<number | null>(null);
+  const workerContinuationRef = useRef(false);
   const [autoLesson, setAutoLesson] = useState(true);
   const autoLessonRef = useRef(true);
   const lessonSegmentCompleteRef = useRef(false);
   const lessonSegmentCountRef = useRef(0);
   const tutorSpeakingRef = useRef(false);
-  const lastTutorActivityAtRef = useRef(Date.now());
+  const lastTutorActivityAtRef = useRef(0);
   const tutorSpokeThisSegmentRef = useRef(false);
   const lastLearnerSpeechAtRef = useRef(0);
   const [lastHeard, setLastHeard] = useState('');
@@ -338,63 +341,26 @@ function VoiceTutorContent() {
   const applyTutorTranscript = (content: string) => {
     const spokenText = content.trim();
     if (!spokenText || /(?:Resume the current medical lesson from exactly where you stopped|Develop the NEXT important subtopic|Do not restart the introduction|Keep teaching naturally until the learner interrupts)/i.test(spokenText)) return;
-    const inferred = inferLiveClassVisual(spokenText, courseName);
-    if (!shouldApplyTutorTranscriptVisual(spokenText, inferred)) return;
-    if (teachingStepsRef.current.includes(spokenText)) return;
-    teachingStepsRef.current = [...teachingStepsRef.current, spokenText].slice(-12);
+    const boardVisual: VisualContext = {type:'whiteboard',topic:topicFocus||courseName};
+    if (!shouldApplyTutorTranscriptVisual(spokenText, boardVisual)) return;
+    const point = conciseLessonPoint(spokenText);
+    if (!point || teachingStepsRef.current.at(-1)===point) return;
     const current = visualContextRef.current;
+    // eslint-disable-next-line react-hooks/purity -- Invoked only from remote playback events.
     const modelFocusLocked = current.type === 'model' && Date.now() < learnerModelFocusUntilRef.current;
-    if (inferred.type !== 'whiteboard') {
-      unrelatedVisualStepsRef.current = 0;
-      // An explicit, verified worker choice outranks browser-side inference.
-      if (explicitVisualThisTurnRef.current) return;
-      if (modelFocusLocked && (inferred.type !== 'model' || inferred.modelUrl !== current.modelUrl)) return;
-      if (current.type !== inferred.type || JSON.stringify(current) !== JSON.stringify(inferred)) {
-        pendingHighlightRef.current = null;
-        updateVisualContext(inferred);
-      }
-    } else if (current.type === 'whiteboard') {
-      updateVisualContext({
-        type: 'whiteboard',
-        topic: topicFocus || current.topic || courseName,
-        markdown: teachingStepsRef.current.map((step) => '- ' + step).join('\n'),
-      });
-    } else if (!explicitVisualThisTurnRef.current && !modelFocusLocked) {
-      // Maintain the interactive model through its explanation. A single
-      // unrelated sentence should not yank the learner back to a whiteboard.
+    if (current.type !== 'whiteboard') {
       unrelatedVisualStepsRef.current += 1;
-      if (unrelatedVisualStepsRef.current >= 4) {
-        unrelatedVisualStepsRef.current = 0;
-        updateVisualContext({
-          type: 'whiteboard',
-          topic: topicFocus || courseName,
-          markdown: teachingStepsRef.current.map((step) => '- ' + step).join('\n'),
-        });
-      }
+      if (modelFocusLocked || unrelatedVisualStepsRef.current < 4) return;
+      unrelatedVisualStepsRef.current = 0;
+      teachingStepsRef.current = [];
     }
+    teachingStepsRef.current = [...teachingStepsRef.current,point].slice(-48);
+    updateVisualContext({type:'whiteboard',topic:topicFocus||courseName,markdown:teachingStepsRef.current.map(step=>'- '+step).join('\n')});
   };
 
-  // TTS emits text faster than an Android handset can play the corresponding
-  // audio. Reveal one point at a time at a natural spoken cadence.
-  const clearVisualSpeechQueue = () => {
-    visualSpeechQueueRef.current = [];
-    if (visualSpeechTimerRef.current !== null) {
-      window.clearTimeout(visualSpeechTimerRef.current);
-      visualSpeechTimerRef.current = null;
-    }
-  };
-
-  const advanceVisualSpeechQueue = () => {
-    if (visualSpeechTimerRef.current !== null) return;
-    const speech = visualSpeechQueueRef.current.shift();
-    if (!speech) return;
-    applyTutorTranscript(speech);
-    const playbackMs = Math.min(13_000, Math.max(2_700, speech.length * 65));
-    visualSpeechTimerRef.current = window.setTimeout(() => {
-      visualSpeechTimerRef.current = null;
-      advanceVisualSpeechQueue();
-    }, playbackMs);
-  };
+  // Cues now travel in the same output queue as the corresponding speech.
+  // Keep this reset for older worker compatibility; no estimated reading timer.
+  const clearVisualSpeechQueue = () => { unrelatedVisualStepsRef.current = 0; };
 
   const clearLessonContinueTimer = () => {
     if (lessonContinueTimerRef.current !== null) {
@@ -404,25 +370,25 @@ function VoiceTutorContent() {
   };
 
   const requestNextLessonSegment = () => {
-    if (!autoLessonRef.current || !lessonSegmentCompleteRef.current
+    if (workerContinuationRef.current || !autoLessonRef.current || !lessonSegmentCompleteRef.current
       || !tutorSpokeThisSegmentRef.current || tutorSpeakingRef.current
       || lessonSegmentCountRef.current >= 180) return;
     if (lessonContinueTimerRef.current !== null) return;
     lessonContinueTimerRef.current = window.setTimeout(() => {
       lessonContinueTimerRef.current = null;
       const room = roomRef.current;
-      if (!room || !autoLessonRef.current || !lessonSegmentCompleteRef.current
+      if (!room || workerContinuationRef.current || !autoLessonRef.current || !lessonSegmentCompleteRef.current
         || tutorSpeakingRef.current || room.localParticipant.isSpeaking
-        || Date.now() - lastLearnerSpeechAtRef.current < 3600
         || runtimeStateRef.current === 'ERROR' || runtimeStateRef.current === 'ENDING'
         || runtimeStateRef.current === 'WRAPPING') return;
+      if (Date.now()-lastLearnerSpeechAtRef.current < 900) {requestNextLessonSegment();return;}
       lessonSegmentCompleteRef.current = false;
       tutorSpokeThisSegmentRef.current = false;
       lessonSegmentCountRef.current += 1;
       const payload = new TextEncoder().encode(JSON.stringify({ type: 'lesson_continue', segment: lessonSegmentCountRef.current }));
       void room.localParticipant.publishData(payload, { reliable: true, topic: 'lensiq.live_class.lesson_control' })
         .catch(() => { lessonSegmentCompleteRef.current = true; });
-    }, Math.max(1500, 2800 - (Date.now() - lastLearnerSpeechAtRef.current)));
+    }, 1100);
   };
 
   const materialBranches = Array.from(new Set(materialProfiles.flatMap((profile) => profile.detectedBranches)));
@@ -649,6 +615,7 @@ function VoiceTutorContent() {
   // Only confirmed remote speech may start the class, not a silent audio track.
   const markFirstTutorSpeech = () => {
     if (sessionStartedAtRef.current || endingRef.current || !roomRef.current) return;
+    // eslint-disable-next-line react-hooks/purity -- First remote speech event, never render.
     sessionStartedAtRef.current = Date.now();
     elapsedSecondsRef.current = 0;
     setElapsedSeconds(0);
@@ -813,264 +780,7 @@ function VoiceTutorContent() {
         if (!signed.path || !signed.token || signed.bucket !== 'live-class-recordings') {
           throw new Error('The recording upload authorization was incomplete');
         }
-        const { createClient } = await import('@/lib/supabase/client');
-        const storage = createClient().storage.from('live-class-recordings');
-        const fileName = signed.path.split('/').pop() || 'recording.webm';
-        const upload = await storage.uploadToSignedUrl(
-          signed.path, signed.token,
-          new File([recordingBlob], fileName, { type: mimeType }),
-          { contentType: mimeType },
-        );
-        if (upload.error) throw upload.error;
-        const complete = await fetch('/api/voice/recording', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'complete', conversationId: activeConversationId, path: signed.path }),
-        });
-        if (!complete.ok) throw new Error('Unable to attach the uploaded recording to History');
-      } catch (uploadError) {
-        console.warn('Live Class recording was retained locally but not saved to History',
-          uploadError instanceof Error ? uploadError.name : 'unknown_error');
-        recordingUploadNotice = 'Your class recording is available to download on this device, but the cloud copy could not be saved. Please download it before leaving this page.';
-      }
-    }
-    if (uploadedMaterialPathsRef.current.length > 0) {
-      const paths = uploadedMaterialPathsRef.current;
-      uploadedMaterialPathsRef.current = [];
-      try {
-        const { createClient } = await import('@/lib/supabase/client');
-        await createClient().storage.from('ephemeral_class_materials').remove(paths);
-      } catch (cleanupError) {
-        console.warn('Ephemeral Live Class material cleanup failed:', cleanupError);
-      }
-    }
-    setUploadedFileUrls([]);
-    setUploadedMapUrls([]);
-    window.dispatchEvent(new CustomEvent('lensiq:clear-uploaded-materials'));
-    setSessionSummary({ topic: topicFocus || courseName, durationSeconds, turns: messagesRef.current.filter((item) => item.role === 'user').length, recordingAvailable: Boolean(recordingBlob?.size) });
-    sessionStartedAtRef.current = null;
-    sessionDeadlineAtRef.current = null;
-    setLiveStarted(false);
-    lastTutorActivityAtRef.current = Date.now();
-    setStudioOpen(false);
-    ambienceAudioRef.current?.pause();
-    setAmbienceEnabled(false);
-    setConnected(false);
-    setVoiceActive(false);
-    setSessionId(null);
-    sessionIdRef.current = null;
-    remainingSecondsRef.current = null;
-    setRemainingSeconds(null);
-    setRuntimeState('ENDED');
-    setStatus(message);
-    if (recordingUploadNotice) setError(recordingUploadNotice);
-    setAudioState('waiting');
-    setAgentAudioSubscribed(false);
-    agentAudioSubscribedRef.current = false;
-    if (activeSessionId) await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: activeSessionId, action: 'end' }) }).catch(() => undefined);
-    await fetch('/api/voice/materials', { method: 'DELETE' }).catch(() => undefined);
-    await loadHistory().catch(() => undefined);
-    endingRef.current = false;
-  }, [courseName, loadHistory, stopRecording, topicFocus]);
-  useEffect(() => {
-    endSessionRef.current = endSession;
-  }, [endSession]);
-
-  const startSession = async () => {
-    if (connecting || connected) return;
-    setConnecting(true);
-    setError('');
-    setSessionSummary(null);
-    setLiveStarted(false);
-    setStudioOpen(false);
-    sessionStartedAtRef.current = null;
-    updateVisualContext({ type: 'whiteboard', topic: topicFocus || courseName, ...(focusText.trim() ? { markdown: `### Study focus\n\n${focusText.trim()}` } : {}) });
-    setSelectedStructure('');
-    explicitVisualThisTurnRef.current = false;
-    teachingStepsRef.current = [];
-    clearVisualSpeechQueue();
-    setLastHeard('');
-    lessonSegmentCountRef.current = 0;
-    lessonSegmentCompleteRef.current = false;
-    tutorSpokeThisSegmentRef.current = false;
-    clearLessonContinueTimer();
-    pendingHighlightRef.current = null;
-    elapsedSecondsRef.current = 0;
-    sessionDeadlineAtRef.current = null;
-    setElapsedSeconds(0);
-    setRuntimeState('INITIALIZING');
-    setRecordingReady(false);
-    setRecordingDownloadUrl(null);
-    setStatus('Opening your private live classroom…');
-    await unlockPlaybackAudio().catch(() => undefined);
-    let livekit: typeof import('livekit-client');
-    try {
-      livekit = await import('livekit-client');
-    } catch {
-      setError('The voice classroom could not be loaded. Refresh the page and try again.');
-      setRuntimeState('ERROR');
-      setConnecting(false);
-      return;
-    }
-    const { Room, RoomEvent, Track } = livekit;
-    const room = new Room({
-      adaptiveStream: true,
-      dynacast: true,
-      webAudioMix: false,
-    });
-    Object.defineProperty(window, '__lensiqLiveRoom', { configurable: true, value: room });
-    const microphoneTrack = await requestMicrophone();
-    if (!microphoneTrack) { room.disconnect(); setRuntimeState('ERROR'); setConnecting(false); return; }
-    let activeConversation: Conversation | null = null;
-    try {
-      await startMicMonitor(microphoneTrack).catch(() => undefined);
-      setStatus('Preparing your visual medical workspace…');
-      activeConversation = await createConversation();
-      // Confirm the actual existing Supabase objects before accepting any
-      // worker-sent model URL. Late uploads need no code deployment.
-      try {
-        const libraryResponse = await fetch('/api/voice/models', {
-          cache: 'no-store', signal: AbortSignal.timeout(12000),
-        });
-        if (!libraryResponse.ok) throw new Error('Supabase catalogue not available');
-        const library = await libraryResponse.json() as {
-          count?: number;
-          truncated?: boolean;
-          models?: Array<{ url?: string; title?: string; category?: string }>;
-        };
-        const models = new Set<string>();
-        for (const entry of library.models || []) {
-          if (typeof entry.url === 'string' &&
-              entry.url.startsWith('https://hixvbcrrklyajhkyliay.supabase.co/storage/v1/object/public/medical-models/') &&
-              entry.url.toLowerCase().endsWith('.glb')) {
-            models.add(entry.url);
-          }
-        }
-        approvedBucketModelUrlsRef.current = models;
-        setLiveStorageModelCount(models.size);
-        setLiveStorageNotice(library.truncated
-          ? 'Your medical 3D library exceeds the current catalogue limit.'
-          : models.size === 0 ? 'No GLB models were found in the configured medical-models bucket.' : '');
-        console.info('[LenxiQ Live Class] Real Supabase models indexed:', models.size);
-      } catch {
-        approvedBucketModelUrlsRef.current = new Set();
-        setLiveStorageModelCount(null);
-        setLiveStorageNotice('Real model discovery unavailable. Existing curated 3D models remain accessible.');
-      }
-      const tokenResponse = await fetch('/api/voice/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseName, topicFocus, focusText, conversationId: activeConversation.id, fileUrls: uploadedFileUrls, materialMapUrls: uploadedMapUrls, materialContext }) });
-      const tokenData = await tokenResponse.json().catch(() => ({}));
-      if (!tokenResponse.ok) throw new Error(tokenData.message || tokenData.error || 'Unable to create a secure Live Class session.');
-      setSessionId(tokenData.sessionId);
-      sessionIdRef.current = tokenData.sessionId;
-      const conversation = activeConversation;
-      if (!conversation) throw new Error('Unable to create Live Class history.');
-      // Linking history is important, but should not hold the microphone or
-      // first audio connection hostage. It is saved asynchronously below.
-      setQuota(tokenData.quota ?? null);
-      const parsedDeadline = typeof tokenData.quota?.expiresAt === 'string' ? Date.parse(tokenData.quota.expiresAt) : NaN;
-      sessionDeadlineAtRef.current = Number.isFinite(parsedDeadline) ? parsedDeadline : null;
-      const initialRemainingSeconds = Math.max(0, Number(tokenData.quota?.maxDurationSeconds ?? 90 * 60));
-      remainingSecondsRef.current = initialRemainingSeconds;
-      setRemainingSeconds(initialRemainingSeconds);
-      setMessages([]);
-      messagesRef.current = [];
-      transcriptIdsRef.current.clear();
-      setReplaying(false);
-      room.on(RoomEvent.TrackSubscribed, (track) => {
-        if (track.kind === 'audio') lastTutorActivityAtRef.current = Date.now();
-        if (track.kind !== 'audio') return;
-        agentAudioSubscribedRef.current = true;
-        setAgentAudioSubscribed(true);
-        attachAudioTrack(track);
-      });
-      room.on(RoomEvent.TrackUnsubscribed, (track) => {
-        if (track.kind !== 'audio') return;
-        const key = tutorTrackKey(track);
-        audioElementsRef.current.get(key)?.remove();
-        audioElementsRef.current.delete(key);
-        track.detach();
-        const hasAudio = Array.from(room.remoteParticipants.values()).some((participant) => Array.from(participant.audioTrackPublications.values()).some((publication) => Boolean(publication.track)));
-        agentAudioSubscribedRef.current = hasAudio;
-        setAgentAudioSubscribed(hasAudio);
-        if (!hasAudio) setAudioState('waiting');
-      });
-      room.on(RoomEvent.LocalTrackPublished, (publication) => { if (publication.source === Track.Source.Microphone) { setMicState('live'); clientStage('MIC_TRACK_PUBLISHED_EVENT'); if (!sessionStartedAtRef.current) setStatus('Microphone ready. Your tutor is joining; class time is paused.'); } });
-      room.on(RoomEvent.LocalAudioSilenceDetected, () => { setMicState('silent'); clientStage('MIC_INPUT_SILENCE_DETECTED'); });
-      room.on(RoomEvent.MediaDevicesError, (mediaError) => { setMicState('error'); setError(friendlyError(mediaError)); });
-      room.on(RoomEvent.AudioPlaybackStatusChanged, (playing: boolean) => { if (agentAudioSubscribedRef.current) setAudioState(playing && !tutorMutedRef.current ? 'playing' : 'blocked'); });
-      room.on(RoomEvent.Reconnecting, () => { runtimeStateBeforeReconnectRef.current = runtimeStateRef.current; setRuntimeState('PAUSED'); setStatus('Connection interrupted. Reconnecting your study room…'); });
-      room.on(RoomEvent.Reconnected, () => {
-        const nextState = runtimeStateBeforeReconnectRef.current === 'PAUSED' ? 'LISTENING' : runtimeStateBeforeReconnectRef.current;
-        const restoredVisual = visualContextRef.current;
-        setVisualContext({ ...restoredVisual });
-        setRuntimeState(nextState);
-        setStatus(nextState === 'TEACHING' ? 'Study room reconnected. LenxiQ AI can continue your lesson.' : 'Study room reconnected. Your lesson visual is synchronized.');
-        clientStage('LIVEKIT_VISUAL_STATE_RESYNCED', { revision: visualRevisionRef.current, type: restoredVisual.type });
-        void playTutorAudioElements().catch(() => undefined);
-        for (const participant of room.remoteParticipants.values()) {
-          for (const publication of participant.trackPublications.values()) {
-            if (publication.track?.kind === 'audio') {
-              agentAudioSubscribedRef.current = true;
-              setAgentAudioSubscribed(true);
-              attachAudioTrack(publication.track);
-            }
-          }
-        }
-      });
-      room.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
-        try {
-          const data = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; message?: string; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; category?: string; structureId?: string; note?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
-          if (data.type === 'live_class_user_transcript' && data.content?.trim()) {
-            learnerModelFocusUntilRef.current = 0;
-            lastLearnerSpeechAtRef.current = Date.now();
-            clearLessonContinueTimer();
-            setLastHeard(data.content.trim().slice(0, 220));
-            return;
-          }
-          if (data.type === 'live_class_interaction_ack') {
-            setError('');
-            setStatus('Tutor received your selection and is preparing an explanation.');
-            return;
-          }
-          if (data.type === 'live_class_visual_step' && data.content?.trim()) {
-            lastTutorActivityAtRef.current = Date.now();
-            setError('');
-            visualSpeechQueueRef.current.push(data.content.trim());
-            if (visualSpeechQueueRef.current.length > 16) visualSpeechQueueRef.current.shift();
-            advanceVisualSpeechQueue();
-            return;
-          }
-          if (data.type === 'live_class_segment_complete') {
-            lessonSegmentCompleteRef.current = true;
-            requestNextLessonSegment();
-            return;
-          }
-          if (data.type === 'show_3d_model' && data.modelUrl && (isApprovedMedicalModelUrl(data.modelUrl) || approvedBucketModelUrlsRef.current.has(data.modelUrl))) {
-            const active = visualContextRef.current;
-            if (active.type === 'model' && data.modelUrl !== active.modelUrl &&
-                Date.now() < learnerModelFocusUntilRef.current) return;
-            unrelatedVisualStepsRef.current = 0;
-            explicitVisualThisTurnRef.current = true;
-            const pendingHighlight = pendingHighlightRef.current;
-            pendingHighlightRef.current = null;
-            setSelectedStructure(pendingHighlight?.structureId ?? '');
-            updateVisualContext({ type: 'model', modelUrl: data.modelUrl, note: data.note, ...(data.title ? { title: data.title } : {}), ...(typeof data.category === 'string' ? { category: data.category } : {}), ...(pendingHighlight ? { structureId: pendingHighlight.structureId, highlightColor: pendingHighlight.color } : {}) });
-            return;
-          }
-          if (data.type === 'show_molecular_model' && data.modelUrl && isApprovedMoleculeModelUrl(data.modelUrl)) {
-            const molecule = getMoleculeAsset(data.modelUrl);
-            if (!molecule) return;
-            explicitVisualThisTurnRef.current = true;
-            pendingHighlightRef.current = null;
-            setSelectedStructure('');
-            updateVisualContext({ type: 'molecule', ...molecule });
-            return;
-          }
-          if (data.type === 'highlight_structure' && data.structureId) {
-            explicitVisualThisTurnRef.current = true;
-            setSelectedStructure(data.structureId);
-            const current = visualContextRef.current;
-            if (current.type === 'model') updateVisualContext({ ...current, structureId: data.structureId, highlightColor: data.color });
+        const { createClie…4029 tokens truncated…...current, structureId: data.structureId, highlightColor: data.color });
             else pendingHighlightRef.current = { structureId: data.structureId, color: data.color };
             return;
           }
@@ -1108,6 +818,7 @@ function VoiceTutorContent() {
             explicitVisualThisTurnRef.current = true;
             pendingHighlightRef.current = null;
             setSelectedStructure('');
+            teachingStepsRef.current=data.markdown?[conciseLessonPoint(data.markdown)]:[];
             updateVisualContext({ type: 'whiteboard', topic: data.title || data.topic || courseName, markdown: data.markdown });
             return;
           }
@@ -1228,6 +939,7 @@ function VoiceTutorContent() {
       // Capture first speech even if it arrives during connection setup.
       roomRef.current = room;
       await room.connect(livekitUrl, tokenData.token);
+      void room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({type:'lesson_policy',autoContinue:autoLessonRef.current})),{reliable:true,topic:'lensiq.live_class.lesson_control'}).catch(()=>undefined);
       clientStage('LIVEKIT_ROOM_CONNECTED', { roomName: tokenData.roomName });
       await room.startAudio().catch((playbackError) => { clientStage('AGENT_AUDIO_PLAYBACK_BLOCKED', { error: String(playbackError) }); setAudioState('blocked'); });
       for (const participant of room.remoteParticipants.values()) {
@@ -1374,8 +1086,9 @@ function VoiceTutorContent() {
       </div>
     </main>}
     <main className={`${connected && !studioOpen ? 'hidden' : 'relative flex'} h-full w-full items-center justify-center px-4 pb-8 pt-20 sm:px-8`}>
-      {(connected || replaying || liveClassMode) && <div key={(visualContext.type === 'model' || visualContext.type === 'molecule') ? visualContext.modelUrl : visualContext.type === 'media' ? visualContext.mediaUrl : visualContext.type === 'simulation' ? visualContext.preset : visualContext.topic} className={liveClassMode ? 'absolute inset-0 animate-[lab-reveal_650ms_cubic-bezier(.2,.75,.2,1)_both]' : undefined}><LiveClassVisualStage visualContext={visualContext} selectedStructure={selectedStructure} onStructureSelect={(structureId) => { setSelectedStructure(structureId); learnerModelFocusUntilRef.current = Date.now() + 22000; const current = visualContextRef.current; if (current.type === 'model') updateVisualContext({ ...current, structureId }); publishVisualFeedback({ type: 'structure_selected', modelUrl: current.type === 'model' ? current.modelUrl : undefined, structureId, interaction: 'touch_or_click' }); }} onConceptSelect={(concept, index) => publishVisualFeedback({ type: 'concept_selected', topic: visualContext.type === 'whiteboard' ? visualContext.topic : courseName, concept: concept.slice(0, 420), index })} onSimulationState={(snapshot) => publishVisualFeedback({ type: 'simulation_state', ...snapshot })} onSimulationResult={(snapshot) => publishVisualFeedback({ type: 'simulation_result', ...snapshot })} /></div>}
-      {!connected && !replaying ? <section className={`relative z-20 mx-auto max-h-[min(88dvh,54rem)] w-full max-w-3xl overflow-y-auto rounded-[2rem] border shadow-[0_24px_80px_rgba(0,0,0,0.42)] ${liveClassMode ? 'border-white/15 bg-[#101827]/88 text-white backdrop-blur-2xl animate-[lab-badge-in_720ms_cubic-bezier(.18,.76,.22,1)_both]' : 'border-[#DED9CC] bg-[#FBFAF7]'}`}><div className="bg-gradient-to-br from-[#1E2A3D] via-[#26364C] to-[#3A4B5B] px-6 py-10 text-center text-white sm:px-12 sm:py-14"><div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-[#E8A23D]/50 bg-[#E8A23D]/10 text-2xl font-black text-[#E8A23D] shadow-[0_0_42px_rgba(232,162,61,.18)]">LQ</div><p className="mt-6 text-xs font-black uppercase tracking-[0.22em] text-[#E8A23D]">Medical mastery lab</p><h1 className="mt-3 text-3xl font-black tracking-[-0.05em] sm:text-5xl">Badge in to Live Class.</h1><p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-200">Bring your slides, choose a medical branch, and enter a visual study room. LenxiQ AI will stage anatomy, concept media, or a whiteboard strictly around the concept being taught.</p><Waveform active={false} /></div><div className={`space-y-6 px-6 py-8 sm:px-12 sm:py-10 ${liveClassMode ? 'bg-[#111827]/75' : ''}`}>{sessionSummary && <div className={liveClassMode ? "rounded-2xl border border-[#E8A23D]/20 bg-[#E8A23D]/[0.07] p-5" : "rounded-2xl border border-[#E8D7B7] bg-[#FFF8E9] p-5"}><p className={liveClassMode ? "text-xs font-black uppercase tracking-[0.16em] text-[#ffd68d]" : "text-xs font-black uppercase tracking-[0.16em] text-[#9A5D00]"}>Class complete</p><h2 className={liveClassMode ? "mt-2 text-2xl font-black tracking-[-0.04em] text-white" : "mt-2 text-2xl font-black tracking-[-0.04em] text-[#27231D]"}>Nice work.</h2><p className={liveClassMode ? "mt-2 text-sm leading-6 text-white/65" : "mt-2 text-sm leading-6 text-[#6E501E]"}>You spent {formatClock(sessionSummary.durationSeconds)} on {sessionSummary.topic} and asked {sessionSummary.turns} question{sessionSummary.turns === 1 ? '' : 's'}.</p>{sessionSummary.recordingAvailable && recordingDownloadUrl && <><audio controls preload="metadata" src={recordingDownloadUrl} className="mt-4 w-full" aria-label="Saved Live Class recording" /><a href={recordingDownloadUrl} download="lenxiq-live-class.webm" className="mt-3 inline-flex rounded-xl bg-[#E8A23D] px-4 py-3 text-xs font-black text-[#172033]">Download session audio</a></>}</div>}<PreClassSetup files={uploadedFiles} onFilesChange={setUploadedFiles} onMaterialProfilesChange={setMaterialProfiles} focusText={focusText} onFocusTextChange={setFocusText} /><div><label htmlFor="course" className="text-xs font-black uppercase tracking-[0.16em] text-[#FFE2A8]">Course context</label><select id="course" value={courseName} onChange={(event) => setCourseName(event.target.value)} className={liveClassMode ? "mt-2 w-full rounded-xl border border-white/12 bg-[#080D16]/75 px-4 py-3 font-semibold text-white outline-none focus:border-[#E8A23D]" : "mt-2 w-full rounded-xl border border-[#D9D3C5] bg-white px-4 py-3 font-semibold text-[#27231D] outline-none focus:border-[#E8A23D]"}>{COURSES.map((course) => <option key={course} value={course}>{course}</option>)}</select><p className="mt-2 text-xs leading-5 text-white/55">This helps the tutor prioritise your LenxiQ AI course material while enriching the lesson with broader medical knowledge.</p></div><button type="button" onClick={() => void startSession()} disabled={connecting} className="w-full rounded-xl bg-[#E8A23D] px-5 py-4 text-base font-black text-[#172033] shadow-md hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50">{connecting ? 'Opening your live classroom…' : sessionSummary ? 'Start another Live Class' : 'Enter Live Class'}</button><p className="text-center text-xs font-bold text-white/60">Live Class is available on All Access at ₦9,870/month; Premium Study and Free plans include text and catalogue access only.</p>{error && <div className={liveClassMode ? "rounded-xl border border-rose-300/20 bg-rose-500/[0.09] p-4 text-sm font-bold leading-6 text-rose-200" : "rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold leading-6 text-red-800"}>{error}{error.includes('Sign in') && <Link href={`/login?next=${encodeURIComponent(liveClassMode ? '/voice?mode=class' : '/voice')}`} className="mt-3 inline-flex rounded-lg bg-[#0B1220] px-4 py-2 text-xs font-black text-white">Sign in to continue</Link>}{permissionState === 'denied' && <p className="mt-2 font-medium">{permissionHelp()}</p>}</div>}{recordingReady && recordingDownloadUrl && <div className={liveClassMode ? "mt-5 rounded-2xl border border-white/10 bg-[#101827]/80 p-4" : "mt-5 rounded-2xl border border-[#E8D7B7] bg-[#FFF8E9] p-4"}><p className={liveClassMode ? "text-sm font-black text-white" : "text-sm font-black text-[#5B3B0C]"}>Your spoken class is ready to keep.</p><p className={liveClassMode ? "mt-1 text-xs leading-5 text-white/55" : "mt-1 text-xs leading-5 text-[#6E501E]"}>Download the audio recording now. Your transcript remains available in History.</p><a href={recordingDownloadUrl} download="lenxiq-live-class.webm" className="mt-3 inline-flex rounded-xl bg-[#E8A23D] px-4 py-3 text-xs font-black text-[#172033]">Download session audio</a></div>}</div></section> : <section className={connected ? "hidden" : liveClassMode ? "absolute bottom-4 left-1/2 z-20 live-class-dock max-h-[34dvh] w-[calc(100%-1.25rem)] max-w-5xl -translate-x-1/2 overflow-y-auto rounded-[1.75rem] border border-white/15 bg-[#101827]/70 p-3 text-white shadow-[0_24px_90px_rgba(0,0,0,.42)] backdrop-blur-2xl sm:p-4 sm:bottom-6 sm:p-4" : "mx-auto max-w-3xl overflow-hidden rounded-[2rem] border border-[#DED9CC] bg-[#FBFAF7] shadow-[0_24px_80px_rgba(65,57,43,0.11)]"}><div className={liveClassMode ? "bg-transparent px-2 py-1 text-white sm:px-3" : "bg-gradient-to-br from-[#1E2A3D] via-[#26364C] to-[#3A4B5B] px-6 py-8 text-white sm:px-12 sm:py-10"}><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#E8A23D]">{replaying ? 'SAVED CLASS' : runtimeCopy.label.toUpperCase()}</p><p className="mt-2 text-sm font-bold text-slate-300">{topicFocus || courseName} · {liveStarted ? formatClock(sessionElapsed) : 'Timer paused'}</p></div>{connected && <div className="flex items-center gap-2">{liveStarted && quota && !quota.isUnlimited && remainingSeconds !== null && <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-black text-white">{formatClock(remainingSeconds)}</span>}<button type="button" onClick={() => void endSession()} className="rounded-xl bg-[#B44134] px-3 py-2 text-xs font-black text-white">End class</button></div>}</div><div className={liveClassMode ? "flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-2 py-2 text-center sm:py-3" : "py-12 text-center sm:py-16"}><div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full border-2 sm:h-20 sm:w-20 ${voiceActive ? 'border-[#E8A23D] bg-[#E8A23D]/15 shadow-[0_0_0_18px_rgba(232,162,61,0.08)]' : micLevel > 0.04 ? 'border-emerald-300/70 bg-emerald-300/10' : 'border-white/20 bg-white/5'} transition`}><div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E8A23D] p-1 text-[#172033] sm:h-14 sm:w-14"><Waveform active={voiceActive || micLevel > 0.04} level={voiceActive ? 1 : micLevel} /></div></div><h1 className="mt-2 w-full text-lg font-black tracking-[-0.04em] sm:text-xl">{replaying ? 'Your saved class' : runtimeCopy.label}</h1><p className="mx-auto mt-1 max-w-lg text-xs leading-5 text-slate-200">{status || runtimeCopy.detail}</p><div className="mx-auto mt-4 flex flex-wrap items-center justify-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-slate-300"><span className={`rounded-full px-3 py-1.5 ${micLevel > 0.04 ? 'bg-emerald-400/20 text-emerald-200' : micState === 'silent' ? 'bg-amber-400/20 text-amber-200' : 'bg-white/10 text-slate-300'}`}>{micLevel > 0.04 ? 'Mic active' : micState === 'live' ? 'Mic ready' : micState === 'silent' ? 'Mic ready' : micState === 'error' ? 'Mic error' : 'Mic starting'}</span><span className={`rounded-full px-3 py-1.5 ${tutorAudioLive ? 'bg-emerald-400/20 text-emerald-200' : audioState === 'blocked' ? 'bg-red-400/20 text-red-200' : 'bg-white/10 text-slate-300'}`}>{tutorAudioLive ? 'Tutor audio live' : audioState === 'blocked' ? 'Tutor audio blocked' : agentAudioSubscribed ? 'Tutor audio ready' : 'Waiting for tutor audio'}</span><span className={`rounded-full px-3 py-1.5 ${liveStarted ? 'bg-emerald-400/20 text-emerald-200' : 'bg-[#E8A23D]/20 text-[#FFE2A8]'}`}>{liveStarted ? 'Class live · time counting' : 'Tutor preparing · time paused'}</span></div><div className="mt-2 flex items-center justify-center gap-3"><button type="button" onClick={() => void toggleMicrophone()} disabled={!connected} className={`flex h-12 w-12 items-center justify-center rounded-full shadow-lg ${micMuted ? 'bg-white/15 text-white' : 'bg-[#E8A23D] text-[#172033]'}`} aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'}>{micMuted ? '×' : '●'}</button><span className="text-left text-xs font-bold text-slate-300">{micMuted ? 'Microphone muted' : 'Speak naturally'}<br />Interrupt whenever you need.</span></div></div><div className="flex flex-wrap items-center justify-center gap-2 border-t border-white/10 pt-3"><button type="button" onClick={() => setShowTranscript((value) => !value)} className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-black text-white">{showTranscript ? 'Hide transcript' : 'Show live transcript'}</button><button type="button" onClick={() => void toggleTutorAudio()} className={`rounded-xl border px-3 py-2 text-xs font-black ${tutorMuted ? 'border-white/15 bg-white/10 text-white' : tutorAudioLive ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100' : 'border-[#E8A23D]/60 bg-[#E8A23D]/15 text-[#FFE2A8]'}`}>{tutorMuted ? 'Turn tutor audio on' : tutorAudioLive ? 'Tutor audio on' : 'Enable tutor audio'}</button><div className="relative"><button type="button" onClick={() => void toggleAmbience()} className={`rounded-xl border px-3 py-2 text-xs font-black ${ambienceEnabled ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100' : 'border-[#E8A23D]/60 bg-[#E8A23D]/15 text-[#FFE2A8]'}`}>{ambienceEnabled ? 'Ambience on · stop' : 'Turn ambience on'}</button><button type="button" onClick={() => setAmbienceOpen((value) => !value)} className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-black text-white">Choose sound</button>{ambienceOpen && <div className="absolute bottom-11 left-1/2 z-20 w-64 -translate-x-1/2 rounded-2xl border border-white/10 bg-[#172033] p-2 text-left shadow-2xl">{SOUNDSCAPES.map((item) => <button key={item.id} type="button" onClick={() => void selectAmbience(item.id)} className={`w-full rounded-xl px-3 py-3 ${item.id === ambienceId ? 'bg-white/10' : 'hover:bg-white/5'}`}><span className="block text-xs font-black text-white">{item.label}</span><span className="mt-1 block text-[11px] leading-4 text-slate-300">{item.description}</span></button>)}<button type="button" onClick={() => void toggleAmbience()} className="mt-1 w-full rounded-xl bg-[#E8A23D] px-3 py-2 text-xs font-black text-[#172033]">{ambienceEnabled ? 'Turn ambience off' : 'Turn ambience on'}</button></div>}</div>{recordingReady && recordingDownloadUrl && <a href={recordingDownloadUrl} download="lenxiq-live-class.webm" className="rounded-xl border border-[#E8A23D]/60 bg-[#E8A23D]/15 px-3 py-2 text-xs font-black text-[#FFF2D4]">Download session audio</a>}{replaying && <button type="button" onClick={() => { setReplaying(false); setMessages([]); setStatus('Ready when you are. Say what you want to understand.'); }} className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-black text-white">Start new class</button>}</div></div>{connected && <div className="border-t border-white/10 px-1 pt-4"><label htmlFor="ambience-volume" className="flex items-center justify-between text-xs font-black text-slate-300"><span>Ambience volume</span><span>{Math.round(ambienceVolume * 100)}%</span></label><input id="ambience-volume" type="range" min="0" max="0.42" step="0.01" value={ambienceVolume} onChange={(event) => setAmbienceVolume(Number(event.target.value))} disabled={!ambienceEnabled} className="mt-3 w-full accent-[#E8A23D]" /></div>}{ambienceNotice && connected && <p className="bg-[#FFF8E9] px-6 py-3 text-center text-xs font-bold text-[#6E501E]">{ambienceNotice} If you cannot hear it, raise phone media volume and check Bluetooth output.</p>}{showTranscript && <div className="max-h-72 space-y-3 overflow-y-auto bg-[#101827]/90 px-5 py-5 sm:px-8">{messages.length === 0 && <p className={liveClassMode ? "text-center text-sm font-bold text-white/45" : "text-center text-sm font-bold text-[#8B8578]"}>Your spoken lesson will appear here as it unfolds.</p>}{messages.map((message, index) => <div key={message.id ?? `${message.role}-${index}`} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === 'user' ? 'bg-[#1E2A3D] text-white' : 'border border-white/10 bg-white/[0.06] text-white'}`}>{message.content}</div></div>)}</div>}{!showTranscript && latestMessage && <div className={liveClassMode ? "border-t border-white/10 bg-[#101827]/80 px-6 py-4 text-center text-sm leading-6 text-white/65" : "border-t border-[#E7E2D7] bg-[#FBFAF7] px-6 py-4 text-center text-sm leading-6 text-[#6F6A60]"}><span className={liveClassMode ? "font-black text-[#ffd68d]" : "font-black text-[#9A5D00]"}>Live transcript</span> · {latestMessage.content}</div>}{error && <div className="m-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold leading-6 text-red-800">{error}</div>}</section>}
+      {/* eslint-disable-next-line react-hooks/purity -- Model focus changes only in pointer callbacks. */}
+      {(connected || replaying || liveClassMode) && <div key={(visualContext.type === 'model' || visualContext.type === 'molecule') ? visualContext.modelUrl : visualContext.type === 'media' ? visualContext.mediaUrl : visualContext.type === 'simulation' ? visualContext.preset : visualContext.topic} className={liveClassMode ? 'absolute inset-0 animate-[lab-reveal_650ms_cubic-bezier(.2,.75,.2,1)_both]' : undefined}><LiveClassVisualStage visualContext={visualContext} selectedStructure={selectedStructure} onStructureSelect={(structureId) => { setSelectedStructure(structureId); learnerModelFocusUntilRef.current = Date.now() + 22000; const current = visualContextRef.current; if (current.type === 'model') updateVisualContext({ ...current, structureId }); publishVisualFeedback({ type: 'structure_selected', modelUrl: current.type === 'model' ? current.modelUrl : undefined, structureId, interaction: 'touch_or_click' }); }} onConceptSelect={(concept, index) => publishVisualFeedback({ type: 'concept_selected', topic: visualContext.type === 'whiteboard' ? visualContext.topic : courseName, concept: concept.slice(0, 420), index })} onMediaSelect={(point)=>{learnerModelFocusUntilRef.current=Date.now()+22000;publishVisualFeedback({type:'media_selected',...point});}} onSimulationState={(snapshot) => publishVisualFeedback({ type: 'simulation_state', ...snapshot })} onSimulationResult={(snapshot) => publishVisualFeedback({ type: 'simulation_result', ...snapshot })} /></div>}
+      {!connected && !replaying ? <section className={`relative z-20 mx-auto max-h-[min(88dvh,54rem)] w-full max-w-3xl overflow-y-auto rounded-[2rem] border shadow-[0_24px_80px_rgba(0,0,0,0.42)] ${liveClassMode ? 'border-white/15 bg-[#101827]/88 text-white backdrop-blur-2xl animate-[lab-badge-in_720ms_cubic-bezier(.18,.76,.22,1)_both]' : 'border-[#DED9CC] bg-[#FBFAF7]'}`}><div className="bg-gradient-to-br from-[#1E2A3D] via-[#26364C] to-[#3A4B5B] px-6 py-10 text-center text-white sm:px-12 sm:py-14"><div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-[#E8A23D]/50 bg-[#E8A23D]/10 text-2xl font-black text-[#E8A23D] shadow-[0_0_42px_rgba(232,162,61,.18)]">LQ</div><p className="mt-6 text-xs font-black uppercase tracking-[0.22em] text-[#E8A23D]">Medical mastery lab</p><h1 className="mt-3 text-3xl font-black tracking-[-0.05em] sm:text-5xl">Badge in to Live Class.</h1><p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-200">Bring your slides, choose a medical branch, and enter a visual study room. LenxiQ AI will stage anatomy, concept media, or a whiteboard strictly around the concept being taught.</p><Waveform active={false} /></div><div className={`space-y-6 px-6 py-8 sm:px-12 sm:py-10 ${liveClassMode ? 'bg-[#111827]/75' : ''}`}>{sessionSummary && <div className={liveClassMode ? "rounded-2xl border border-[#E8A23D]/20 bg-[#E8A23D]/[0.07] p-5" : "rounded-2xl border border-[#E8D7B7] bg-[#FFF8E9] p-5"}><p className={liveClassMode ? "text-xs font-black uppercase tracking-[0.16em] text-[#ffd68d]" : "text-xs font-black uppercase tracking-[0.16em] text-[#9A5D00]"}>Class complete</p><h2 className={liveClassMode ? "mt-2 text-2xl font-black tracking-[-0.04em] text-white" : "mt-2 text-2xl font-black tracking-[-0.04em] text-[#27231D]"}>Nice work.</h2><p className={liveClassMode ? "mt-2 text-sm leading-6 text-white/65" : "mt-2 text-sm leading-6 text-[#6E501E]"}>You spent {formatClock(sessionSummary.durationSeconds)} on {sessionSummary.topic} and asked {sessionSummary.turns} question{sessionSummary.turns === 1 ? '' : 's'}.</p>{sessionSummary.recordingAvailable && recordingDownloadUrl && <><audio controls preload="metadata" src={recordingDownloadUrl} className="mt-4 w-full" aria-label="Saved Live Class recording" /><a href={recordingDownloadUrl} download="lenxiq-live-class.webm" className="mt-3 inline-flex rounded-xl bg-[#E8A23D] px-4 py-3 text-xs font-black text-[#172033]">Download session audio</a></>}</div>}<PreClassSetup files={uploadedFiles} onFilesChange={setUploadedFiles} onMaterialProfilesChange={setMaterialProfiles} focusText={focusText} onFocusTextChange={setFocusText} /><div><label htmlFor="course" className="text-xs font-black uppercase tracking-[0.16em] text-[#FFE2A8]">Course context</label><select id="course" value={courseName} onChange={(event) => setCourseName(event.target.value)} className={liveClassMode ? "mt-2 w-full rounded-xl border border-white/12 bg-[#080D16]/75 px-4 py-3 font-semibold text-white outline-none focus:border-[#E8A23D]" : "mt-2 w-full rounded-xl border border-[#D9D3C5] bg-white px-4 py-3 font-semibold text-[#27231D] outline-none focus:border-[#E8A23D]"}>{COURSES.map((course) => <option key={course} value={course}>{course}</option>)}</select><p className="mt-2 text-xs leading-5 text-white/55">This helps the tutor prioritise your LenxiQ AI course material while enriching the lesson with broader medical knowledge.</p></div><button type="button" onClick={() => void startSession()} disabled={connecting} className="w-full rounded-xl bg-[#E8A23D] px-5 py-4 text-base font-black text-[#172033] shadow-md hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50">{connecting ? 'Opening your live classroom…' : sessionSummary ? 'Start another Live Class' : 'Enter Live Class'}</button><p className="text-center text-xs font-bold text-white/60">Live Class is included in Scholar, Scholar Plus and Mastery, within your plan’s monthly minutes.</p>{error && <div className={liveClassMode ? "rounded-xl border border-rose-300/20 bg-rose-500/[0.09] p-4 text-sm font-bold leading-6 text-rose-200" : "rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold leading-6 text-red-800"}>{error}{error.includes('Sign in') && <Link href={`/login?next=${encodeURIComponent(liveClassMode ? '/voice?mode=class' : '/voice')}`} className="mt-3 inline-flex rounded-lg bg-[#0B1220] px-4 py-2 text-xs font-black text-white">Sign in to continue</Link>}{permissionState === 'denied' && <p className="mt-2 font-medium">{permissionHelp()}</p>}</div>}{recordingReady && recordingDownloadUrl && <div className={liveClassMode ? "mt-5 rounded-2xl border border-white/10 bg-[#101827]/80 p-4" : "mt-5 rounded-2xl border border-[#E8D7B7] bg-[#FFF8E9] p-4"}><p className={liveClassMode ? "text-sm font-black text-white" : "text-sm font-black text-[#5B3B0C]"}>Your spoken class is ready to keep.</p><p className={liveClassMode ? "mt-1 text-xs leading-5 text-white/55" : "mt-1 text-xs leading-5 text-[#6E501E]"}>Download the audio recording now. Your transcript remains available in History.</p><a href={recordingDownloadUrl} download="lenxiq-live-class.webm" className="mt-3 inline-flex rounded-xl bg-[#E8A23D] px-4 py-3 text-xs font-black text-[#172033]">Download session audio</a></div>}</div></section> : <section className={connected ? "hidden" : liveClassMode ? "absolute bottom-4 left-1/2 z-20 live-class-dock max-h-[34dvh] w-[calc(100%-1.25rem)] max-w-5xl -translate-x-1/2 overflow-y-auto rounded-[1.75rem] border border-white/15 bg-[#101827]/70 p-3 text-white shadow-[0_24px_90px_rgba(0,0,0,.42)] backdrop-blur-2xl sm:p-4 sm:bottom-6 sm:p-4" : "mx-auto max-w-3xl overflow-hidden rounded-[2rem] border border-[#DED9CC] bg-[#FBFAF7] shadow-[0_24px_80px_rgba(65,57,43,0.11)]"}><div className={liveClassMode ? "bg-transparent px-2 py-1 text-white sm:px-3" : "bg-gradient-to-br from-[#1E2A3D] via-[#26364C] to-[#3A4B5B] px-6 py-8 text-white sm:px-12 sm:py-10"}><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#E8A23D]">{replaying ? 'SAVED CLASS' : runtimeCopy.label.toUpperCase()}</p><p className="mt-2 text-sm font-bold text-slate-300">{topicFocus || courseName} · {liveStarted ? formatClock(sessionElapsed) : 'Timer paused'}</p></div>{connected && <div className="flex items-center gap-2">{liveStarted && quota && !quota.isUnlimited && remainingSeconds !== null && <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-black text-white">{formatClock(remainingSeconds)}</span>}<button type="button" onClick={() => void endSession()} className="rounded-xl bg-[#B44134] px-3 py-2 text-xs font-black text-white">End class</button></div>}</div><div className={liveClassMode ? "flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-2 py-2 text-center sm:py-3" : "py-12 text-center sm:py-16"}><div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full border-2 sm:h-20 sm:w-20 ${voiceActive ? 'border-[#E8A23D] bg-[#E8A23D]/15 shadow-[0_0_0_18px_rgba(232,162,61,0.08)]' : micLevel > 0.04 ? 'border-emerald-300/70 bg-emerald-300/10' : 'border-white/20 bg-white/5'} transition`}><div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E8A23D] p-1 text-[#172033] sm:h-14 sm:w-14"><Waveform active={voiceActive || micLevel > 0.04} level={voiceActive ? 1 : micLevel} /></div></div><h1 className="mt-2 w-full text-lg font-black tracking-[-0.04em] sm:text-xl">{replaying ? 'Your saved class' : runtimeCopy.label}</h1><p className="mx-auto mt-1 max-w-lg text-xs leading-5 text-slate-200">{status || runtimeCopy.detail}</p><div className="mx-auto mt-4 flex flex-wrap items-center justify-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-slate-300"><span className={`rounded-full px-3 py-1.5 ${micLevel > 0.04 ? 'bg-emerald-400/20 text-emerald-200' : micState === 'silent' ? 'bg-amber-400/20 text-amber-200' : 'bg-white/10 text-slate-300'}`}>{micLevel > 0.04 ? 'Mic active' : micState === 'live' ? 'Mic ready' : micState === 'silent' ? 'Mic ready' : micState === 'error' ? 'Mic error' : 'Mic starting'}</span><span className={`rounded-full px-3 py-1.5 ${tutorAudioLive ? 'bg-emerald-400/20 text-emerald-200' : audioState === 'blocked' ? 'bg-red-400/20 text-red-200' : 'bg-white/10 text-slate-300'}`}>{tutorAudioLive ? 'Tutor audio live' : audioState === 'blocked' ? 'Tutor audio blocked' : agentAudioSubscribed ? 'Tutor audio ready' : 'Waiting for tutor audio'}</span><span className={`rounded-full px-3 py-1.5 ${liveStarted ? 'bg-emerald-400/20 text-emerald-200' : 'bg-[#E8A23D]/20 text-[#FFE2A8]'}`}>{liveStarted ? 'Class live · time counting' : 'Tutor preparing · time paused'}</span></div><div className="mt-2 flex items-center justify-center gap-3"><button type="button" onClick={() => void toggleMicrophone()} disabled={!connected} className={`flex h-12 w-12 items-center justify-center rounded-full shadow-lg ${micMuted ? 'bg-white/15 text-white' : 'bg-[#E8A23D] text-[#172033]'}`} aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'}>{micMuted ? '×' : '●'}</button><span className="text-left text-xs font-bold text-slate-300">{micMuted ? 'Microphone muted' : 'Speak naturally'}<br />Interrupt whenever you need.</span></div></div><div className="flex flex-wrap items-center justify-center gap-2 border-t border-white/10 pt-3"><button type="button" onClick={() => setShowTranscript((value) => !value)} className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-black text-white">{showTranscript ? 'Hide transcript' : 'Show live transcript'}</button><button type="button" onClick={() => void toggleTutorAudio()} className={`rounded-xl border px-3 py-2 text-xs font-black ${tutorMuted ? 'border-white/15 bg-white/10 text-white' : tutorAudioLive ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100' : 'border-[#E8A23D]/60 bg-[#E8A23D]/15 text-[#FFE2A8]'}`}>{tutorMuted ? 'Turn tutor audio on' : tutorAudioLive ? 'Tutor audio on' : 'Enable tutor audio'}</button><div className="relative"><button type="button" onClick={() => void toggleAmbience()} className={`rounded-xl border px-3 py-2 text-xs font-black ${ambienceEnabled ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100' : 'border-[#E8A23D]/60 bg-[#E8A23D]/15 text-[#FFE2A8]'}`}>{ambienceEnabled ? 'Ambience on · stop' : 'Turn ambience on'}</button><button type="button" onClick={() => setAmbienceOpen((value) => !value)} className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-black text-white">Choose sound</button>{ambienceOpen && <div className="absolute bottom-11 left-1/2 z-20 w-64 -translate-x-1/2 rounded-2xl border border-white/10 bg-[#172033] p-2 text-left shadow-2xl">{SOUNDSCAPES.map((item) => <button key={item.id} type="button" onClick={() => void selectAmbience(item.id)} className={`w-full rounded-xl px-3 py-3 ${item.id === ambienceId ? 'bg-white/10' : 'hover:bg-white/5'}`}><span className="block text-xs font-black text-white">{item.label}</span><span className="mt-1 block text-[11px] leading-4 text-slate-300">{item.description}</span></button>)}<button type="button" onClick={() => void toggleAmbience()} className="mt-1 w-full rounded-xl bg-[#E8A23D] px-3 py-2 text-xs font-black text-[#172033]">{ambienceEnabled ? 'Turn ambience off' : 'Turn ambience on'}</button></div>}</div>{recordingReady && recordingDownloadUrl && <a href={recordingDownloadUrl} download="lenxiq-live-class.webm" className="rounded-xl border border-[#E8A23D]/60 bg-[#E8A23D]/15 px-3 py-2 text-xs font-black text-[#FFF2D4]">Download session audio</a>}{replaying && <button type="button" onClick={() => { setReplaying(false); setMessages([]); setStatus('Ready when you are. Say what you want to understand.'); }} className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-black text-white">Start new class</button>}</div></div>{connected && <div className="border-t border-white/10 px-1 pt-4"><label htmlFor="ambience-volume" className="flex items-center justify-between text-xs font-black text-slate-300"><span>Ambience volume</span><span>{Math.round(ambienceVolume * 100)}%</span></label><input id="ambience-volume" type="range" min="0" max="0.42" step="0.01" value={ambienceVolume} onChange={(event) => setAmbienceVolume(Number(event.target.value))} disabled={!ambienceEnabled} className="mt-3 w-full accent-[#E8A23D]" /></div>}{ambienceNotice && connected && <p className="bg-[#FFF8E9] px-6 py-3 text-center text-xs font-bold text-[#6E501E]">{ambienceNotice} If you cannot hear it, raise phone media volume and check Bluetooth output.</p>}{showTranscript && <div className="max-h-72 space-y-3 overflow-y-auto bg-[#101827]/90 px-5 py-5 sm:px-8">{messages.length === 0 && <p className={liveClassMode ? "text-center text-sm font-bold text-white/45" : "text-center text-sm font-bold text-[#8B8578]"}>Your spoken lesson will appear here as it unfolds.</p>}{messages.map((message, index) => <div key={message.id ?? `${message.role}-${index}`} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === 'user' ? 'bg-[#1E2A3D] text-white' : 'border border-white/10 bg-white/[0.06] text-white'}`}>{message.content}</div></div>)}</div>}{!showTranscript && latestMessage && <div className={liveClassMode ? "border-t border-white/10 bg-[#101827]/80 px-6 py-4 text-center text-sm leading-6 text-white/65" : "border-t border-[#E7E2D7] bg-[#FBFAF7] px-6 py-4 text-center text-sm leading-6 text-[#6F6A60]"}><span className={liveClassMode ? "font-black text-[#ffd68d]" : "font-black text-[#9A5D00]"}>Live transcript</span> · {latestMessage.content}</div>}{error && <div className="m-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold leading-6 text-red-800">{error}</div>}</section>}
     </main>
     {connected && studioOpen && <>
       {showTranscript && <aside className="absolute bottom-24 left-3 right-3 z-40 mx-auto max-h-[36dvh] max-w-3xl overflow-y-auto rounded-2xl border border-white/15 bg-[#0c1423]/95 p-4 text-white shadow-2xl backdrop-blur-xl" aria-label="Live lesson transcript">
@@ -1387,10 +1100,10 @@ function VoiceTutorContent() {
       {error && <div role="alert" className="absolute bottom-24 left-3 right-3 z-40 mx-auto max-w-xl rounded-xl border border-red-300/40 bg-red-950/90 px-4 py-3 text-xs font-semibold text-red-100">{error}</div>}
       <section className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-2 right-2 z-30 mx-auto grid max-w-4xl grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-white/15 bg-[#0d1726]/90 px-2.5 py-2 text-white shadow-[0_12px_44px_#0007] backdrop-blur-xl sm:bottom-5 sm:left-5 sm:right-5 sm:gap-5 sm:px-5" aria-label="Live Class controls">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${voiceActive ? 'animate-pulse bg-[#e8a23d]' : micMuted ? 'bg-rose-400' : micHearing ? 'bg-emerald-300' : 'bg-emerald-500/70'}`} />
+          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${!liveStarted ? 'animate-pulse bg-[#e8a23d]' : voiceActive ? 'animate-pulse bg-[#e8a23d]' : micMuted ? 'bg-rose-400' : micHearing ? 'bg-emerald-300' : 'bg-emerald-500/70'}`} />
           <Waveform active={micHearing} level={micMuted ? 0 : micLevel} compact />
           <div className="min-w-0" aria-live="polite">
-            <p className="truncate text-[11px] font-bold sm:text-xs">{micMuted ? 'Mic muted' : micHearing ? 'Hearing you' : voiceActive ? 'Tutor speaking' : runtimeState === 'THINKING' ? 'Preparing answer' : 'Listening'}</p>
+            <p className="truncate text-[11px] font-bold sm:text-xs">{classroomStatus({started:liveStarted,blocked:audioState==='blocked',muted:micMuted,hearing:micHearing,speaking:voiceActive,paused:!autoLesson,state:runtimeState})}</p>
             <p className="hidden truncate text-[10px] text-white/55 sm:block">{micMuted ? 'Tap mic to unmute' : micHearing ? 'Your voice is reaching the class' : lastHeard ? `Heard: ${lastHeard}` : 'Speak anytime · interrupt naturally'}</p>
           </div>
         </div>
@@ -1399,6 +1112,7 @@ function VoiceTutorContent() {
             const next = !autoLessonRef.current;
             autoLessonRef.current = next;
             setAutoLesson(next);
+            publishVisualFeedback({type:'lesson_policy',autoContinue:next});
             if (next) requestNextLessonSegment();
             else clearLessonContinueTimer();
           }} aria-label={autoLesson ? 'Pause after this teaching segment' : 'Continue teaching automatically'} aria-pressed={autoLesson} className="min-h-10 rounded-xl border border-white/15 bg-white/10 px-2 py-2 text-[11px] font-bold sm:px-3">{autoLesson ? 'Pause' : 'Resume'}</button>
