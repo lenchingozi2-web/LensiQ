@@ -86,6 +86,9 @@ function VoiceTutorContent() {
   const [courseName, setCourseName] = useState(searchParams.get('course')?.trim() || 'Pharmacology');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploadedFileUrls, setUploadedFileUrls] = useState<string[]>([]);
+  const approvedBucketModelUrlsRef = useRef<Set<string>>(new Set());
+  const [liveStorageModelCount, setLiveStorageModelCount] = useState<number | null>(null);
+  const [liveStorageNotice, setLiveStorageNotice] = useState('');
   const [uploadedMapUrls, setUploadedMapUrls] = useState<string[]>([]);
   const [materialProfiles, setMaterialProfiles] = useState<MaterialProfile[]>([]);
   const [focusText, setFocusText] = useState('');
@@ -923,6 +926,37 @@ function VoiceTutorContent() {
       await startMicMonitor(microphoneTrack).catch(() => undefined);
       setStatus('Preparing your visual medical workspace…');
       activeConversation = await createConversation();
+      // Confirm the actual existing Supabase objects before accepting any
+      // worker-sent model URL. Late uploads need no code deployment.
+      try {
+        const libraryResponse = await fetch('/api/voice/models', {
+          cache: 'no-store', signal: AbortSignal.timeout(12000),
+        });
+        if (!libraryResponse.ok) throw new Error('Supabase catalogue not available');
+        const library = await libraryResponse.json() as {
+          count?: number;
+          truncated?: boolean;
+          models?: Array<{ url?: string; title?: string; category?: string }>;
+        };
+        const models = new Set<string>();
+        for (const entry of library.models || []) {
+          if (typeof entry.url === 'string' &&
+              entry.url.startsWith('https://hixvbcrrklyajhkyliay.supabase.co/storage/v1/object/public/medical-models/') &&
+              entry.url.toLowerCase().endsWith('.glb')) {
+            models.add(entry.url);
+          }
+        }
+        approvedBucketModelUrlsRef.current = models;
+        setLiveStorageModelCount(models.size);
+        setLiveStorageNotice(library.truncated
+          ? 'Your medical 3D library exceeds the current catalogue limit.'
+          : models.size === 0 ? 'No GLB models were found in the configured medical-models bucket.' : '');
+        console.info('[LenxiQ Live Class] Real Supabase models indexed:', models.size);
+      } catch {
+        approvedBucketModelUrlsRef.current = new Set();
+        setLiveStorageModelCount(null);
+        setLiveStorageNotice('Real model discovery unavailable. Existing curated 3D models remain accessible.');
+      }
       const tokenResponse = await fetch('/api/voice/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseName, topicFocus, focusText, conversationId: activeConversation.id, fileUrls: uploadedFileUrls, materialMapUrls: uploadedMapUrls, materialContext }) });
       const tokenData = await tokenResponse.json().catch(() => ({}));
       if (!tokenResponse.ok) throw new Error(tokenData.message || tokenData.error || 'Unable to create a secure Live Class session.');
@@ -985,7 +1019,7 @@ function VoiceTutorContent() {
       });
       room.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
         try {
-          const data = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; message?: string; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; structureId?: string; note?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
+          const data = JSON.parse(new TextDecoder().decode(payload)) as { type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; message?: string; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; category?: string; structureId?: string; note?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
           if (data.type === 'live_class_user_transcript' && data.content?.trim()) {
             learnerModelFocusUntilRef.current = 0;
             lastLearnerSpeechAtRef.current = Date.now();
@@ -1011,7 +1045,7 @@ function VoiceTutorContent() {
             requestNextLessonSegment();
             return;
           }
-          if (data.type === 'show_3d_model' && data.modelUrl && isApprovedMedicalModelUrl(data.modelUrl)) {
+          if (data.type === 'show_3d_model' && data.modelUrl && (isApprovedMedicalModelUrl(data.modelUrl) || approvedBucketModelUrlsRef.current.has(data.modelUrl))) {
             const active = visualContextRef.current;
             if (active.type === 'model' && data.modelUrl !== active.modelUrl &&
                 Date.now() < learnerModelFocusUntilRef.current) return;
@@ -1020,7 +1054,7 @@ function VoiceTutorContent() {
             const pendingHighlight = pendingHighlightRef.current;
             pendingHighlightRef.current = null;
             setSelectedStructure(pendingHighlight?.structureId ?? '');
-            updateVisualContext({ type: 'model', modelUrl: data.modelUrl, note: data.note, ...(pendingHighlight ? { structureId: pendingHighlight.structureId, highlightColor: pendingHighlight.color } : {}) });
+            updateVisualContext({ type: 'model', modelUrl: data.modelUrl, note: data.note, ...(data.title ? { title: data.title } : {}), ...(typeof data.category === 'string' ? { category: data.category } : {}), ...(pendingHighlight ? { structureId: pendingHighlight.structureId, highlightColor: pendingHighlight.color } : {}) });
             return;
           }
           if (data.type === 'show_molecular_model' && data.modelUrl && isApprovedMoleculeModelUrl(data.modelUrl)) {
