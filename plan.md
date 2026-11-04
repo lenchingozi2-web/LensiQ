@@ -14,7 +14,7 @@ Build `/voice?mode=class` as an advanced visual medical classroom: natural tutor
 - `components/AnatomyViewer.tsx`, `components/MoleculeViewer.tsx`, and `components/Whiteboard.tsx`: touch-friendly rotation/zoom/focus, drug–target exploration, selectable explanation points, and zoomable tutor-synced board.
 - `scripts/` and `.github/workflows/extract-z-anatomy.yml`: reproducible licensed model extraction, original schematic generation, geometry validation, per-file and total-size limits, manifest provenance, storage preflight, and Supabase uploads without changing bucket visibility.
 - `lib/curriculum/` and upload route handlers: shared file-type validation, legacy Word parsing, and Live Class `.doc` text conversion.
-- `pipecat-voice-agent/agent.py` and `agent_modal.py`: metered LiveKit speech turns and the separately deployed Modal worker; voice-model configuration must be explicitly Gemini or Groq, with no GPT fallback.
+- Live Class voice is deployed from `LensiQ-voice-agent` directly to LiveKit Cloud with Pipecat, local Whisper and local Kokoro.
 
 ## Design direction
 
@@ -28,4 +28,4 @@ The workflow rejects missing/empty meshes, objects over 48 MB, and projected tot
 
 ## Current repair scope
 
-Live Class must leave `THINKING` when assistant text arrives, even if the companion state packet is lost, and must surface a recoverable timeout rather than spinning indefinitely. The initial greeting must not be overwritten by a late startup state update. Voice model configuration must accept only Gemini or Groq and log the selected provider/model without logging credentials. Preserve existing Premium voice-minute metering, subscription entitlements and voice-minute tracking; do not automatically retry a failed model call or alter user credits. The Next.js website deploys from GitHub to Vercel; the Pipecat worker is a separate Modal deployment and requires its own authorized deployment access.
+Live Class must leave `THINKING` when assistant text arrives, even if the companion state packet is lost, and must surface a recoverable timeout rather than spinning indefinitely. The initial greeting must not be overwritten by a late startup state update. Voice text generation uses the authenticated Vercel Gemini gateway without logging credentials. Preserve existing Premium voice-minute metering, subscription entitlements and voice-minute tracking; do not automatically retry a failed model call or alter user credits. The Next.js website deploys from GitHub to Vercel; the Pipecat worker is a separate LiveKit Cloud deployment and requires its own authorized deployment access.

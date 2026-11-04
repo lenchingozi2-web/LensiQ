@@ -11,12 +11,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
       - name: Verify Study Hub regression tests
-        run: node --test tests/study-hub-runtime.test.mjs
-      - name: Check voice worker syntax
-        run: python -m py_compile pipecat-voice-agent/agent.py pipecat-voice-agent/agent_modal.py pipecat-voice-agent/visual_tutor.py
-      - name: Verify voice interaction and visual routing unit tests
-        run: python -m unittest discover -s pipecat-voice-agent -p 'test_visual_tutor.py' -v
+        run: node --test tests/*.test.mjs
+
