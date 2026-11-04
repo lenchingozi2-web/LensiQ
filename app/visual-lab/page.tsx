@@ -28,6 +28,29 @@ const SIMULATIONS: Array<{preset:PhysiologyPreset;label:string}> = [
 
 export default function VisualLabPage() {
   const [choice, setChoice] = useState('model:'+MODEL_OPTIONS[0]);
+  const [storedModels, setStoredModels] = useState<Array<{ url: string; title: string; category: string }>>([]);
+  const [modelLibraryState, setModelLibraryState] = useState('Loading actual 3D medical models…');
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch('/api/voice/models', { cache: 'no-store', signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error('Medical model catalogue is unavailable');
+        const result = await response.json() as {
+          count?: number; truncated?: boolean;
+          models?: Array<{ url: string; title: string; category: string }>;
+        };
+        const models = (result.models || []).filter(item =>
+          typeof item.url === 'string' && typeof item.title === 'string'
+          && item.url.startsWith('https://hixvbcrrklyajhkyliay.supabase.co/storage/v1/object/public/medical-models/')
+          && item.url.toLowerCase().endsWith('.glb'));
+        setStoredModels(models);
+        setModelLibraryState(models.length ? models.length + ' real Supabase 3D models discovered'
+          + (result.truncated ? ' (catalogue limit reached)' : '')
+          : 'No compatible stored 3D models found');
+      })
+      .catch(() => { if (!controller.signal.aborted) setModelLibraryState('Curated previews only; real bucket catalogue unavailable'); });
+    return () => controller.abort();
+  }, []);
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
   const [structure, setStructure] = useState('');
@@ -36,7 +59,9 @@ export default function VisualLabPage() {
   const visualContext: VisualContext = choice.startsWith('simulation:')
     ? { type: 'simulation', preset: choice.slice('simulation:'.length) as PhysiologyPreset,
         title: SIMULATIONS.find(x => choice.endsWith(x.preset))?.label || 'Interactive laboratory' }
-    : { type: 'model', modelUrl: choice.slice('model:'.length) };
+    : { type: 'model', modelUrl: choice.slice('model:'.length),
+        title: storedModels.find(item => item.url === choice.slice('model:'.length))?.title,
+        category: storedModels.find(item => item.url === choice.slice('model:'.length))?.category };
 
   const label = visualContext.type === 'model' ? getLiveClassModelLabel(visualContext.modelUrl) : visualContext.title;
   return (
@@ -57,11 +82,14 @@ export default function VisualLabPage() {
           <optgroup label="Manipulatable 3D medical models">
             {MODEL_OPTIONS.map(url => <option key={url} value={'model:'+url}>{getLiveClassModelLabel(url)}</option>)}
           </optgroup>
-          <optgroup label="Adjustable clinical and drug simulations">
+          {storedModels.length > 0 && <optgroup label={`From Supabase medical-models (${storedModels.length})`}>
+              {storedModels.map(asset => <option key={asset.url} value={'model:'+asset.url}>{asset.title} · {asset.category}</option>)}
+            </optgroup>}
+            <optgroup label="Adjustable clinical and drug simulations">
             {SIMULATIONS.map(x => <option key={x.preset} value={'simulation:'+x.preset}>{x.label}</option>)}
           </optgroup>
         </select>
-        <span className="text-xs text-white/50">Real GLB assets · rotate, tap, isolate, or change the variables</span>
+        <span className="text-xs text-white/50">{modelLibraryState} · rotate, tap, isolate, zoom</span>
       </section>
       <div className="relative h-[min(75dvh,800px)] min-h-[420px] w-full overflow-hidden" data-testid="visual-lab-stage" data-tutor-contract="v3" data-interactive={hydrated ? "true" : "false"}>
         <LiveClassVisualStage key={choice} visualContext={visualContext}
