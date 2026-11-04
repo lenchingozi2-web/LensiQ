@@ -1,4 +1,4 @@
-'use client'; 
+'use client';
 
 import { useState, useEffect } from 'react';
 import { startTimedMock, submitTimedMock } from '../app/actions';
@@ -36,10 +36,10 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount, 
   // Engine State
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [timeLeft, setTimeLeft] = useState(0); 
+  const [timeLeft, setTimeLeft] = useState(0);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [serverScore,setServerScore]=useState<number|null>(null);
-  
+
   // Review Mode State
   const [isReviewMode, setIsReviewMode] = useState(false);
 
@@ -63,14 +63,14 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount, 
   // Upgraded Final Submit Logic with Database Saving
   const handleFinalSubmit = async (forceSubmit = false) => {
     if (forceSubmit || window.confirm('Are you sure you want to submit this test?')) {
-      
+
       const submitted = await submitTimedMock(attemptId,Object.fromEntries(activeQuestions.map((q,i)=>[q.id,answers[i]||''])));
       if(!submitted.success){setStartError(submitted.error||'Result could not be saved.');return;}
 
       setServerScore(Number(submitted.score));
       // Show the Results UI
       setIsSubmitted(true);
-      setCurrentIndex(0); 
+      setCurrentIndex(0);
     }
   };
 
@@ -113,7 +113,7 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount, 
 
         <div className="mb-8 text-left bg-slate-50 p-6 rounded-xl border border-slate-100">
           <label className="block text-slate-800 font-bold mb-3">How many questions do you want to attempt?</label>
-          <select 
+          <select
             value={selectedCount}
             onChange={(e) => setSelectedCount(Number(e.target.value))}
             className="w-full p-4 border border-slate-300 rounded-lg bg-white text-slate-800 font-medium focus:ring-2 focus:ring-[#E8A23D] outline-none transition-shadow"
@@ -131,9 +131,9 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount, 
         </div>
 
         {startError&&<p role="alert" className="my-4 text-red-700">{startError}</p>}
-        <button 
+        <button
           disabled={starting}
-          onClick={()=>void handleStartExam()} 
+          onClick={()=>void handleStartExam()}
           className="w-full bg-[#0B1220] hover:bg-slate-800 text-white font-bold py-4 px-6 rounded-xl transition-colors shadow-md"
         >
           Start Mock Exam &rarr;
@@ -159,7 +159,7 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount, 
         <div className="text-6xl mb-6">{percentage >= 50 ? '🎉' : '📊'}</div>
         <h2 className="text-3xl font-bold text-[#0B1220] mb-2">Test Complete!</h2>
         <p className="text-slate-600 mb-8 font-medium">You answered {Object.keys(answers).length} out of {activeQuestions.length} questions.</p>
-        
+
         <div className="bg-slate-50 p-8 rounded-2xl border border-slate-200 mb-8 inline-block min-w-[250px] shadow-inner">
           <p className="text-sm text-slate-500 font-bold uppercase tracking-wider mb-2">Final Score</p>
           <p className="text-6xl font-black text-[#E8A23D]">{score} <span className="text-3xl text-slate-400">/ {activeQuestions.length}</span></p>
@@ -172,8 +172,8 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount, 
           <button onClick={() => window.location.reload()} className="bg-slate-200 text-slate-700 hover:bg-slate-300 px-6 py-4 rounded-xl font-bold transition-colors">
             Retake Exam
           </button>
-          <button 
-            onClick={() => setIsReviewMode(true)} 
+          <button
+            onClick={() => setIsReviewMode(true)}
             className="bg-[#0B1220] text-white hover:bg-slate-800 px-6 py-4 rounded-xl font-bold transition-colors shadow-md"
           >
             Review Answers &rarr;
@@ -211,17 +211,17 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount, 
               {['a', 'b', 'c', 'd', 'e'].map((letter) => {
                 const optionText = currentQuestion?.[`option_${letter}` as keyof Question];
                 if (!optionText) return null;
-                
+
                 const isSelected = answers[currentIndex] === letter;
                 const isCorrectLetter = currentQuestion?.correct_answer?.toLowerCase().trim() === letter;
-                
+
                 let optionStyle = 'border-slate-200 bg-white';
                 if (isCorrectLetter) {
                   optionStyle = 'border-green-500 bg-green-50 ring-1 ring-green-500';
                 } else if (isSelected && !isCorrectLetter) {
                   optionStyle = 'border-red-400 bg-red-50 ring-1 ring-red-400';
                 }
-                
+
                 return (
                   <div key={letter} className={`flex items-center gap-4 p-4 rounded-xl border ${optionStyle}`}>
                     <span className={`font-bold uppercase ${isCorrectLetter ? 'text-green-600' : isSelected ? 'text-red-500' : 'text-slate-400'}`}>{letter}.</span>
@@ -260,7 +260,7 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount, 
                 const correct = isActuallyCorrect(idx);
                 const isCurrent = idx === currentIndex;
                 const answered = !!answers[idx];
-                
+
                 return (
                   <button
                     key={idx}
@@ -308,19 +308,19 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount, 
             {['a', 'b', 'c', 'd', 'e'].map((letter) => {
               const optionText = currentQuestion?.[`option_${letter}` as keyof Question];
               if (!optionText) return null;
-              
+
               const isSelected = answers[currentIndex] === letter;
-              
+
               return (
-                <label 
-                  key={letter} 
+                <label
+                  key={letter}
                   className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all ${
                     isSelected ? 'border-[#E8A23D] bg-amber-50 ring-1 ring-[#E8A23D]' : 'border-slate-200 hover:bg-slate-50'
                   }`}
                 >
-                  <input 
-                    type="radio" 
-                    name={`question-${currentIndex}`} 
+                  <input
+                    type="radio"
+                    name={`question-${currentIndex}`}
                     value={letter}
                     checked={isSelected}
                     onChange={() => handleSelectOption(letter)}
@@ -356,7 +356,7 @@ export default function CbtEngine({ questions, testTitle, initialQuestionCount, 
                   onClick={() => setCurrentIndex(idx)}
                   className={`w-full aspect-square rounded font-bold text-sm flex items-center justify-center transition-colors ${
                     isCurrent ? 'ring-2 ring-offset-1 ring-[#0B1220] bg-white text-[#0B1220] border-2 border-[#0B1220]' :
-                    isAnswered ? 'bg-[#E8A23D] text-white border border-[#E8A23D]' : 
+                    isAnswered ? 'bg-[#E8A23D] text-white border border-[#E8A23D]' :
                     'bg-white text-slate-500 border border-slate-200 hover:border-slate-400'
                   }`}
                 >

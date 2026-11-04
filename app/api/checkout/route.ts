@@ -1,3 +1,4 @@
+import {createServiceClient} from '@/lib/supabase/service';
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
 import { getPublicPaidPlan } from '../../../lib/plans';
@@ -22,6 +23,9 @@ export async function POST(req: Request) {
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.lenxiq.online';
     const txRef = `lenxiq_subscription_${user.id}_${plan.id}_${crypto.randomUUID()}`;
+    const receipts=createServiceClient();
+    const {error:receiptError}=await receipts.from('subscription_checkouts').insert({tx_ref:txRef,user_id:user.id,plan_id:plan.id,amount_ngn:plan.amountNaira});
+    if(receiptError)throw new Error('Checkout could not be recorded securely.');
     const description = `${plan.label}: monthly access, ${plan.aiCredits} AI responses, ${plan.voiceMinutes} Live Class minutes and ${plan.mockExams === -1 ? 'unlimited' : plan.mockExams} timed mocks per billing month`;
     const response = await fetch('https://api.flutterwave.com/v3/payments', {
       method: 'POST',

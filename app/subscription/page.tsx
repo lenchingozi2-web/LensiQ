@@ -1,3 +1,4 @@
+import {reconcilePendingCheckout} from '@/lib/payment-recovery';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -12,6 +13,7 @@ export default async function SubscriptionPage() {
 
   // Database entitlement is the source of truth, never localStorage or a
   // client-side flag set after checkout.
+  await reconcilePendingCheckout(user.id);
   await supabase.rpc('refresh_my_subscription');
   const { data: profile, error } = await supabase.from('profiles')
     .select('role,plan,plan_expires_at,voice_minutes_balance,text_teaching_balance,quiz_attempts_used')

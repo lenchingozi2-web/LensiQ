@@ -36,7 +36,7 @@ jobs:
           for filename in ['four_tier_access.sql']:
               sql=pathlib.Path('supabase/sql/'+filename).read_text().replace('commit;','')
               verification=pathlib.Path('supabase/sql/verify_four_tier_access.sql').read_text().replace('begin;','savepoint subscription_verification;',1).replace('rollback;','rollback to subscription_verification;')
-              sql += verification+'\ncommit;' 
+              sql += verification+'\ncommit;'
               req=urllib.request.Request(target,data=json.dumps({'query':sql,'read_only':False}).encode(),headers={'Authorization':'Bearer '+os.environ['SUPABASE_ACCESS_TOKEN'],'Content-Type':'application/json'})
               try:
                   with urllib.request.urlopen(req,timeout=120) as response: result=json.load(response)

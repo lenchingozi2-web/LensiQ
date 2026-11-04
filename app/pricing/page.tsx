@@ -1,3 +1,4 @@
+import {reconcilePendingCheckout} from '@/lib/payment-recovery';
 import { createClient } from '@/lib/supabase/server';
 import { getSubscriptionAccess } from '@/lib/subscription-access';
 import PricingClient from './PricingClient';
@@ -10,6 +11,7 @@ export default async function PricingPage() {
   let currentPlan: string | null = null;
   let accessLabel: string | null = null;
   if (user) {
+    await reconcilePendingCheckout(user.id);
     const { data: profile } = await supabase.from('profiles')
       .select('role,plan,plan_expires_at')
       .eq('id', user.id).maybeSingle();

@@ -18,6 +18,16 @@ insert into public.subscription_plans values
  ('all_access','Scholar Plus',9870,200,90,-1,90),('intensive','Mastery',29900,600,360,-1,90)
 on conflict(id) do update set label=excluded.label,price_ngn=excluded.price_ngn,ai_credits=excluded.ai_credits,voice_minutes=excluded.voice_minutes,mock_exams=excluded.mock_exams,session_minutes=excluded.session_minutes;
 
+create table if not exists public.subscription_checkouts(
+ tx_ref text primary key,user_id uuid not null references auth.users(id) on delete cascade,
+ plan_id text not null references public.subscription_plans(id),amount_ngn integer not null,
+ created_at timestamptz not null default now(),last_checked_at timestamptz,settled_at timestamptz
+);
+alter table public.subscription_checkouts enable row level security;
+revoke all on public.subscription_checkouts from anon,authenticated;
+grant all on public.subscription_checkouts to service_role;
+create index if not exists pending_subscription_checkouts on public.subscription_checkouts(user_id,created_at desc) where settled_at is null;
+
 -- Remove old CHECKs before converting account entitlements. History is not a saleable product.
 do $$declare r record; begin
  for r in select conname from pg_constraint where conrelid='public.profiles'::regclass and contype='c' and pg_get_constraintdef(oid) ~ '\mplan\M' loop
@@ -150,7 +160,7 @@ begin
  if not inserted then return query select false,true; return; end if;
  -- Same-plan early renewal extends time without refreshing allowances. Plan changes start a new cycle.
  update public.profiles set plan=s.id,plan_duration=1,
- plan_expires_at=case when p.plan=s.id and p.plan_expires_at>now() then p.plan_expires_at+interval '1 month' else now()+interval '1 month' end,
+ plan_expires_at=greatest(coalesce(p.plan_expires_at,now()),now())+interval '1 month',
  voice_minutes_balance=case when p.plan=s.id and p.plan_expires_at>now() then p.voice_minutes_balance else s.voice_minutes end,
  text_teaching_balance=case when p.plan=s.id and p.plan_expires_at>now() then p.text_teaching_balance else s.ai_credits end,
  quiz_attempts_used=case when p.plan=s.id and p.plan_expires_at>now() then p.quiz_attempts_used else 0 end,
