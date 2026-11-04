@@ -14,8 +14,8 @@ export default function Whiteboard({topic,markdown,onConceptSelect}:WhiteboardPr
    <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[.18em] text-[#ffd080]">Live concept board</p><h1 className="mt-1 truncate text-base font-bold sm:text-xl">{topic||'Medical lesson'}</h1></div>
    <div className="flex shrink-0 gap-1"><button onClick={()=>setFlow(!flow)} aria-pressed={flow} className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold">{flow?'Focus':'Flow'}</button><button onClick={()=>setZoom(z=>Math.max(.8,z-.1))} aria-label="Zoom out" className="rounded-lg border border-white/15 px-3 py-2">−</button><button onClick={()=>setZoom(z=>Math.min(1.4,z+.1))} aria-label="Zoom in" className="rounded-lg border border-white/15 px-3 py-2">+</button></div>
   </header>
-  <div className="absolute inset-x-0 bottom-[9.8rem] top-[9.4rem] flex items-center justify-center overflow-y-auto px-5 py-5 sm:top-44 sm:px-12" style={{touchAction:'pan-y'}}>
-   {steps.length===0?<h2 className="text-center text-2xl font-bold text-white/75 sm:text-4xl">{topic||'Live Class'}</h2>:<div className="my-auto w-full max-w-3xl space-y-3" style={{zoom}}>
+  <div className="absolute inset-x-0 bottom-[9.8rem] top-[9.4rem] flex items-start justify-center overflow-y-auto px-5 py-5 sm:top-44 sm:px-12" style={{touchAction:'pan-y'}}>
+   {steps.length===0?<h2 className="my-auto text-center text-2xl font-bold text-white/75 sm:text-4xl">{topic||'Live Class'}</h2>:<div className="my-auto w-full max-w-3xl space-y-3" style={{zoom}}>
     {indexes.map((index,position)=><div key={index+'-'+steps[index]} className="animate-[lab-reveal_300ms_ease-out_both]">
      {flow&&position>0&&<p aria-hidden="true" className="py-2 text-center text-xl text-[#e8a23d]/70">↓</p>}
      <button type="button" onClick={()=>onConceptSelect?.(steps[index],index)} aria-current={index===active?'step':undefined} aria-label={`Ask about: ${steps[index]}`} className={`w-full rounded-2xl border px-5 py-4 text-left transition sm:px-7 sm:py-5 ${index===active?'border-[#e8a23d]/60 bg-[#e8a23d]/[.10]':'border-white/10 bg-[#142235]/60'}`}>
