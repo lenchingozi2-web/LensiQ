@@ -79,10 +79,10 @@ def _is_closed_room_error(error: Exception) -> bool:
     cpu=2.0,
     memory=4096,
     timeout=95 * 60,
-    # Keep a warm container with Whisper/Kokoro loaded for the premium
-    # experience; otherwise the first greeting waits for a full cold start.
-    scaledown_window=300,
-    min_containers=1,
+    # Cost guardrail: never reserve CPU and memory when no learner is in class.
+    # Cold starts may be slower until the LiveKit Cloud migration is verified.
+    scaledown_window=30,
+    min_containers=0,
     max_containers=5,
 )
 def run_voice_room(room_name: str, room_metadata: str = "") -> None:
