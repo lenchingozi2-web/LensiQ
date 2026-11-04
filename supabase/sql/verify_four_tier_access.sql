@@ -6,12 +6,22 @@ select set_config('request.jwt.claim.sub',current_setting('lenxiq.test_user'),tr
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('lenxiq.test_user'),'role','authenticated')::text,true);
 set local role authenticated;
-do $$declare r jsonb; n integer;begin
+do $$declare r jsonb; n integer; room record;branch record;first_mock jsonb;second_mock jsonb;result jsonb;begin
  if private.has_paid_access() then raise exception 'free gained paid access';end if;
  r:=public.authorize_study_feature('teaching');if (r->>'allowed')::boolean then raise exception 'free LLM leakage';end if;
  select count(*) into n from public.questions q where not private.can_read_question(q.subject,q.division,q.type);if n<>0 then raise exception 'question RLS leakage';end if;
  begin update public.profiles set plan='intensive' where id=auth.uid();raise exception 'self upgrade permitted';exception when raise_exception then if sqlerrm='self upgrade permitted' then raise;end if;end;
- begin perform * from public.reserve_live_class_session('test-free-room','Test',null);exception when others then raise;end;
+ select * into room from public.reserve_live_class_session('test-free-room','Test',null);if room.allowed then raise exception 'free voice leakage';end if;
+ select subject,division into branch from public.questions where type='mcq' limit 1;
+ if found then
+  first_mock:=public.begin_timed_mock(branch.subject,branch.division,10);
+  second_mock:=public.begin_timed_mock(branch.subject,branch.division,10);
+  if first_mock->>'id'<>second_mock->>'id' then raise exception 'mock resume consumed another attempt';end if;
+  result:=public.submit_timed_mock((first_mock->>'id')::uuid,'{}'::jsonb);
+  if (result->>'total')::integer<1 or (result->>'score')::integer<>0 then raise exception 'server mock grading incorrect';end if;
+  result:=public.submit_timed_mock((first_mock->>'id')::uuid,'{}'::jsonb);
+  select count(*) into n from public.exam_results where user_id=auth.uid();if n<>1 then raise exception 'duplicate mock result';end if;
+ end if;
 end$$;
 reset role;
 update public.profiles set plan='scholar',plan_expires_at=now()+interval '1 month',wallet_reset_at=now()+interval '1 month',text_teaching_balance=60,voice_minutes_balance=30,quiz_attempts_used=20 where id=current_setting('lenxiq.test_user')::uuid;
@@ -21,6 +31,9 @@ do $$declare r jsonb;q record;i integer;begin
  r:=public.authorize_study_feature('teaching');if (r->>'allowed')::boolean then raise exception 'credit exhaustion bypass';end if;
  r:=public.authorize_study_feature('quiz');if (r->>'allowed')::boolean then raise exception 'scholar mock cap bypass';end if;
  select * into q from public.reserve_live_class_session('test-scholar-room','Test',null);if not q.allowed or q.max_duration_seconds<>1800 then raise exception 'scholar voice reservation incorrect';end if;
+ perform * from public.charge_live_class_session(q.session_id,120,false);
+ perform * from public.charge_live_class_session(q.session_id,120,false);
+ if (select voice_minutes_balance from public.profiles where id=auth.uid())<>28 then raise exception 'voice heartbeat double debit';end if;
 end$$;
 reset role;
 update public.profiles set plan='all_access',quiz_attempts_used=99999,voice_minutes_balance=90 where id=current_setting('lenxiq.test_user')::uuid;
