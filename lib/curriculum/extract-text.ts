@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 import { getLectureFileExtension } from '@/lib/curriculum/file-types';
 
 // Preserve large lecture sources for retrieval; never send all pages to the LLM at once.
-const MAX_EXTRACTED_CHARACTERS = 2_400_000;
+const MAX_EXTRACTED_CHARACTERS = 8_000_000;
 
 function decodeXml(value: string) {
   return value
@@ -19,7 +19,14 @@ function decodeXml(value: string) {
 }
 
 function clampText(value: string) {
-  return value.replace(/\u0000/g, '').replace(/\r\n?/g, '\n').replace(/[^\S\n]+/g, ' ').replace(/\n{4,}/g, '\n\n').trim().slice(0, MAX_EXTRACTED_CHARACTERS);
+  const clean = value.replace(/\u0000/g, '').replace(/\r\n?/g, '\n')
+    .replace(/[^\S\n]+/g, ' ').replace(/\n{4,}/g, '\n\n').trim();
+  // Never silently discard final chapters/pages. A large unsupported document
+  // must be split by the learner rather than falsely reported as fully loaded.
+  if (clean.length > MAX_EXTRACTED_CHARACTERS) {
+    throw new Error('Lecture text exceeds the 8-million-character safe parsing limit. Split the file into smaller parts to preserve every page.');
+  }
+  return clean;
 }
 
 async function extractOfficeXml(buffer: Buffer, extension: string) {
