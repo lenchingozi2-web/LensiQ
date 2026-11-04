@@ -160,7 +160,7 @@ begin
  if not inserted then return query select false,true; return; end if;
  -- Same-plan early renewal extends time without refreshing allowances. Plan changes start a new cycle.
  update public.profiles set plan=s.id,plan_duration=1,
- plan_expires_at=greatest(coalesce(p.plan_expires_at,now()),now())+interval '1 month',
+ plan_expires_at=case when p.plan in ('scholar','all_access','intensive') and p.plan_expires_at>now() then p.plan_expires_at+interval '1 month' else now()+interval '1 month' end,
  voice_minutes_balance=case when p.plan=s.id and p.plan_expires_at>now() then p.voice_minutes_balance else s.voice_minutes end,
  text_teaching_balance=case when p.plan=s.id and p.plan_expires_at>now() then p.text_teaching_balance else s.ai_credits end,
  quiz_attempts_used=case when p.plan=s.id and p.plan_expires_at>now() then p.quiz_attempts_used else 0 end,

@@ -56,7 +56,9 @@ set local role authenticated;
 do $$declare r jsonb;begin r:=public.authorize_study_feature('teaching');if not (r->>'allowed')::boolean or not (r->>'admin')::boolean then raise exception 'admin restricted';end if;end$$;
 reset role;
 do $$declare r record; balance integer;begin
+ update public.profiles set plan='free',plan_expires_at=now()+interval '2 months' where id=current_setting('lenxiq.test_user')::uuid;
  select * into r from public.settle_verified_payment('test-idempotent-'||current_setting('lenxiq.test_user'),current_setting('lenxiq.test_user')::uuid,'subscription_payment','intensive',1,29900);
+ if (select plan_expires_at from public.profiles where id=current_setting('lenxiq.test_user')::uuid)>now()+interval '1 month 1 second' then raise exception 'free reset date incorrectly extends paid subscription';end if;
  select * into r from public.settle_verified_payment('test-idempotent-'||current_setting('lenxiq.test_user'),current_setting('lenxiq.test_user')::uuid,'subscription_payment','intensive',1,29900);
  if not r.already_settled then raise exception 'duplicate payment not idempotent';end if;
  if (select count(*) from public.subscription_plans)<>4 then raise exception 'unexpected product count';end if;
