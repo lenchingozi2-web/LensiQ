@@ -12,5 +12,5 @@ jobs:
         with:
           node-version: 24
       - name: Verify Study Hub regression tests
-        run: node --test tests/study-hub-runtime.test.mjs
+        run: node --test tests/*.test.mjs
 
