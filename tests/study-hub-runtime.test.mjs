@@ -41,7 +41,9 @@ test('Live Class uses explicit LiveKit Cloud dispatch and a private Gemini gatew
   assert.doesNotMatch(route,/room-poll|modal\.App|min_containers/i);
   const gateway = await read('app/api/voice/llm/v1/chat/completions/route.ts');
   assert.match(gateway,/LIVEKIT_API_SECRET/);
-  assert.match(gateway,/timingSafeEqual/);
+  assert.match(gateway,/verifyLiveClassGatewayToken/);
+  const auth = await read('lib/voice/live-class-gateway-auth.ts');
+  assert.match(auth,/timingSafeEqual/);
   assert.match(gateway,/GEMINI_API_KEY/);
 });
 
