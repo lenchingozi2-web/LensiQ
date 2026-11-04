@@ -242,6 +242,7 @@ export async function POST(req: Request) {
     sessionId: quota.session_id,
     sessionExpiresAt,
     contextEndpoint: `${new URL(req.url).origin}/api/voice/context`,
+    visualCatalogEndpoint: `${new URL(req.url).origin}/api/voice/models`,
     materialUrls,
     materialMapUrls,
     materialContext,
