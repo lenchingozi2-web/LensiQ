@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 26029)
-Total output lines: 1396
-
 'use client';
 
 import Link from 'next/link';
@@ -780,7 +777,274 @@ function VoiceTutorContent() {
         if (!signed.path || !signed.token || signed.bucket !== 'live-class-recordings') {
           throw new Error('The recording upload authorization was incomplete');
         }
-        const { createClie…4029 tokens truncated…...current, structureId: data.structureId, highlightColor: data.color });
+        const { createClient } = await import('@/lib/supabase/client');
+        const storage = createClient().storage.from('live-class-recordings');
+        const fileName = signed.path.split('/').pop() || 'recording.webm';
+        const upload = await storage.uploadToSignedUrl(
+          signed.path, signed.token,
+          new File([recordingBlob], fileName, { type: mimeType }),
+          { contentType: mimeType },
+        );
+        if (upload.error) throw upload.error;
+        const complete = await fetch('/api/voice/recording', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'complete', conversationId: activeConversationId, path: signed.path }),
+        });
+        if (!complete.ok) throw new Error('Unable to attach the uploaded recording to History');
+      } catch (uploadError) {
+        console.warn('Live Class recording was retained locally but not saved to History',
+          uploadError instanceof Error ? uploadError.name : 'unknown_error');
+        recordingUploadNotice = 'Your class recording is available to download on this device, but the cloud copy could not be saved. Please download it before leaving this page.';
+      }
+    }
+    if (uploadedMaterialPathsRef.current.length > 0) {
+      const paths = uploadedMaterialPathsRef.current;
+      uploadedMaterialPathsRef.current = [];
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        await createClient().storage.from('ephemeral_class_materials').remove(paths);
+      } catch (cleanupError) {
+        console.warn('Ephemeral Live Class material cleanup failed:', cleanupError);
+      }
+    }
+    setUploadedFileUrls([]);
+    setUploadedMapUrls([]);
+    window.dispatchEvent(new CustomEvent('lensiq:clear-uploaded-materials'));
+    setSessionSummary({ topic: topicFocus || courseName, durationSeconds, turns: messagesRef.current.filter((item) => item.role === 'user').length, recordingAvailable: Boolean(recordingBlob?.size) });
+    sessionStartedAtRef.current = null;
+    sessionDeadlineAtRef.current = null;
+    setLiveStarted(false);
+    lastTutorActivityAtRef.current = 0;
+    setStudioOpen(false);
+    ambienceAudioRef.current?.pause();
+    setAmbienceEnabled(false);
+    setConnected(false);
+    setVoiceActive(false);
+    setSessionId(null);
+    sessionIdRef.current = null;
+    remainingSecondsRef.current = null;
+    setRemainingSeconds(null);
+    setRuntimeState('ENDED');
+    setStatus(message);
+    if (recordingUploadNotice) setError(recordingUploadNotice);
+    setAudioState('waiting');
+    setAgentAudioSubscribed(false);
+    agentAudioSubscribedRef.current = false;
+    if (activeSessionId) await fetch('/api/voice/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: activeSessionId, action: 'end' }) }).catch(() => undefined);
+    await fetch('/api/voice/materials', { method: 'DELETE' }).catch(() => undefined);
+    await loadHistory().catch(() => undefined);
+    endingRef.current = false;
+  }, [courseName, loadHistory, stopRecording, topicFocus]);
+  useEffect(() => {
+    endSessionRef.current = endSession;
+  }, [endSession]);
+
+  const startSession = async () => {
+    if (connecting || connected) return;
+    setConnecting(true);
+    setError('');
+    setSessionSummary(null);
+    setLiveStarted(false);
+    setStudioOpen(false);
+    sessionStartedAtRef.current = null;
+    updateVisualContext({ type: 'whiteboard', topic: topicFocus || courseName, ...(focusText.trim() ? { markdown: `### Study focus\n\n${focusText.trim()}` } : {}) });
+    setSelectedStructure('');
+    explicitVisualThisTurnRef.current = false;
+    teachingStepsRef.current = [];
+    workerContinuationRef.current = false;
+    clearVisualSpeechQueue();
+    setLastHeard('');
+    lessonSegmentCountRef.current = 0;
+    lessonSegmentCompleteRef.current = false;
+    tutorSpokeThisSegmentRef.current = false;
+    clearLessonContinueTimer();
+    pendingHighlightRef.current = null;
+    elapsedSecondsRef.current = 0;
+    sessionDeadlineAtRef.current = null;
+    setElapsedSeconds(0);
+    setRuntimeState('INITIALIZING');
+    setRecordingReady(false);
+    setRecordingDownloadUrl(null);
+    setStatus('Opening your private live classroom…');
+    await unlockPlaybackAudio().catch(() => undefined);
+    let livekit: typeof import('livekit-client');
+    try {
+      livekit = await import('livekit-client');
+    } catch {
+      setError('The voice classroom could not be loaded. Refresh the page and try again.');
+      setRuntimeState('ERROR');
+      setConnecting(false);
+      return;
+    }
+    const { Room, RoomEvent, Track } = livekit;
+    const room = new Room({
+      adaptiveStream: true,
+      dynacast: true,
+      webAudioMix: false,
+    });
+    Object.defineProperty(window, '__lensiqLiveRoom', { configurable: true, value: room });
+    const microphoneTrack = await requestMicrophone();
+    if (!microphoneTrack) { room.disconnect(); setRuntimeState('ERROR'); setConnecting(false); return; }
+    let activeConversation: Conversation | null = null;
+    try {
+      await startMicMonitor(microphoneTrack).catch(() => undefined);
+      setStatus('Preparing your visual medical workspace…');
+      if(uploadedFiles.length>0&&uploadedFileUrls.length!==uploadedFiles.length)throw new Error('Wait until every selected file has been parsed, or remove the file that could not be read. The tutor needs all your sources before this class starts.');
+      activeConversation = await createConversation();
+      // Confirm the actual existing Supabase objects before accepting any
+      // worker-sent model URL. Late uploads need no code deployment.
+      try {
+        const libraryResponse = await fetch('/api/voice/models', {
+          cache: 'no-store', signal: AbortSignal.timeout(12000),
+        });
+        if (!libraryResponse.ok) throw new Error('Supabase catalogue not available');
+        const library = await libraryResponse.json() as {
+          count?: number;
+          truncated?: boolean;
+          models?: Array<{ url?: string; title?: string; category?: string }>;
+        };
+        const models = new Set<string>();
+        for (const entry of library.models || []) {
+          if (typeof entry.url === 'string' &&
+              entry.url.startsWith('https://hixvbcrrklyajhkyliay.supabase.co/storage/v1/object/public/medical-models/') &&
+              entry.url.toLowerCase().endsWith('.glb')) {
+            models.add(entry.url);
+          }
+        }
+        approvedBucketModelUrlsRef.current = models;
+        setLiveStorageModelCount(models.size);
+        setLiveStorageNotice(library.truncated
+          ? 'Your medical 3D library exceeds the current catalogue limit.'
+          : models.size === 0 ? 'No GLB models were found in the configured medical-models bucket.' : '');
+        console.info('[LenxiQ Live Class] Real Supabase models indexed:', models.size);
+      } catch {
+        approvedBucketModelUrlsRef.current = new Set();
+        setLiveStorageModelCount(null);
+        setLiveStorageNotice('Real model discovery unavailable. Existing curated 3D models remain accessible.');
+      }
+      const tokenResponse = await fetch('/api/voice/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseName, topicFocus, focusText, conversationId: activeConversation.id, fileUrls: uploadedFileUrls, materialMapUrls: uploadedMapUrls, materialContext }) });
+      const tokenData = await tokenResponse.json().catch(() => ({}));
+      if (!tokenResponse.ok) throw new Error(tokenData.message || tokenData.error || 'Unable to create a secure Live Class session.');
+      setSessionId(tokenData.sessionId);
+      sessionIdRef.current = tokenData.sessionId;
+      const conversation = activeConversation;
+      if (!conversation) throw new Error('Unable to create Live Class history.');
+      // Linking history is important, but should not hold the microphone or
+      // first audio connection hostage. It is saved asynchronously below.
+      setQuota(tokenData.quota ?? null);
+      const parsedDeadline = typeof tokenData.quota?.expiresAt === 'string' ? Date.parse(tokenData.quota.expiresAt) : NaN;
+      sessionDeadlineAtRef.current = Number.isFinite(parsedDeadline) ? parsedDeadline : null;
+      const initialRemainingSeconds = Math.max(0, Number(tokenData.quota?.maxDurationSeconds ?? 90 * 60));
+      remainingSecondsRef.current = initialRemainingSeconds;
+      setRemainingSeconds(initialRemainingSeconds);
+      setMessages([]);
+      messagesRef.current = [];
+      transcriptIdsRef.current.clear();
+      setReplaying(false);
+      room.on(RoomEvent.TrackSubscribed, (track) => {
+        if (track.kind === 'audio') lastTutorActivityAtRef.current = Date.now();
+        if (track.kind !== 'audio') return;
+        agentAudioSubscribedRef.current = true;
+        setAgentAudioSubscribed(true);
+        attachAudioTrack(track);
+      });
+      room.on(RoomEvent.TrackUnsubscribed, (track) => {
+        if (track.kind !== 'audio') return;
+        const key = tutorTrackKey(track);
+        audioElementsRef.current.get(key)?.remove();
+        audioElementsRef.current.delete(key);
+        track.detach();
+        const hasAudio = Array.from(room.remoteParticipants.values()).some((participant) => Array.from(participant.audioTrackPublications.values()).some((publication) => Boolean(publication.track)));
+        agentAudioSubscribedRef.current = hasAudio;
+        setAgentAudioSubscribed(hasAudio);
+        if (!hasAudio) setAudioState('waiting');
+      });
+      room.on(RoomEvent.LocalTrackPublished, (publication) => { if (publication.source === Track.Source.Microphone) { setMicState('live'); clientStage('MIC_TRACK_PUBLISHED_EVENT'); if (!sessionStartedAtRef.current) setStatus('Microphone ready. Your tutor is joining; class time is paused.'); } });
+      room.on(RoomEvent.LocalAudioSilenceDetected, () => { setMicState('silent'); clientStage('MIC_INPUT_SILENCE_DETECTED'); });
+      room.on(RoomEvent.MediaDevicesError, (mediaError) => { setMicState('error'); setError(friendlyError(mediaError)); });
+      room.on(RoomEvent.AudioPlaybackStatusChanged, (playing: boolean) => { if (agentAudioSubscribedRef.current) setAudioState(playing && !tutorMutedRef.current ? 'playing' : 'blocked'); });
+      room.on(RoomEvent.Reconnecting, () => { runtimeStateBeforeReconnectRef.current = runtimeStateRef.current; setRuntimeState('PAUSED'); setStatus('Connection interrupted. Reconnecting your study room…'); });
+      room.on(RoomEvent.Reconnected, () => {
+        const nextState = runtimeStateBeforeReconnectRef.current === 'PAUSED' ? 'LISTENING' : runtimeStateBeforeReconnectRef.current;
+        const restoredVisual = visualContextRef.current;
+        setVisualContext({ ...restoredVisual });
+        setRuntimeState(nextState);
+        setStatus(nextState === 'TEACHING' ? 'Study room reconnected. LenxiQ AI can continue your lesson.' : 'Study room reconnected. Your lesson visual is synchronized.');
+        clientStage('LIVEKIT_VISUAL_STATE_RESYNCED', { revision: visualRevisionRef.current, type: restoredVisual.type });
+        void playTutorAudioElements().catch(() => undefined);
+        for (const participant of room.remoteParticipants.values()) {
+          for (const publication of participant.trackPublications.values()) {
+            if (publication.track?.kind === 'audio') {
+              agentAudioSubscribedRef.current = true;
+              setAgentAudioSubscribed(true);
+              attachAudioTrack(publication.track);
+            }
+          }
+        }
+      });
+      room.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
+        try {
+          let data = JSON.parse(new TextDecoder().decode(payload)) as {visual?:Record<string, unknown>; playbackSynchronized?:boolean; continuationOwner?:string; type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; message?: string; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; category?: string; structureId?: string; note?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
+          if (!_participant || !_participant.identity.startsWith('lensiq-voice-tutor')) return;
+          if (data.type === 'live_class_policy_ack') {workerContinuationRef.current=true;clearLessonContinueTimer();return;}
+          if (data.type === 'live_class_spoken_cue') {
+            lastTutorActivityAtRef.current=Date.now();
+            if (!data.visual) {if(data.note&&visualContextRef.current.type==='whiteboard')applyTutorTranscript(data.note);return;}
+            data={...data.visual,playbackSynchronized:true} as typeof data;
+          }
+          if (data.type === 'live_class_user_transcript' && data.content?.trim()) {
+            learnerModelFocusUntilRef.current = 0;
+            lastLearnerSpeechAtRef.current = Date.now();
+            clearLessonContinueTimer();
+            setLastHeard(data.content.trim().slice(0, 220));
+            return;
+          }
+          if (data.type === 'live_class_interaction_ack') {
+            setError('');
+            runtimeStateRef.current='THINKING';setRuntimeState('THINKING');
+            setStatus('Tutor received your selection and is preparing an explanation.');
+            return;
+          }
+          if (data.type === 'live_class_visual_step' && data.content?.trim()) {
+            lastTutorActivityAtRef.current = Date.now();
+            setError('');
+            if(tutorSpeakingRef.current)applyTutorTranscript(data.content.trim());
+            return;
+          }
+          if (data.type === 'live_class_segment_complete') {
+            if(data.continuationOwner==='worker'){workerContinuationRef.current=true;clearLessonContinueTimer();return;}
+            lessonSegmentCompleteRef.current = true;
+            requestNextLessonSegment();
+            return;
+          }
+          if (data.type === 'show_3d_model' && data.modelUrl && (isApprovedMedicalModelUrl(data.modelUrl) || approvedBucketModelUrlsRef.current.has(data.modelUrl))) {
+            const active = visualContextRef.current;
+            if (active.type === 'model' && data.modelUrl !== active.modelUrl &&
+                Date.now() < learnerModelFocusUntilRef.current) return;
+            unrelatedVisualStepsRef.current = 0;
+            clearVisualSpeechQueue();
+            explicitVisualThisTurnRef.current = true;
+            const pendingHighlight = pendingHighlightRef.current;
+            pendingHighlightRef.current = null;
+            setSelectedStructure(pendingHighlight?.structureId ?? '');
+            updateVisualContext({ type: 'model', modelUrl: data.modelUrl, note: data.note, ...(data.title ? { title: data.title } : {}), ...(typeof data.category === 'string' ? { category: data.category } : {}), ...(pendingHighlight ? { structureId: pendingHighlight.structureId, highlightColor: pendingHighlight.color } : {}) });
+            return;
+          }
+          if (data.type === 'show_molecular_model' && data.modelUrl && isApprovedMoleculeModelUrl(data.modelUrl)) {
+            const molecule = getMoleculeAsset(data.modelUrl);
+            if (!molecule) return;
+            explicitVisualThisTurnRef.current = true;
+            pendingHighlightRef.current = null;
+            setSelectedStructure('');
+            updateVisualContext({ type: 'molecule', ...molecule });
+            return;
+          }
+          if (data.type === 'highlight_structure' && data.structureId) {
+            explicitVisualThisTurnRef.current = true;
+            setSelectedStructure(data.structureId);
+            const current = visualContextRef.current;
+            if (current.type === 'model') updateVisualContext({ ...current, structureId: data.structureId, highlightColor: data.color });
             else pendingHighlightRef.current = { structureId: data.structureId, color: data.color };
             return;
           }
