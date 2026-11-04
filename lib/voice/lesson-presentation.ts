@@ -1,7 +1,11 @@
-export function conciseLessonPoint(value: string, maxWords = 18): string {
-  const text = value.replace(/```[\s\S]*?```/g, ' ').replace(/\*\*|__|`/g, '').replace(/^\s*(?:[-*+]|\d+[.)]|#{1,6})\s+/, '').replace(/\s+/g, ' ').trim();
-  const words = text.split(' ');
-  return words.slice(0, maxWords).join(' ').replace(/[,;:]$/, '') + (words.length > maxWords ? '…' : '');
+export function conciseLessonPoint(value: string, maxWords = 20): string {
+  let core=value.replace(/```[\s\S]*?```/g,' ').replace(/\*\*|__|`/g,'').replace(/^\s*(?:[-*+]|\d+[.)]|#{1,6})\s+/,'').replace(/\s+/g,' ').trim();
+  if(/^(?:hello|welcome|what would you like|you can interrupt|imagine |think of )/i.test(core))return '';
+  core=core.replace(/^(?:(?:however|now|so|remember|essentially|in short|in other words)[, ]+|let.s (?:look at|consider|think about)\s+)/i,'');
+  core=core.split(/[,;]?\s+(?:meaning(?: that)?|which|for example|for instance|in other words|and (?:this|that|helps))\b/i)[0].split(/[;.!?]\s+|\n/)[0].replace(/^[ ,;:.!?]+|[ ,;:.!?]+$/g,'');
+  if(!/\b(?:not|never|no|without|may|might|can|could|sometimes|usually|rarely)\b/i.test(core))core=core.replace(/\s+(?:causes?|leads? to|results? in|triggers?)\s+/i,' → ');
+  const words=core.split(' ');if(words.length>maxWords||words.length<3)return '';
+  return core.charAt(0).toUpperCase()+core.slice(1);
 }
 export function lessonPoints(markdown: string): string[] {
   return markdown.split(/\n+|(?<=[.!?])\s+/).map(line => conciseLessonPoint(line)).filter(line => line.length > 8).slice(-48);
