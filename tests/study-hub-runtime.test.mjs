@@ -122,3 +122,23 @@ test('3D viewer retains interactive anatomy selection and isolate controls', asy
   assert.ok(viewer.includes('onStructureSelect?.(structureName(event.object))'));
   assert.ok(viewer.includes("viewMode !== 'isolate'"));
 });
+
+test('Groq Mouth remains primary, Gemini remains the lesson brain and quota fallback', async () => {
+  const gateway = await read('app/api/voice/llm/v1/chat/completions/route.ts');
+  const brain = await read('app/api/voice/context/route.ts');
+  const token = await read('app/api/voice/token/route.ts');
+  const browser = await read('app/voice/page.tsx');
+
+  assert.match(gateway, /process\.env\.GROQ_API_KEY/);
+  assert.match(gateway, /https:\/\/api\.groq\.com\/openai\/v1\/chat\/completions/);
+  assert.match(gateway, /qwen\/qwen3\.8-27b/);
+  assert.match(gateway, /reasoning_effort: 'none'/);
+  assert.match(gateway, /provider = 'gemini'/);
+  assert.match(gateway, /selectVoiceContext\(messages\)/);
+  assert.match(gateway, /systems\.slice\(1\)\.slice\(-6\)/);
+  assert.match(brain, /planLessonWithGemini/);
+  assert.match(brain, /sourceOutline/);
+  assert.match(brain, /Gemini lesson-planning|medical lesson-planning/);
+  assert.match(token, /voiceGatewayToken/);
+  assert.doesNotMatch(browser, /GROQ_API_KEY|GEMINI_API_KEY/);
+});
