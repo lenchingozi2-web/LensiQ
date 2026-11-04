@@ -95,7 +95,7 @@ try {
   await bucketOptions.first().waitFor({state:'attached',timeout:30000});
   const modelCount=await bucketOptions.count();
   if(modelCount<40)throw new Error('Live Visual Lab has not registered the real bucket collection');
-  const firstBucketOption=await bucketOptions.first().inputValue();
+  const firstBucketOption=await bucketOptions.first().getAttribute('value');
   if(!firstBucketOption.includes('/storage/v1/object/public/medical-models/')){
     throw new Error('Displayed model is not a real Supabase storage object');
   }
