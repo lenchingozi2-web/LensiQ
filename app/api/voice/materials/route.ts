@@ -94,6 +94,9 @@ export async function POST(request: Request) {
       errorType: parseError instanceof Error ? parseError.name : 'unknown',
     });
     if (temporarySourcePath) await supabase.storage.from(STORAGE_BUCKET).remove([temporarySourcePath]);
+    if (parseError instanceof Error && parseError.message.startsWith('Lecture text exceeds')) {
+      return NextResponse.json({ error: parseError.message }, { status: 413 });
+    }
     return NextResponse.json({
       error: 'This file could not be parsed. Check that the PDF is readable and not password-protected or image-only. Scanned PDFs currently need a text-readable version.',
     }, { status: 422 });
