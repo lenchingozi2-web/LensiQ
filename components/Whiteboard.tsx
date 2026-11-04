@@ -34,19 +34,19 @@ export default function Whiteboard({ topic, markdown, onConceptSelect }: Whitebo
   const active = Math.max(0, Math.min(selected, steps.length - 1));
   const diagramSource = /(?:→|➡|\s->\s|^\s*#{1,3}\s+.*\b(?:mechanism|cascade|pathway|sequence|cycle|flowchart)\b|^\s*(?:flowchart|mechanism flow|pathway)\s*:)/im.test(markdown ?? '');
   const diagramMode = userSelectedMode ? mapMode : diagramSource;
-  const diagramStart = Math.max(0, active - 3);
-  const diagramSteps = steps.slice(diagramStart, Math.min(steps.length, active + 2));
+  const diagramStart = 0;
+  const diagramSteps = steps;
   useEffect(() => {
     if (followTutor && steps.length) setSelected(steps.length - 1);
   }, [steps.length, markdown, followTutor]);
   useEffect(() => {
-    if (!followTutor || !diagramMode || steps.length === 0) return;
+    if (!steps.length) return;
     const frame = window.requestAnimationFrame(() => {
-      const nodes = viewportRef.current?.querySelectorAll('[data-lesson-step]');
-      nodes?.[nodes.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      viewportRef.current?.querySelector('[data-lesson-step][aria-current="step"]')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [steps.length, followTutor, diagramMode]);
+  }, [steps.length, selected, diagramMode]);
 
   function choose(index: number) {
     const next = Math.max(0, Math.min(index, steps.length - 1));
@@ -78,28 +78,29 @@ export default function Whiteboard({ topic, markdown, onConceptSelect }: Whitebo
         ) : (
           <div className="mx-auto w-full max-w-4xl origin-top transition-transform duration-200" style={{ zoom }}>
             <div className="mb-4 flex items-center justify-between gap-2">
-              <p className="text-[11px] font-bold text-white/60">{diagramMode ? 'Current mechanism · tap a step' : 'Live explanation · one point at a time'}</p>
+              <p className="text-[11px] font-bold text-white/60">{diagramMode ? 'Concept flow · tap any step to ask' : 'Key notes · tap any point to ask'}</p>
               {!followTutor && <button type="button" onClick={() => { setFollowTutor(true); setSelected(steps.length - 1); }} className="rounded-full border border-[#e8a23d]/40 bg-[#e8a23d]/15 px-3 py-1.5 text-[11px] font-bold text-[#ffd080]">Follow tutor ↗</button>}
             </div>
             {diagramMode ? (
               <div className="flex flex-col items-stretch" aria-label="Interactive causal flow for the current concept">
-                {diagramSteps.map((step, localIndex) => {
-                  const index = diagramStart + localIndex;
-                  return <div key={index} className="flex flex-col items-center">
-                  <button type="button" data-lesson-step onClick={() => choose(index)} aria-current={active === index ? 'step' : undefined} className={`w-full rounded-2xl border px-4 py-4 text-left shadow-lg transition sm:px-6 ${active === index ? 'border-[#e8a23d] bg-[#e8a23d]/15 shadow-[#e8a23d]/10' : 'border-white/15 bg-[#142235]/85 hover:border-white/35'}`}>
-                    <span className="mb-2 block text-[10px] font-bold uppercase tracking-[.14em] text-[#ffd080]">Concept {String(index + 1).padStart(2, '0')}{active === index && followTutor ? ' · now teaching' : ''}</span>
-                    <span className="block text-sm font-semibold leading-5 text-white/95 sm:text-base sm:leading-6">{step.length > 145 ? step.slice(0, 142).trimEnd() + '…' : step}</span>
-                  </button>
-                  {localIndex < diagramSteps.length - 1 && <div aria-hidden="true" className="flex h-9 flex-col items-center"><div className="h-5 w-px bg-[#e8a23d]/50" /><span className="-mt-1 text-base text-[#e8a23d]/75">↓</span></div>}
-                  </div>;
-                })}
+                {diagramSteps.map((step, index) => (
+                  <div key={index} className="flex flex-col items-center">
+                    <button type="button" data-lesson-step onClick={() => choose(index)} aria-current={active === index ? 'step' : undefined} aria-label={`Ask the tutor about concept ${index + 1}: ${step}`} className={`w-full rounded-2xl border px-4 py-4 text-left shadow-lg transition sm:px-6 ${active === index ? 'border-[#e8a23d] bg-[#e8a23d]/15 shadow-[#e8a23d]/10' : 'border-white/15 bg-[#142235]/85 hover:border-white/35'}`}>
+                      <span className="mb-2 block text-[10px] font-bold uppercase tracking-[.14em] text-[#ffd080]">Step {String(index + 1).padStart(2, '0')}{active === index && followTutor ? ' · now teaching' : ''}</span>
+                      <span className="block text-sm font-semibold leading-5 text-white/95 sm:text-base sm:leading-6">{step}</span>
+                    </button>
+                    {index < diagramSteps.length - 1 && <div aria-hidden="true" className="flex h-9 flex-col items-center"><div className="h-5 w-px bg-[#e8a23d]/50" /><span className="-mt-1 text-base text-[#e8a23d]/75">↓</span></div>}
+                  </div>
+                ))}
               </div>
             ) : (
-              <div key={active} className="animate-[lab-reveal_400ms_ease-out] rounded-2xl border border-[#e8a23d]/35 bg-[#142235] p-5 shadow-xl sm:p-9">
-                <p className="text-xs font-bold uppercase tracking-[.18em] text-[#ffd080]">Now teaching · {active + 1} / {steps.length}</p>
-                <p className="mt-4 text-xl font-semibold leading-8 sm:text-3xl sm:leading-[1.4]">{steps[active]}</p>
-                <p className="mt-5 text-xs text-white/50">Swipe the lesson forward with Next or tap Flow to explore the current mechanism.</p>
-                <button type="button" onClick={() => choose(active)} className="mt-5 rounded-xl border border-white/20 px-3 py-2 text-xs font-semibold text-white/80">Ask tutor about this</button>
+              <div className="mx-auto flex w-full max-w-5xl flex-col gap-3" aria-label="Progressive lesson notes">
+                {steps.map((step, index) => (
+                  <button key={index} type="button" data-lesson-step onClick={() => choose(index)} aria-current={active === index ? 'step' : undefined} aria-label={`Ask the tutor about note ${index + 1}: ${step}`} className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-4 text-left transition sm:px-6 ${active === index ? 'border-[#e8a23d] bg-[#e8a23d]/15 shadow-lg shadow-[#e8a23d]/10' : 'border-white/10 bg-[#142235]/75 hover:border-white/30'}`}>
+                    <span aria-hidden="true" className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${active === index ? 'bg-[#e8a23d] text-[#0b1422]' : 'bg-white/10 text-white/60'}`}>{index + 1}</span>
+                    <span className={`text-sm font-semibold leading-6 sm:text-base sm:leading-7 ${active === index ? 'text-white' : 'text-white/75'}`}>{step}</span>
+                  </button>
+                ))}
               </div>
             )}
           </div>

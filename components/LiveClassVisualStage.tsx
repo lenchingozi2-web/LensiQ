@@ -94,12 +94,10 @@ export default function LiveClassVisualStage({ visualContext, selectedStructure,
           viewMode={modelViewMode}
           onStructureSelect={onStructureSelect}
         />
-        <div className="pointer-events-none absolute left-4 top-[6.25rem] max-w-[min(78vw,24rem)] rounded-2xl border border-white/10 bg-[#101827]/65 px-4 py-3 shadow-xl backdrop-blur-xl sm:left-8 sm:top-28 sm:px-5">
+        <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[min(82vw,22rem)] rounded-xl border border-white/10 bg-[#101827]/55 px-3 py-2 shadow-lg backdrop-blur-md sm:left-6 sm:top-6 sm:px-4">
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#ffd68d]">Interactive 3D {modelCategory}</p>
           <h2 className="mt-1 text-lg font-black tracking-tight text-white sm:text-2xl">{modelName}{focusedStructure && <span className="text-white/60"> · {focusedStructure}</span>}</h2>
           <p className="mt-1 text-[10px] font-semibold text-white/55 sm:text-xs">Drag to rotate · pinch or scroll to zoom · tap a structure to focus</p>
-          {visualContext.note && <p className="mt-3 max-h-28 overflow-y-auto border-l-2 border-[#E8A23D]/60 pl-3 text-xs leading-5 text-white/75">{visualContext.note}</p>}
-          {catalogEntry?.source && <p className="mt-1 text-[9px] font-medium leading-4 text-white/45">{catalogEntry.source}</p>}
           {(sourceLinkUrl || licenseLabel) && (
             <div className="pointer-events-auto mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[9px] font-bold uppercase tracking-[0.12em]">
               {sourceLinkUrl && <a className="text-[#ffd68d] underline decoration-white/20 underline-offset-4 hover:text-white" href={sourceLinkUrl} target="_blank" rel="noreferrer">{recordUrl ? 'Source record' : sourceLabel ?? 'Source'}</a>}
@@ -128,12 +126,11 @@ export default function LiveClassVisualStage({ visualContext, selectedStructure,
           ligand={visualContext.ligand}
           ligandResidue={catalogEntry?.ligandResidue ?? 'CAU'}
         />
-        <div className="pointer-events-none absolute left-4 top-[6.25rem] max-w-[min(78vw,25rem)] rounded-2xl border border-white/10 bg-[#101827]/70 px-4 py-3 shadow-xl backdrop-blur-xl sm:left-8 sm:top-28 sm:px-5">
+        <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[min(82vw,22rem)] rounded-xl border border-white/10 bg-[#101827]/55 px-3 py-2 shadow-lg backdrop-blur-md sm:left-6 sm:top-6 sm:px-4">
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#ffd68d]">Interactive drug–target structure</p>
           <h2 className="mt-1 text-lg font-black tracking-tight text-white sm:text-2xl">{visualContext.title}</h2>
           <p className="mt-1 text-xs font-semibold text-white/65">Bound ligand · {visualContext.ligand} <span className="text-white/35">· PDB {visualContext.pdbId}</span></p>
           <p className="mt-1 text-[10px] font-medium text-white/45">Drag to rotate · pinch or scroll to zoom · the ligand is highlighted</p>
-          {visualContext.note && <p className="mt-1 text-[9px] leading-4 text-white/40">{visualContext.note}</p>}
           {catalogEntry?.sourceUrl && (
             <a className="pointer-events-auto mt-2 inline-flex text-[9px] font-bold uppercase tracking-[0.14em] text-[#ffd68d] underline decoration-white/20 underline-offset-4 hover:text-white" href={catalogEntry.sourceUrl} target="_blank" rel="noreferrer">
               Source · RCSB PDB · CC0
