@@ -2,6 +2,7 @@ export const FINANCE_DEFAULTS = {
   usdToNaira: 1500, flutterwaveFeeRate: 0.02, feeVatRate: 0.075,
   supabaseMonthlyUsd: 25, vercelMonthlyUsd: 20, livekitMonthlyUsd: 50,
   livekitIncludedMinutes: 5000, livekitAgentUsdPerMinute: 0.01,
+  livekitSpeechReserveUsdPerMinute: 0.03,
   unmeteredTextRequestUsd: 0.015, voiceBrainReserveUsdPerMinute: 0.002,
   voiceMouthReserveUsdPerMinute: 0.008,
 };
@@ -26,7 +27,7 @@ export function estimateMonthlyFinancials(input:MonthlyFinance){
  const overageMinutes=Math.max(0,minutes-settings.livekitIncludedMinutes);
  const estimatesUsd:Record<string,number>={
   supabase:settings.supabaseMonthlyUsd,vercel:settings.vercelMonthlyUsd,
-  livekit:settings.livekitMonthlyUsd+overageMinutes*settings.livekitAgentUsdPerMinute,
+  livekit:settings.livekitMonthlyUsd+overageMinutes*settings.livekitAgentUsdPerMinute+minutes*settings.livekitSpeechReserveUsdPerMinute,
   gemini:sum('gemini',false)+Math.max(sum('gemini',true),minutes*settings.voiceBrainReserveUsdPerMinute)+unmeteredTextRequests*settings.unmeteredTextRequestUsd,
   groq:sum('groq',false)+Math.max(sum('groq',true),minutes*settings.voiceMouthReserveUsdPerMinute),other:0,
  };
