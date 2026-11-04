@@ -1,0 +1,43 @@
+name: Live Class paid-student validation
+on:
+  push:
+    branches: [main]
+    paths: ['scripts/validate_live_class_student.py', '.github/workflows/live-class-student-validation.yml']
+  workflow_dispatch:
+    inputs:
+      duration_minutes:
+        description: 'Continuous classroom duration, from 8 to 90 minutes'
+        type: number
+        default: 8
+permissions:
+  contents: read
+concurrency:
+  group: live-class-disposable-student-validation
+  cancel-in-progress: false
+jobs:
+  classroom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 105
+    environment: production
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      VALIDATION_MINUTES: ${{ inputs.duration_minutes || 8 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install the classroom client
+        run: |
+          python -m pip install 'livekit>=1.0,<2'
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq espeak-ng
+      - name: Check the signed-in student path, six sources and continuous AI speech
+        run: python scripts/validate_live_class_student.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-class-validation
+          path: live-class-validation.json
+          retention-days: 7
