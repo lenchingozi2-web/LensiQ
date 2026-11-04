@@ -74,6 +74,38 @@ try {
   await isolate.click();
   if(await isolate.getAttribute('aria-pressed')!=='true')throw new Error('Structure isolation failed');
   console.log('PASS_ISOLATION');
+  // The public bucket is the authoritative source for newer models. An
+  // uncatalogued upload must appear in this chooser without a code release.
+  let inventoryResponse=null;
+  for(let attempt=0;attempt<10;attempt++){
+    const response=await page.request.get(origin+'/api/voice/models').catch(()=>null);
+    if(response?.ok()){
+      const item=await response.json().catch(()=>null);
+      if(item?.source==='supabase-medical-models' && Array.isArray(item.models) && item.models.length>=40){
+        inventoryResponse=item;
+        break;
+      }
+    }
+    await page.waitForTimeout(3500);
+  }
+  if(!inventoryResponse)throw new Error('Real production Supabase medical-models catalogue not available');
+  if(inventoryResponse.models.length<40)throw new Error('Only a few model files were discovered, not the real bucket');
+  console.log('REAL_SUPABASE_STORED_MODELS',inventoryResponse.models.length);
+  const bucketOptions=page.locator('#lab-visual optgroup[label^="From Supabase"] option');
+  await bucketOptions.first().waitFor({state:'attached',timeout:30000});
+  const modelCount=await bucketOptions.count();
+  if(modelCount<40)throw new Error('Live Visual Lab has not registered the real bucket collection');
+  const firstBucketOption=await bucketOptions.first().inputValue();
+  if(!firstBucketOption.includes('/storage/v1/object/public/medical-models/')){
+    throw new Error('Displayed model is not a real Supabase storage object');
+  }
+  await page.locator('#lab-visual').selectOption(firstBucketOption);
+  await page.locator('[data-testid="model-loading"]').waitFor({state:'hidden',timeout:70000});
+  if(await page.getByText('3D model unavailable').count()){
+    throw new Error('New dynamic Supabase model failed to render in the actual browser');
+  }
+  console.log('PASS_REAL_BUCKET_MODEL_DISPLAYED_IN_WEBGL',firstBucketOption);
+
   await page.locator('#lab-visual').selectOption('model:https://hixvbcrrklyajhkyliay.supabase.co/storage/v1/object/public/medical-models/hra-v25/heart.glb');
   await page.locator('[data-testid="model-loading"]').waitFor({state:'hidden',timeout:90000});
   if(await page.locator('[data-testid="model-failed"]').count())throw new Error('Real HRA organ failed 3D rendering');
