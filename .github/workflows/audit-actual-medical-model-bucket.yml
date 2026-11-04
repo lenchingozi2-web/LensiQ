@@ -1,0 +1,75 @@
+name: Audit actual LenxiQ medical-models inventory (read-only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/audit-actual-medical-model-bucket.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 8
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Audit uploaded objects without modifying storage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request, urllib.parse, collections
+          base=os.getenv('SUPABASE_URL','').rstrip('/')
+          secret=os.getenv('SUPABASE_SERVICE_ROLE_KEY','')
+          if base!='https://hixvbcrrklyajhkyliay.supabase.co' or not secret:
+              raise SystemExit('Target Supabase credentials unavailable; no changes made.')
+          headers={'Authorization':'Bearer '+secret,'apikey':secret,'Content-Type':'application/json'}
+          pending=['']; visited=set(); models=[]; others=[]; scanned=0
+          while pending:
+              folder=pending.pop(0)
+              if folder in visited:continue
+              visited.add(folder)
+              if len(visited)>300:raise SystemExit('Safety folder count exceeded')
+              offset=0
+              while True:
+                  data=json.dumps({'prefix':folder,'limit':100,'offset':offset,
+                    'sortBy':{'column':'name','order':'asc'}}).encode()
+                  req=urllib.request.Request(base+'/storage/v1/object/list/medical-models',
+                      data=data,headers=headers,method='POST')
+                  with urllib.request.urlopen(req,timeout=25) as response:
+                      batch=json.load(response)
+                  if not isinstance(batch,list):raise SystemExit('Invalid storage list response')
+                  for item in batch:
+                      name=item.get('name','')
+                      full=(folder+'/' if folder else '')+name
+                      if item.get('id') is None:
+                          pending.append(full)
+                      else:
+                          scanned+=1
+                          if name.lower().endswith('.glb'):
+                              models.append((full,item))
+                          else:others.append(full)
+                  if len(batch)<100:break
+                  offset+=100
+          print('ACTUAL_MEDICAL_BUCKET_OBJECTS',scanned)
+          print('ACTUAL_GLB_MODELS',len(models))
+          print('OTHER_ASSETS',len(others))
+          print('FOLDERS',len(visited))
+          print('GLB_BY_DIRECTORY',json.dumps(dict(collections.Counter(
+              x[0].split('/')[0] for x in models)),sort_keys=True))
+          print('MODEL_SAMPLES',json.dumps([x[0] for x in models[:20]]))
+          print('AUDIT_IS_READ_ONLY True')
+          if not models:raise SystemExit('No GLB models were found')
+          checked=0
+          for path, entry in models[:3]:
+              remote=base+'/storage/v1/object/public/medical-models/'+urllib.parse.quote(path,safe='/')
+              req=urllib.request.Request(remote,headers={'Range':'bytes=0-11'})
+              with urllib.request.urlopen(req,timeout=30) as response:
+                  content=response.read(12)
+                  if content[:4]!=b'glTF':
+                      raise SystemExit('Model is not a GLB: '+path)
+              checked+=1
+          print('VALIDATED_PUBLIC_GLB_MAGIC',checked)
+          PY
