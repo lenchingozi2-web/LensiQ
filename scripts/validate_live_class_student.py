@@ -13,6 +13,7 @@ import http.cookiejar
 import io
 import json
 import os
+import re
 from pathlib import Path
 import secrets
 import subprocess
@@ -62,7 +63,10 @@ class StudentValidation:
         deadline=time.monotonic()+timeout
         while time.monotonic()<deadline:
             for event in self.events:
-                if event['at']>=after and event['data'].get('state')=='ERROR':raise RuntimeError('The classroom worker reported an error')
+                if event['at']>=after and event['data'].get('state')=='ERROR':
+                    detail=str(event['data'].get('message',''))[:400]
+                    detail=re.sub(r'https?://\S+|[A-Za-z0-9_-]{30,}(?:\.[A-Za-z0-9_-]+)*','[redacted]',detail)
+                    raise RuntimeError('Classroom worker error: '+detail)
                 if event['at']>=after and predicate(event['data']):return event
             self.changed.clear()
             try:await asyncio.wait_for(self.changed.wait(),min(3,max(.01,deadline-time.monotonic())))
@@ -73,7 +77,7 @@ class StudentValidation:
     async def speak_question(self):
         # Exercise the actual mic -> VAD -> CPU Whisper -> model -> speech path,
         # using a deterministic English fixture, with no browser speech fallback.
-        result=await asyncio.to_thread(subprocess.run,['espeak-ng','--stdout','-s','145','Why do neutrophils arrive early in acute inflammation?'],capture_output=True,check=True)
+        result=await asyncio.to_thread(subprocess.run,['espeak-ng','--stdout','-s','145','Why do blood cells move from vessels into injured tissue during inflammation?'],capture_output=True,check=True)
         with wave.open(io.BytesIO(result.stdout),'rb') as recording:
             pcm=recording.readframes(recording.getnframes())
             if recording.getnchannels()!=1 or recording.getsampwidth()!=2:raise RuntimeError('Unexpected speech fixture format')
@@ -188,11 +192,12 @@ class StudentValidation:
         await self.wait(lambda d:d.get('type')=='live_class_spoken_cue',after=tapped,timeout=60)
         self.check('KEY_NOTE_TAP_RECEIVED_AND_EXPLAINED')
         await self.send({'type':'lesson_policy','autoContinue':False})
-        await self.wait(lambda d:d.get('type')=='live_class_segment_complete',after=ended['at'],timeout=140)
-        paused=time.monotonic();await asyncio.sleep(4)
+        paused_end=await self.wait(lambda d:d.get('type')=='live_class_segment_complete',after=tapped,timeout=140)
+        paused=paused_end['at'];await asyncio.sleep(4)
         if any(e['at']>paused and e['data'].get('state')=='RESUMING' for e in self.events):raise RuntimeError('Pause failed')
         await self.send({'type':'lesson_policy','autoContinue':True})
-        await self.wait(lambda d:d.get('type')=='live_class_spoken_cue',after=paused,timeout=60)
+        restarted=await self.wait(lambda d:d.get('type')=='live_class_state' and d.get('state')=='RESUMING',after=paused,timeout=20)
+        await self.wait(lambda d:d.get('type')=='live_class_spoken_cue',after=restarted['at'],timeout=60)
         self.check('PAUSE_AND_RESUME_PRESERVE_THE_LESSON')
         duration=max(8,min(90,int(os.environ.get('VALIDATION_MINUTES','8'))))
         while time.monotonic()-self.connected_at<duration*60:
