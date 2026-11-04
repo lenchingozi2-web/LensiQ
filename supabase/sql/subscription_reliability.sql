@@ -12,20 +12,20 @@ grant all on public.ai_request_reservations to service_role;
 drop policy if exists own_ai_reservations on public.ai_request_reservations;
 create policy own_ai_reservations on public.ai_request_reservations for select to authenticated using(user_id=auth.uid() or private.is_admin());
 create index if not exists ai_reservations_user_created on public.ai_request_reservations(user_id,created_at desc);
-create table if not exists public.ai_usage_events(
+create table if not exists public.study_ai_usage(
  id uuid primary key, user_id uuid references auth.users(id) on delete set null,reservation_id uuid references public.ai_request_reservations(id) on delete set null,
  feature text not null,provider text not null,model text not null,input_tokens bigint not null default 0,output_tokens bigint not null default 0,
  cached_tokens bigint not null default 0,thinking_tokens bigint not null default 0,estimated_cost_usd numeric not null default 0,
  token_source text not null check(token_source in ('provider','estimate','cache')),outcome text not null,
  created_at timestamptz not null default now()
 );
-alter table public.ai_usage_events enable row level security;
-revoke all on public.ai_usage_events from anon,authenticated;
-grant select on public.ai_usage_events to authenticated;
-grant all on public.ai_usage_events to service_role;
-drop policy if exists admin_ai_usage on public.ai_usage_events;
-create policy admin_ai_usage on public.ai_usage_events for select to authenticated using(private.is_admin());
-create index if not exists ai_usage_month on public.ai_usage_events(created_at,provider,feature);
+alter table public.study_ai_usage enable row level security;
+revoke all on public.study_ai_usage from anon,authenticated;
+grant select on public.study_ai_usage to authenticated;
+grant all on public.study_ai_usage to service_role;
+drop policy if exists admin_ai_usage on public.study_ai_usage;
+create policy admin_ai_usage on public.study_ai_usage for select to authenticated using(private.is_admin());
+create index if not exists study_ai_usage_month on public.study_ai_usage(created_at,provider,feature);
 
 create table if not exists public.scheduled_subscriptions(
  id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id) on delete cascade,
@@ -201,10 +201,10 @@ declare start_at timestamptz;end_at timestamptz;result jsonb;begin
   'openSessions',(select count(*) from public.live_class_sessions where status='active'),
   'pendingCheckouts',(select count(*) from public.subscription_checkouts where settled_at is null and created_at>=start_at and created_at<end_at),
   'subscribers',coalesce((select jsonb_agg(to_jsonb(t)) from(select p.plan,s.label,count(*) accounts,s.price_ngn from public.profiles p join public.subscription_plans s on s.id=p.plan where p.role<>'admin' and p.plan<>'free' and p.plan_expires_at>now() group by p.plan,s.label,s.price_ngn) t),'[]'::jsonb),
-  'usage',coalesce((select jsonb_agg(to_jsonb(t)) from(select provider,feature,count(*) requests,sum(input_tokens) input_tokens,sum(output_tokens) output_tokens,sum(cached_tokens) cached_tokens,sum(thinking_tokens) thinking_tokens,sum(estimated_cost_usd) cost_usd,count(*) filter(where token_source='provider') measured_requests,count(*) filter(where token_source='estimate') estimated_requests,count(*) filter(where reservation_id is not null and outcome in ('completed','cache')) charged_requests from public.ai_usage_events where created_at>=start_at and created_at<end_at group by provider,feature) t),'[]'::jsonb),
+  'usage',coalesce((select jsonb_agg(to_jsonb(t)) from(select provider,feature,count(*) requests,sum(input_tokens) input_tokens,sum(output_tokens) output_tokens,sum(cached_tokens) cached_tokens,sum(thinking_tokens) thinking_tokens,sum(estimated_cost_usd) cost_usd,count(*) filter(where token_source='provider') measured_requests,count(*) filter(where token_source='estimate') estimated_requests,count(*) filter(where reservation_id is not null and outcome in ('completed','cache')) charged_requests from public.study_ai_usage where created_at>=start_at and created_at<end_at group by provider,feature) t),'[]'::jsonb),
   'settings',coalesce((select config from public.finance_month_settings where month=p_month),'{}'::jsonb),
   'invoices',coalesce((select jsonb_agg(to_jsonb(t)) from(select provider,amount,currency,note from public.finance_invoices where month=p_month order by provider) t),'[]'::jsonb),
-  'meteringStartedAt',(select min(created_at) from public.ai_usage_events)
+  'meteringStartedAt',(select min(created_at) from public.study_ai_usage)
  ) into result;
  return result;
 end;$$;
