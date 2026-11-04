@@ -76,8 +76,8 @@ export default function LiveClassVisualStage({ visualContext, selectedStructure,
 
   if (visualContext.type === 'model') {
     const catalogEntry = getLiveClassModelCatalogEntry(visualContext.modelUrl);
-    const modelName = getLiveClassModelLabel(visualContext.modelUrl);
-    const modelCategory = catalogEntry?.category ?? 'anatomy';
+    const modelName = visualContext.title || getLiveClassModelLabel(visualContext.modelUrl);
+    const modelCategory = visualContext.category || catalogEntry?.category || 'medical 3D';
     const sourceUrl = catalogEntry && 'sourceUrl' in catalogEntry ? catalogEntry.sourceUrl : undefined;
     const sourceLabel = catalogEntry && 'sourceLabel' in catalogEntry ? catalogEntry.sourceLabel : undefined;
     const licenseLabel = catalogEntry && 'licenseLabel' in catalogEntry ? catalogEntry.licenseLabel : undefined;
