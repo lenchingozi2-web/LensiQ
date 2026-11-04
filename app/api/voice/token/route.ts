@@ -110,7 +110,13 @@ export async function POST(req: Request) {
     } catch { return false; }
   };
   const materialUrls = Array.isArray(body?.fileUrls) ? body.fileUrls.filter(safeUrl).slice(0, 6) : [];
-  const materialMapUrls = Array.isArray(body?.materialMapUrls) ? body.materialMapUrls.filter(safeUrl).slice(0, 6) : [];
+  // Preserve empty map slots so a failed second map cannot become file three.
+  const candidates = Array.isArray(body?.materialMapUrls)
+    ? body.materialMapUrls.slice(0, materialUrls.length) : [];
+  const materialMapUrls: string[] = Array.from({ length: materialUrls.length }, (_, index) => {
+    const candidate: unknown = candidates[index];
+    return safeUrl(candidate) ? candidate : '';
+  });
   const rawMaterialContext = body?.materialContext && typeof body.materialContext === 'object' ? body.materialContext as { primaryBranch?: unknown; branches?: unknown; sources?: unknown } : null;
   const materialContext = rawMaterialContext ? {
     primaryBranch: typeof rawMaterialContext.primaryBranch === 'string' ? rawMaterialContext.primaryBranch.slice(0, 80) : null,
