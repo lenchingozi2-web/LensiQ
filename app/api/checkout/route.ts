@@ -1,3 +1,4 @@
+import {getOrCreateProfile} from '@/lib/profile';
 import {createServiceClient} from '@/lib/supabase/service';
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
@@ -9,6 +10,8 @@ export async function POST(req: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Sign in to purchase a Premium subscription.' }, { status: 401 });
 
+    const profile=await getOrCreateProfile(supabase,user);
+    if(profile.error||!profile.data)return NextResponse.json({error:'Your account could not be verified. Please retry.'},{status:503});
     const body = await req.json().catch(() => ({}));
     if (body?.productType === 'topup') {
       return NextResponse.json({ error: 'Pay-as-you-go voice-minute purchases are no longer available. Existing wallet minutes remain usable.' }, { status: 410 });
@@ -29,6 +32,7 @@ export async function POST(req: Request) {
     const description = `${plan.label}: monthly access, ${plan.aiCredits} AI responses, ${plan.voiceMinutes} Live Class minutes and ${plan.mockExams === -1 ? 'unlimited' : plan.mockExams} timed mocks per billing month`;
     const response = await fetch('https://api.flutterwave.com/v3/payments', {
       method: 'POST',
+      signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         tx_ref: txRef,
@@ -43,7 +47,9 @@ export async function POST(req: Request) {
 
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.status !== 'success' || !data.data?.link) throw new Error(data.message || 'Payment gateway rejected the checkout request.');
-    return NextResponse.json({ checkoutUrl: data.data.link, productType: 'subscription', itemId: plan.id });
+    const checkoutUrl=new URL(data.data.link);
+    if(checkoutUrl.protocol!=='https:'||!['checkout.flutterwave.com','checkout-v3.flutterwave.com'].includes(checkoutUrl.hostname))throw new Error('Unexpected checkout address.');
+    return NextResponse.json({ checkoutUrl: checkoutUrl.toString(), productType: 'subscription', itemId: plan.id });
   } catch (error) {
     console.error('Flutterwave API Error:', error);
     return NextResponse.json({ error: 'Failed to initialize payment gateway.' }, { status: 500 });

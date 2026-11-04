@@ -1,3 +1,5 @@
+import {observeAiStream,usageFromPayload} from '@/lib/ai/usage-meter';
+import {recordAiUsage} from '@/lib/ai/record-usage';
 import { verifyLiveClassGatewayToken } from '@/lib/voice/live-class-gateway-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
@@ -113,6 +115,7 @@ export async function POST(request: Request) {
         headers: { Authorization: `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: groqModel, messages: recent, stream,
+          ...(stream?{stream_options:{include_usage:true}}:{}),
           max_completion_tokens: maxTokens, temperature: temp,
           // Qwen instruct mode saves reasoning tokens and lowers spoken latency.
           ...(groqModel === 'qwen/qwen3.8-27b'
@@ -145,6 +148,7 @@ export async function POST(request: Request) {
         headers: { Authorization: `Bearer ${geminiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: geminiModel, messages: recent, stream,
+          ...(stream?{stream_options:{include_usage:true}}:{}),
           max_completion_tokens: maxTokens, temperature: 0.5,
         }),
       });
@@ -159,7 +163,10 @@ export async function POST(request: Request) {
       error: upstream.status === 429 ? 'Voice model quota reached.' : 'Voice model unavailable.',
     }, { status: upstream.status === 429 ? 429 : 502 });
   }
-  return new Response(upstream.body, {
+  const usedModel=provider==='groq'?groqModel:geminiModel;
+  if(!stream){const data=await upstream.json();await recordAiUsage(auth.user,'voice_mouth',usageFromPayload(data,provider,usedModel,JSON.stringify(recent).length));return NextResponse.json(data);}
+  const monitored=observeAiStream(upstream.body,{provider,model:usedModel,inputCharacters:JSON.stringify(recent).length,onFinish:(usage,hasOutput,outcome)=>recordAiUsage(auth.user,'voice_mouth',usage,{outcome:hasOutput?'completed':outcome})});
+  return new Response(monitored, {
     status: 200,
     headers: {
       'Content-Type': upstream.headers.get('content-type') ||

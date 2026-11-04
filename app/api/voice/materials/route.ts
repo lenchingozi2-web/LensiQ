@@ -21,6 +21,8 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Sign in before uploading Live Class material.' }, { status: 401 });
+  const {error:refreshError}=await supabase.rpc('refresh_my_subscription');
+  if(refreshError)return NextResponse.json({error:'Unable to refresh your subscription. Please retry.'},{status:503});
   const { data: accessProfile } = await supabase.from('profiles').select('role, plan, plan_expires_at').eq('id', user.id).maybeSingle();
   const activePlan = Boolean(accessProfile?.plan && includesLiveClass(accessProfile.plan)
     && (!accessProfile.plan_expires_at || new Date(accessProfile.plan_expires_at) > new Date()));

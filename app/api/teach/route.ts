@@ -1,3 +1,5 @@
+import {observeAiStream} from '@/lib/ai/usage-meter';
+import {finishAiRequest,recordAiUsage} from '@/lib/ai/record-usage';
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
 import { checkAccess } from '../../../lib/gatekeeper';
@@ -13,6 +15,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
+  let reservationId:string|undefined;
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -124,6 +127,7 @@ export async function POST(req: Request) {
       }
     } else {
       const access = await checkAccess('teaching');
+      reservationId=access.reservationId;
       if (!access.allowed) {
         return NextResponse.json({ error: access.message }, { status: access.status });
       }
@@ -135,6 +139,7 @@ export async function POST(req: Request) {
     // Gemini-only tutor: use a second Gemini Flash model when the primary is overloaded.
     const geminiKey = process.env.GEMINI_API_KEY?.trim();
     if (!geminiKey) {
+      await finishAiRequest(reservationId,false);
       return NextResponse.json({ error: 'The AI tutor is not configured. Please contact support.' }, { status: 503 });
     }
 
@@ -142,6 +147,7 @@ export async function POST(req: Request) {
     const fallbackModel = (process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.6-flash').replace(/^models\//, '');
     const models = [...new Set([primaryModel, fallbackModel])];
     if (models.some((name) => !/^[a-zA-Z0-9._-]{1,80}$/.test(name))) {
+      await finishAiRequest(reservationId,false);
       return NextResponse.json({ error: 'The AI tutor model is misconfigured.' }, { status: 503 });
     }
 
@@ -156,6 +162,7 @@ export async function POST(req: Request) {
     });
 
     let providerResponse: Response | null = null;
+    let usedModel=primaryModel;
     let lastStatus: number | null = null;
     const retryable = new Set([429, 500, 502, 503, 504]);
     // Keep retries and fallback inside the serverless function's execution window.
@@ -175,7 +182,7 @@ export async function POST(req: Request) {
             body: providerBody,
           });
           if (candidate.ok && candidate.body) {
-            providerResponse = candidate;
+            providerResponse = candidate;usedModel=model;
             break providerLoop;
           }
           lastStatus = candidate.status;
@@ -195,13 +202,15 @@ export async function POST(req: Request) {
     }
 
     if (!providerResponse?.body) {
+      await finishAiRequest(reservationId,false);
       return NextResponse.json({
         error: lastStatus === 429
           ? 'The AI tutor is busy. Please try again shortly.'
           : 'The AI tutor is temporarily unavailable. Please try again.',
       }, { status: lastStatus === 429 ? 429 : 503 });
     }
-    return new Response(providerResponse.body, {
+    const monitored=observeAiStream(providerResponse.body,{provider:'gemini',model:usedModel,inputCharacters:providerBody.length,onFinish:(usage,hasOutput,outcome)=>recordAiUsage(userId,sessionType==='live_class'?'voice_teaching':'teaching',usage,{reservationId,success:hasOutput,outcome:hasOutput?'completed':outcome})});
+    return new Response(monitored, {
       headers: {
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache, no-transform',
@@ -210,6 +219,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
+    await finishAiRequest(reservationId,false);
     const errorName = error instanceof Error ? error.name : 'unknown_error';
     console.error('AI Teaching Error:', errorName);
     const timedOut = errorName === 'TimeoutError' || errorName === 'AbortError';

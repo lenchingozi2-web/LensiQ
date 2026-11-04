@@ -1,3 +1,6 @@
+import {after} from 'next/server';
+import {recordAiUsage} from '@/lib/ai/record-usage';
+import {usageFromPayload} from '@/lib/ai/usage-meter';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '../../../../lib/supabase/service';
@@ -5,7 +8,7 @@ import { buildTeachingContext } from '../../../../lib/ai/teaching-context';
 
 type Evidence = Awaited<ReturnType<typeof buildTeachingContext>>;
 
-async function planLessonWithGemini(courseName: string, query: string, context: Evidence, sourceOutline: string) {
+async function planLessonWithGemini(courseName: string, query: string, context: Evidence, sourceOutline: string, userId:string) {
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) {
     console.warn('Live Class Gemini lesson planner unavailable: missing GEMINI_API_KEY.');
@@ -57,6 +60,7 @@ async function planLessonWithGemini(courseName: string, query: string, context: 
       return null;
     }
     const json = await response.json();
+    after(()=>recordAiUsage(userId,'voice_brain',usageFromPayload(json,'gemini',model,JSON.stringify({instructions,excerpts,pastQuestions,sourceOutline,query}).length)));
     const raw = json?.candidates?.[0]?.content?.parts?.find((part: { text?: string }) => typeof part.text === 'string')?.text;
     const plan = JSON.parse(raw || '{}') as Record<string, unknown>;
     const words = (value: unknown, max: number) => typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -114,7 +118,7 @@ export async function POST(request: Request) {
     const {data: eligible,error: entitlementError} = await supabase.rpc('live_class_gateway_allowed',{p_session:active?.id,p_user:userId});
     if(entitlementError || eligible!==true) return NextResponse.json({error:'Active Live Class required.'},{status:403});
     const context = await buildTeachingContext(supabase, courseName, [{ role: 'user', content: query }]);
-    const lessonPlan = includePlan ? await planLessonWithGemini(courseName, query, context, sourceOutline) : null;
+    const lessonPlan = includePlan ? await planLessonWithGemini(courseName, query, context, sourceOutline, userId) : null;
     return NextResponse.json({
       lessonPlan,
       knowledge: context.knowledgeSources.slice(0, 6).map((source) => ({

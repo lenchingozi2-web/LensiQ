@@ -50,6 +50,8 @@ export async function POST(req: Request) {
 
   if (!courseName) return NextResponse.json({ error: 'Course is required.' }, { status: 400 });
   if (sessionType === 'live_class') {
+  const {error:refreshError}=await supabase.rpc('refresh_my_subscription');
+  if(refreshError)return NextResponse.json({error:'Unable to refresh your subscription. Please retry.'},{status:503});
     const { data: profile } = await supabase.from('profiles').select('role, plan, plan_expires_at').eq('id', user.id).maybeSingle();
     const activePlan = Boolean(profile?.plan && includesLiveClass(profile.plan)
       && (!profile.plan_expires_at || new Date(profile.plan_expires_at) > new Date()));

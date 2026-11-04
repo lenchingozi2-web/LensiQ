@@ -1,3 +1,5 @@
+import {usageFromPayload} from '@/lib/ai/usage-meter';
+import {finishAiRequest,recordAiUsage} from '@/lib/ai/record-usage';
 import { createServiceClient } from '@/lib/supabase/service';
 import { NextResponse } from 'next/server';
 
@@ -7,9 +9,10 @@ import { createClient } from '../../../lib/supabase/server';
 import { checkAccess } from '../../../lib/gatekeeper';
 
 export async function POST(req: Request) {
+  let reservationId:string|undefined;
   try {
     const supabase = await createClient();
-    
+
     // 1. Get the user
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -20,15 +23,6 @@ export async function POST(req: Request) {
     // =========================================================================
     // STEP 3: THE GATEKEEPER LOCK
     // =========================================================================
-    const access = await checkAccess('explanation');
-    if (!access.allowed) {
-      return NextResponse.json(
-        { content: access.message || "Limit reached.", flagged: false }, 
-        { status: access.status || 403 }
-      );
-    }
-    // =========================================================================
-    
     const contentLength = Number(req.headers.get('content-length') || 0);
     if (Number.isFinite(contentLength) && contentLength > 32 * 1024) {
       return NextResponse.json({ content: 'The explanation request is too large.', flagged: false }, { status: 413 });
@@ -51,11 +45,11 @@ export async function POST(req: Request) {
     const rawQuestionText = body.questionText;
     const rawCorrectAnswer = body.correctAnswer;
     const questionId: string = String(rawQuestionId ?? '');
-    const questionText: string = String(rawQuestionText ?? '');
-    const options = body.options;
-    const correctAnswer: string = String(rawCorrectAnswer ?? '');
+    let questionText: string = String(rawQuestionText ?? '');
+    let options = body.options;
+    let correctAnswer: string = String(rawCorrectAnswer ?? '');
     const rawModelAnswer = body.modelAnswer;
-    const modelAnswer: string = String(rawModelAnswer ?? '');
+    let modelAnswer: string = String(rawModelAnswer ?? '');
     if (
       typeof rawQuestionId !== 'string' || !questionId || questionId.length > 128 ||
       typeof rawQuestionText !== 'string' || !questionText.trim() || questionText.length > 6000 ||
@@ -67,6 +61,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ content: 'Invalid explanation request.', flagged: false }, { status: 400 });
     }
 
+    // Use the protected question bank as the source of truth for the shared cache.
+    // A caller must never supply a forged answer for another question's ID.
+    const { data: canonical, error: questionError } = await supabase
+      .from('questions')
+      .select('question_text,correct_answer,model_answer,option_a,option_b,option_c,option_d,option_e')
+      .eq('id', questionId)
+      .maybeSingle();
+    if (questionError || !canonical) {
+      return NextResponse.json({ content: questionError ? 'The question could not be loaded. Please retry.' : 'Question not found.', flagged: false }, { status: questionError ? 503 : 404 });
+    }
+    questionText = String(canonical.question_text ?? '').slice(0, 6000);
+    correctAnswer = String(canonical.correct_answer || canonical.model_answer || '').slice(0, 2000);
+    modelAnswer = String(canonical.model_answer ?? '').slice(0, 2000);
+    options = Object.fromEntries((['a','b','c','d','e'] as const).map(letter => [letter.toUpperCase(), String(canonical[`option_${letter}`] ?? '').slice(0,1000)]));
+
+    const access = await checkAccess('explanation');
+    reservationId=access.reservationId;
+    if (!access.allowed) {
+      return NextResponse.json(
+        { content: access.message || "Limit reached.", flagged: false },
+        { status: access.status || 403 }
+      );
+    }
+    // =========================================================================
+
     const cacheService = createServiceClient();
     // 4. THE CACHE CHECK: Look for an existing explanation
     const { data: cachedExplanation } = await cacheService
@@ -76,6 +95,7 @@ export async function POST(req: Request) {
       .single();
 
     if (cachedExplanation) {
+      await recordAiUsage(userId,'explanation',{provider:'gemini',model:'cache',inputTokens:0,outputTokens:0,cachedTokens:0,thinkingTokens:0,tokenSource:'cache',estimatedCostUsd:0},{reservationId,outcome:'cache'});
       return NextResponse.json({
         content: cachedExplanation.explanation_text,
         flagged: cachedExplanation.is_flagged
@@ -84,6 +104,7 @@ export async function POST(req: Request) {
 
     // No saved explanation exists; call the configured medical tutor model.
     if (!process.env.GEMINI_API_KEY) {
+      await finishAiRequest(reservationId,false);
       return NextResponse.json({ content: 'AI provider is not configured.', flagged: false }, { status: 503 });
     }
 
@@ -94,6 +115,7 @@ export async function POST(req: Request) {
     const fallbackModel = (process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.6-flash').replace(/^models\//, '');
     const models = [...new Set([primaryModel, fallbackModel])];
     if (models.some((model) => !/^[a-zA-Z0-9._-]{1,80}$/.test(model))) {
+      await finishAiRequest(reservationId,false);
       return NextResponse.json({ content: 'The explanation model is misconfigured.', flagged: false }, { status: 503 });
     }
     const payload = JSON.stringify({
@@ -106,6 +128,7 @@ export async function POST(req: Request) {
       },
     });
     let provider: { candidates?: Array<{ content?: { parts?: Array<{ thought?: boolean; text?: string }> } }> } | null = null;
+    let usedModel=primaryModel;
     let lastStatus: number | null = null;
     const retryable = new Set([429, 500, 502, 503, 504]);
     const deadline = Date.now() + 45_000;
@@ -127,7 +150,7 @@ export async function POST(req: Request) {
             body: payload,
           });
           if (response.ok) {
-            provider = await response.json();
+            provider = await response.json();usedModel=model;
             break providerLoop;
           }
           lastStatus = response.status;
@@ -146,6 +169,7 @@ export async function POST(req: Request) {
       }
     }
     if (!provider) {
+      await finishAiRequest(reservationId,false);
       return NextResponse.json({
         content: 'The AI explanation service is temporarily unavailable. Please try again.',
         flagged: false,
@@ -161,9 +185,11 @@ export async function POST(req: Request) {
       aiResponseJson = { content: parsed.content, flagged: parsed.flagged === true,
         flag_reason: typeof parsed.flag_reason === 'string' ? parsed.flag_reason : null };
     } catch {
+      await recordAiUsage(userId,'explanation',usageFromPayload(provider,'gemini',usedModel,payload.length,text.length),{reservationId,success:false,outcome:'invalid'});
       return NextResponse.json({ content: 'The tutor returned an incomplete explanation. Please retry.', flagged: false }, { status: 502 });
     }
 
+    await recordAiUsage(userId,'explanation',usageFromPayload(provider,'gemini',usedModel,payload.length,text.length),{reservationId});
     // 6. SAVE TO CACHE for the next user
     await cacheService.from('question_explanations').insert({
       question_id: questionId,
@@ -183,13 +209,14 @@ export async function POST(req: Request) {
         console.error("Flag save error:", flagError);
       }
     }
-    
+
     return NextResponse.json(aiResponseJson);
 
   } catch (error) {
+    await finishAiRequest(reservationId,false);
     console.error('AI Generation Error:', error instanceof Error ? error.name : 'unknown_error');
     return NextResponse.json(
-      { content: "The AI Tutor is currently analyzing other charts. Please try again.", flagged: false }, 
+      { content: "The AI Tutor is currently analyzing other charts. Please try again.", flagged: false },
       { status: 500 }
     );
   }

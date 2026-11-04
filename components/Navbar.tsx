@@ -18,6 +18,7 @@ export default async function Navbar() {
   if (user) {
     const cookieStore = await cookies();
     const activeSessionToken = cookieStore.get('session_token')?.value;
+    await supabase.rpc('refresh_my_subscription');
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role, session_token, plan, plan_expires_at')

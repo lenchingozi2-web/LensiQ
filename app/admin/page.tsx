@@ -49,6 +49,7 @@ export default async function AdminDashboard() {
           <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Platform control centre</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">Monitor learning infrastructure, review flagged content, and manage access to practical learning resources.</p>
           <div className="mt-6 flex flex-wrap gap-3">
+            <Link href="/admin/finances" className="rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-bold">Platform finances</Link>
             <Link href="/admin/ai-usage" className="rounded-xl bg-[#E8A23D] px-4 py-3 text-sm font-black text-[#0B1220] hover:bg-amber-400">AI service status</Link>
             <Link href="/dashboard" className="rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-bold text-white hover:bg-white/20">Learner dashboard</Link>
           </div>

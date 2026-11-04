@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {stripTypeScriptTypes} from 'node:module';
+import {estimateMonthlyFinancials,FINANCE_DEFAULTS} from '../lib/billing-costs.ts';
+let state;
+function reset(){state={user:{id:'user'},role:'admin',rpcCalls:0,writes:[],rpcError:null};}
+const raw={month:'2026-11',revenueNgn:0,paymentCount:0,voiceMinutes:0,textCredits:0,creditRefunds:0,pendingCheckouts:0,openSessions:0,subscribers:[],usage:[],settings:{},invoices:[],meteringStartedAt:null};
+const db={auth:{getUser:async()=>({data:{user:state.user}})},from(table){return {select(){return this;},eq(){return this;},maybeSingle:async()=>({data:{role:state.role}}),upsert:async row=>{state.writes.push({table,row});return {error:null};}};},rpc:async()=>{state.rpcCalls++;return {data:state.rpcError?null:raw,error:state.rpcError};}};
+globalThis.__financeTest={NextResponse:{json:(body,options={})=>Response.json(body,options)},createClient:async()=>db,estimateMonthlyFinancials,FINANCE_DEFAULTS};
+const source=(await readFile(new URL('../app/api/admin/finances/route.ts',import.meta.url),'utf8')).replace(/^import[\s\S]*?;\n/gm,'');
+const {GET,PATCH}=await import('data:text/javascript;base64,'+Buffer.from('const {NextResponse,createClient,estimateMonthlyFinancials,FINANCE_DEFAULTS}=globalThis.__financeTest;\n'+stripTypeScriptTypes(source)).toString('base64'));
+test.after(()=>delete globalThis.__financeTest);
+test('signed-out requests cannot read financial figures',async()=>{reset();state.user=null;assert.equal((await GET(new Request('https://example.invalid/api/admin/finances'))).status,401);assert.equal(state.rpcCalls,0);});
+test('students cannot read or modify financial figures',async()=>{reset();state.role='user';assert.equal((await GET(new Request('https://example.invalid/api/admin/finances'))).status,403);const request=new Request('https://example.invalid/api/admin/finances',{method:'PATCH',body:JSON.stringify({kind:'invoice'})});assert.equal((await PATCH(request)).status,403);assert.equal(state.rpcCalls,0);assert.equal(state.writes.length,0);});
+test('a failed financial query returns an error rather than fabricated zero costs',async()=>{reset();state.rpcError={message:'Unavailable'};const response=await GET(new Request('https://example.invalid/api/admin/finances?month=2026-11'));assert.equal(response.status,503);assert.equal((await response.json()).estimate,undefined);});
+test('admin reports are fresh and include the shared cost calculation',async()=>{reset();const response=await GET(new Request('https://example.invalid/api/admin/finances?month=2026-11'));assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'private, no-store');assert.equal((await response.json()).estimate.totalCostsNgn,95*1500);});
+test('cross-origin invoice writes are rejected',async()=>{reset();const response=await PATCH(new Request('https://example.invalid/api/admin/finances',{method:'PATCH',headers:{origin:'https://other.invalid'},body:JSON.stringify({month:'2026-11',kind:'invoice',provider:'supabase',currency:'USD',amount:25,note:''})}));assert.equal(response.status,403);assert.equal(state.writes.length,0);});
+test('invalid fee rates and missing reporting months cannot alter saved assumptions',async()=>{reset();for(const body of [{kind:'settings',config:{}},{kind:'settings',month:'2026-11',config:{flutterwaveFeeRate:100}}]){const response=await PATCH(new Request('https://example.invalid/api/admin/finances',{method:'PATCH',body:JSON.stringify(body)}));assert.equal(response.status,400);}assert.equal(state.writes.length,0);});
+test('admin can record a zero invoice for a free plan without losing the selected month',async()=>{reset();const response=await PATCH(new Request('https://example.invalid/api/admin/finances',{method:'PATCH',body:JSON.stringify({kind:'invoice',month:'2026-11',provider:'supabase',currency:'USD',amount:0,note:'Free plan'})}));assert.equal(response.status,200);assert.equal(state.writes[0].row.month,'2026-11-01');assert.equal(state.writes[0].row.amount,0);});

@@ -29,6 +29,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Not authenticated.', message: 'Sign in to start your Live Class.' }, { status: 401 });
   }
 
+  const {error:refreshError}=await supabase.rpc('refresh_my_subscription');
+  if(refreshError)return NextResponse.json({error:'Unable to refresh your subscription. Please retry.'},{status:503});
   const { data: voiceProfile } = await supabase
     .from('profiles')
     .select('role, plan, plan_expires_at')
