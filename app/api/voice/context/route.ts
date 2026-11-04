@@ -99,7 +99,7 @@ export async function POST(request: Request) {
   // still retrieve relevant source notes and verified past-question evidence.
   const includePlan = body?.includePlan !== false;
   const sourceOutline = includePlan && typeof body?.sourceOutline === 'string'
-    ? body.sourceOutline.trim().slice(0, 2200) : '';
+    ? body.sourceOutline.slice(0, 2200) : '';
   const payload = JSON.stringify(includePlan
     ? sourceOutline ? { userId, courseName, query, sourceOutline } : { userId, courseName, query }
     : { userId, courseName, query, includePlan: false });
