@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyLiveClassGatewayToken } from '@/lib/voice/live-class-gateway-auth';
 import { getLiveClassStorageModels } from '@/lib/voice/live-class-storage-catalog';
@@ -21,11 +20,11 @@ async function inventoryResponse() {
   }
 }
 
-/** Browser: session-validated public-bucket catalogue, with no service keys. */
+/** Public GLB catalogue: files themselves are already public in this bucket.
+ * No student data, storage credentials or private bucket metadata is returned.
+ * This also powers the open Visual Lab preview and real browser verification.
+ */
 export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Sign in to see the medical model library.' }, { status: 401 });
   return inventoryResponse();
 }
 
