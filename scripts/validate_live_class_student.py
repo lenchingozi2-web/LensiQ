@@ -51,6 +51,7 @@ class StudentValidation:
             response=(urllib.request.urlopen(req,timeout=45) if service else self.browser.open(req,timeout=65))
             with response:
                 content=response.read();content_type=response.headers.get('content-type','')
+                if not content:return None
                 return json.loads(content) if 'json' in content_type else content.decode('utf8','replace')
         except urllib.error.HTTPError as error:
             # Never print response bodies, cookies, signed URLs or credentials.
@@ -122,6 +123,7 @@ class StudentValidation:
             await self.http(url,method='PUT',raw=text.encode(),headers={'Content-Type':'text/plain','cache-control':'max-age=0'})
             parsed=await self.http('/api/voice/materials',{'action':'parse','path':prepared['path']})
             self.paths.add(parsed['path']);self.paths.add(parsed['path'].replace('.parsed.txt','.class-map.json'))
+            if not parsed.get('materialMapUrl'):raise RuntimeError('The parsed source has no usable navigation map')
             self.urls.append(parsed['signedUrl']);self.maps.append(parsed.get('materialMapUrl') or '')
             saved=await self.http(parsed['signedUrl'])
             mapped=await self.http(parsed['materialMapUrl'])
