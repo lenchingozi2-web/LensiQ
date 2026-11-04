@@ -44,14 +44,17 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: 'Class service unavailable.' }, { status: 503 });
-  const { data: session, error: sessionError } = await admin.from('live_class_sessions')
-    .select('id').eq('id', auth.session).eq('user_id', auth.user)
-    .eq('room_name', auth.room).eq('status', 'active').maybeSingle();
+  // These are independent, read-only checks. Keep both gates while avoiding
+  // a second serial database round trip before every spoken answer.
+  const [{ data: session, error: sessionError }, { data: eligible, error: eligibilityError }] = await Promise.all([
+    admin.from('live_class_sessions').select('id').eq('id', auth.session)
+      .eq('user_id', auth.user).eq('room_name', auth.room).eq('status', 'active').maybeSingle(),
+    admin.rpc('live_class_gateway_allowed', {p_session:auth.session,p_user:auth.user}),
+  ]);
   if (sessionError || !session) {
     return NextResponse.json({ error: 'Live Class session is no longer active.' }, { status: 401 });
   }
 
-  const { data: eligible, error: eligibilityError } = await admin.rpc('live_class_gateway_allowed', {p_session:auth.session,p_user:auth.user});
   if(eligibilityError || eligible !== true) return NextResponse.json({error:'Class allowance expired.'},{status:403});
 
   const lengthHeader = Number(request.headers.get('content-length') || 0);
