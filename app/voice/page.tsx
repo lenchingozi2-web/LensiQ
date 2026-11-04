@@ -1351,7 +1351,7 @@ function VoiceTutorContent() {
       </div>
     </header>}
     {connected && <header className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-center justify-between gap-2 bg-gradient-to-b from-[#070b13]/95 to-transparent px-3 pb-6 pt-3 text-white sm:px-6">
-      <div className="min-w-0"><p className="truncate text-sm font-black">LenxiQ <span className="font-medium text-[#ffd080]">· Live Class</span></p><p className="truncate text-[11px] font-medium text-white/60">{courseName} · {liveStarted ? formatClock(elapsedSeconds) : 'Timer paused'}</p></div>
+      <div className="min-w-0"><p className="truncate text-sm font-black">LenxiQ <span className="font-medium text-[#ffd080]">· Live Class</span></p><p className="truncate text-[11px] font-medium text-white/60">{courseName} · {liveStarted ? formatClock(elapsedSeconds) : 'Timer paused'}{liveStorageModelCount !== null ? ` · ${liveStorageModelCount} stored 3D models available` : ''}</p>{liveStorageNotice && <p className="max-w-xs text-[10px] font-semibold text-amber-200">{liveStorageNotice}</p>}</div>
       <button type="button" onClick={() => void endSession()} className="pointer-events-auto rounded-lg border border-rose-400/30 bg-rose-900/70 px-3 py-2 text-xs font-bold text-white">End class</button>
     </header>}
 
