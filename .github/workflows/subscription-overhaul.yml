@@ -2,7 +2,7 @@ name: Study hub subscription overhaul
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/subscription-overhaul.yml', 'supabase/sql/four_tier_access.sql', 'supabase/sql/verify_four_tier_access.sql']
+    paths: ['.github/workflows/subscription-overhaul.yml', 'supabase/sql/four_tier_access.sql', 'supabase/sql/verify_four_tier_access.sql', 'supabase/sql/subscription_reliability.sql', 'supabase/sql/verify_subscription_reliability.sql']
   workflow_dispatch:
 permissions:
   contents: read
@@ -35,8 +35,10 @@ jobs:
           target='https://api.supabase.com/v1/projects/'+os.environ['PROJECT_REF']+'/database/query'
           for filename in ['four_tier_access.sql']:
               sql=pathlib.Path('supabase/sql/'+filename).read_text().replace('commit;','')
+              sql+=pathlib.Path('supabase/sql/subscription_reliability.sql').read_text().replace('begin;','',1).replace('commit;','')
               verification=pathlib.Path('supabase/sql/verify_four_tier_access.sql').read_text().replace('begin;','savepoint subscription_verification;',1).replace('rollback;','rollback to subscription_verification;')
-              sql += verification+'\ncommit;'
+              extra=pathlib.Path('supabase/sql/verify_subscription_reliability.sql').read_text().replace('begin;','savepoint reliability_verification;',1).replace('rollback;','rollback to reliability_verification;')
+              sql += verification+extra+'\ncommit;'
               req=urllib.request.Request(target,data=json.dumps({'query':sql,'read_only':False}).encode(),headers={'Authorization':'Bearer '+os.environ['SUPABASE_ACCESS_TOKEN'],'Content-Type':'application/json'})
               try:
                   with urllib.request.urlopen(req,timeout=120) as response: result=json.load(response)
