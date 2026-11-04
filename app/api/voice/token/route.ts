@@ -176,9 +176,14 @@ export async function POST(req: Request) {
 
   const isUnlimited = Boolean(quota.is_unlimited);
   const maxDurationSeconds = Math.min(90 * 60, Math.max(60, Number(quota.max_duration_seconds ?? 90 * 60)));
-  const sessionExpiresAt = typeof quota.expires_at === 'string' && Number.isFinite(Date.parse(quota.expires_at))
-    ? quota.expires_at
-    : new Date(Date.now() + maxDurationSeconds * 1000).toISOString();
+  // A reservation's billing expiry may be days away. The voice worker and
+  // signed gateway token must expire at the current classroom's 90-minute cap.
+  const maxClassExpiry = Date.now() + maxDurationSeconds * 1000;
+  const quotaExpiry = typeof quota.expires_at === 'string' ? Date.parse(quota.expires_at) : NaN;
+  const sessionExpiresAt = new Date(Math.min(
+    maxClassExpiry,
+    Number.isFinite(quotaExpiry) ? quotaExpiry : maxClassExpiry,
+  )).toISOString();
   // Validate the exact Cloud project/key pairing before minting a browser
   // token. A token can be signed locally with any key, but the browser then
   // fails later with the unhelpful generic "voice server" message when the
