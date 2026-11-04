@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 type ServiceStatus = {
   checkedAt: string;
-  services: { textTutor: boolean; textTutorDetail: string; liveKit: boolean; liveKitDetail: string; voiceWorker: 'external' };
+  services: { textTutor: boolean; textTutorDetail: string; liveKit: boolean; liveKitDetail: string; groq?: boolean; groqDetail?: string; voiceWorker: 'external' };
 };
 
 export default function AiUsagePanel() {
@@ -66,6 +66,11 @@ export default function AiUsagePanel() {
           <h2 className="font-bold">Text Tutor provider</h2>
           <p className="mt-2 text-xl font-black">{status.services.textTutor ? 'Reachable' : 'Unavailable'}</p>
           <p className="mt-2 text-sm text-slate-500">{status.services.textTutorDetail} This checks model access, not a generated response.</p>
+        </article>
+        <article className="rounded-2xl border bg-white p-6">
+          <h2 className="font-bold">Groq Mouth</h2>
+          <p className="mt-2 text-xl font-black">{status.services.groq ? 'Reachable' : 'Unavailable'}</p>
+          <p className="mt-2 text-sm text-slate-500">{status.services.groqDetail || 'Not yet checked.'} Kokoro produces the actual voice.</p>
         </article>
         <article className="rounded-2xl border bg-white p-6">
           <h2 className="font-bold">LiveKit classroom</h2>
