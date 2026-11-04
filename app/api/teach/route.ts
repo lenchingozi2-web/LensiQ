@@ -122,7 +122,7 @@ export async function POST(req: Request) {
         if (chargeError || !charge?.ok) return NextResponse.json({ error: 'Unable to confirm the remaining Live Class wallet balance.' }, { status: 503 });
         if (charge.should_end) return NextResponse.json({ error: charge.reason === 'free_monthly_exhausted' ? 'Your free Live Class allowance has ended for this month. It refreshes next month.' : 'Your Premium Live Class allowance has ended. Minutes refresh on your next monthly billing date.' }, { status: 403 });
       }
-    } else if (messages.length === 1) {
+    } else {
       const access = await checkAccess('teaching');
       if (!access.allowed) {
         return NextResponse.json({ error: access.message }, { status: access.status });
