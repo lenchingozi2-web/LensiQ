@@ -1,3 +1,4 @@
+import { issueLiveClassGatewayToken } from '@/lib/voice/live-class-gateway-auth';
 import { NextResponse } from 'next/server';
 import { AccessToken, AgentDispatchClient, RoomServiceClient } from 'livekit-server-sdk';
 import { createClient } from '../../../../lib/supabase/server';
@@ -214,7 +215,14 @@ export async function POST(req: Request) {
       diagnostics: handshakeDiagnostics,
     }, { status: 503 });
   }
+  const voiceGatewayToken = issueLiveClassGatewayToken(apiSecret, {
+    roomName,
+    sessionId: String(quota.session_id),
+    userId: user.id,
+    expiresAt: sessionExpiresAt,
+  });
   const dispatchMetadata = JSON.stringify({
+    voiceGatewayToken,
     userId: user.id,
     courseName,
     topicFocus,

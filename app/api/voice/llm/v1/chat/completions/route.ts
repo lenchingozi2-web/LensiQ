@@ -1,4 +1,5 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { verifyLiveClassGatewayToken } from '@/lib/voice/live-class-gateway-auth';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -19,13 +20,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Voice model is not configured.' }, { status: 503 });
   }
 
-  const expected = createHmac('sha256', liveKitSecret)
-    .update('lenxiq-live-class-llm-proxy-v1').digest('hex');
-  const auth = request.headers.get('authorization') || '';
-  const provided = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  if (!/^[a-f0-9]{64}$/.test(provided) ||
-      !timingSafeEqual(Buffer.from(provided, 'hex'), Buffer.from(expected, 'hex'))) {
-    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+  const auth = verifyLiveClassGatewayToken(
+    liveKitSecret, request.headers.get('authorization'),
+  );
+  if (!auth) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+
+  // A signed token is insufficient when a class has ended or was revoked.
+  const admin = createAdminClient();
+  if (!admin) return NextResponse.json({ error: 'Class service unavailable.' }, { status: 503 });
+  const { data: session, error: sessionError } = await admin.from('live_class_sessions')
+    .select('id')
+    .eq('id', auth.session)
+    .eq('user_id', auth.user)
+    .eq('room_name', auth.room)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (sessionError || !session) {
+    return NextResponse.json({ error: 'Live Class session is no longer active.' }, { status: 401 });
   }
 
   const lengthHeader = Number(request.headers.get('content-length') || 0);
