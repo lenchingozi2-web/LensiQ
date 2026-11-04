@@ -2,7 +2,7 @@ name: Study hub subscription overhaul
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/subscription-overhaul.yml', 'supabase/sql/four_tier_access.sql']
+    paths: ['.github/workflows/subscription-overhaul.yml', 'supabase/sql/four_tier_access.sql', 'supabase/sql/verify_four_tier_access.sql']
   workflow_dispatch:
 permissions:
   contents: read
@@ -28,3 +28,20 @@ jobs:
           if not result or not result[0].get('medical_schema_verified'): raise SystemExit('Medical schema verification failed')
           print('Medical questions and subscription profile tables verified in intended project.')
           PY
+      - name: Apply reviewed four tier subscription rules
+        run: |
+          python3 - <<'PYSQL'
+          import os,json,urllib.request,pathlib,urllib.error
+          target='https://api.supabase.com/v1/projects/'+os.environ['PROJECT_REF']+'/database/query'
+          for filename in ['four_tier_access.sql']:
+              sql=pathlib.Path('supabase/sql/'+filename).read_text().replace('commit;','')
+              verification=pathlib.Path('supabase/sql/verify_four_tier_access.sql').read_text().replace('begin;','savepoint subscription_verification;',1).replace('rollback;','rollback to subscription_verification;')
+              sql += verification+'\ncommit;' 
+              req=urllib.request.Request(target,data=json.dumps({'query':sql,'read_only':False}).encode(),headers={'Authorization':'Bearer '+os.environ['SUPABASE_ACCESS_TOKEN'],'Content-Type':'application/json'})
+              try:
+                  with urllib.request.urlopen(req,timeout=120) as response: result=json.load(response)
+              except urllib.error.HTTPError as e:
+                  data=json.loads(e.read().decode())
+                  raise SystemExit('Database operation failed: '+str(data.get('message','request rejected'))[:1000])
+              print(filename+': completed successfully. No account data exported.')
+          PYSQL
