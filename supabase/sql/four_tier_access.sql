@@ -418,6 +418,13 @@ revoke all on function public.submit_timed_mock(uuid,jsonb) from public;
 grant execute on function public.submit_timed_mock(uuid,jsonb) to authenticated;
 revoke insert,update,delete on public.exam_results from authenticated;
 
+-- Cache was missing in the live medical schema; only the metered server API writes/reads it.
+create table if not exists public.question_explanations (
+ id uuid primary key default gen_random_uuid(), question_id uuid not null references public.questions(id) on delete cascade,
+ explanation_text text not null,is_flagged boolean not null default false,created_at timestamptz not null default now(),unique(question_id)
+);
+alter table public.question_explanations enable row level security;
+grant all on public.question_explanations to service_role;
 -- Existing permissive policies cannot override restrictive boundaries.
 do $$declare t text;begin
  foreach t in array array['question_explanations','teaching_conversations','teaching_attachments'] loop
@@ -506,6 +513,9 @@ drop policy if exists four_tier_knowledge_read on public.knowledge_document_chun
 create policy four_tier_knowledge_read on public.knowledge_document_chunks for select to authenticated using(private.has_paid_access());
 grant select on public.knowledge_document_chunks to authenticated;
 revoke all on public.question_explanations from authenticated,anon;
+grant select on public.question_explanations to authenticated;
+drop policy if exists admin_explanation_cache on public.question_explanations;
+create policy admin_explanation_cache on public.question_explanations for select to authenticated using(private.is_admin());
 
 notify pgrst,'reload schema';
 commit;
