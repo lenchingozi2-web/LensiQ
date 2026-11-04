@@ -1,1 +1,0 @@
-pipecat-ai[livekit,openai,whisper,kokoro]>=0.0.82,<0.1

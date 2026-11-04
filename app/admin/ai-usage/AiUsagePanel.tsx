@@ -45,7 +45,7 @@ export default function AiUsagePanel() {
       <header className="rounded-3xl bg-slate-950 p-7 text-white sm:p-10">
         <p className="text-xs font-bold uppercase tracking-widest text-amber-300">LenxiQ · Administration</p>
         <h1 className="mt-3 text-3xl font-black">AI service status</h1>
-        <p className="mt-3 text-sm text-slate-300">Live connection checks for medical tutoring and Live Class. The external voice worker is checked separately.</p>
+        <p className="mt-3 text-sm text-slate-300">Live connection checks for medical tutoring and Live Class. The LiveKit Cloud voice worker runs independently.</p>
         <div className="mt-6 flex flex-wrap gap-3">
           <a href="/admin" className="rounded-xl border border-white/25 px-4 py-2 font-bold">← Admin dashboard</a>
           <button type="button" onClick={() => void refresh()} disabled={loading}
@@ -70,7 +70,7 @@ export default function AiUsagePanel() {
         <article className="rounded-2xl border bg-white p-6">
           <h2 className="font-bold">LiveKit classroom</h2>
           <p className="mt-2 text-xl font-black">{status.services.liveKit ? 'Reachable' : 'Unavailable'}</p>
-          <p className="mt-2 text-sm text-slate-500">{status.services.liveKitDetail} The external Modal voice worker must be checked separately.</p>
+          <p className="mt-2 text-sm text-slate-500">{status.services.liveKitDetail} Voice connectivity does not guarantee speech output. A separate LiveKit agent test verifies speech.</p>
         </article>
       </div>}
     </div>
