@@ -52,12 +52,21 @@ export default function PreClassSetup({
   const totalBytes = files.reduce((total, file) => total + file.size, 0);
 
   const publishUploadedUrls = () => {
-    const urls = Array.from(uploadedUrlsRef.current.values());
+    // Keep the URLs, optional maps, and source filenames aligned by upload
+    // identity. When PDF 2 has no map, PDF 3 must not occupy its slot.
+    const keys = Array.from(uploadedUrlsRef.current.keys());
+    const urls = keys.map((key) => uploadedUrlsRef.current.get(key) ?? '');
+    const mapUrls = keys.map((key) => uploadedMapUrlsRef.current.get(key) ?? '');
+    const paths = keys.map((key) => uploadedPathsRef.current.get(key) ?? '');
     onUploadedFileUrlsChange?.(urls);
-    const profiles = Array.from(materialProfilesRef.current.values());
+    const profiles = keys
+      .map((key) => materialProfilesRef.current.get(key))
+      .filter((profile): profile is MaterialProfile => profile !== undefined);
     setParsedProfileCount(profiles.length);
     onMaterialProfilesChange?.(profiles);
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lensiq:uploaded-materials', { detail: { urls, mapUrls: Array.from(uploadedMapUrlsRef.current.values()), paths: Array.from(uploadedPathsRef.current.values()), profiles } }));
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('lensiq:uploaded-materials', {
+      detail: { urls, mapUrls, paths, profiles },
+    }));
   };
   useEffect(() => {
     const clearMaterials = () => {
