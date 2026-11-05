@@ -1,6 +1,7 @@
 import {observeAiStream,usageFromPayload} from '@/lib/ai/usage-meter';
 import {recordAiUsage} from '@/lib/ai/record-usage';
 import { verifyLiveClassGatewayToken } from '@/lib/voice/live-class-gateway-auth';
+import { openSpokenResponse } from '@/lib/voice/open-spoken-response';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { after, NextResponse } from 'next/server';
 
@@ -112,11 +113,16 @@ export async function POST(request: Request) {
   const temp = 0.62;
   let upstream: Response | null = null;
   let provider: 'groq' | 'gemini' = 'groq';
+  const emptyUsage = (provider: 'groq' | 'gemini', model: string) => (payload: unknown) => {
+    console.warn('Live Class provider returned an empty voice response', { provider, model });
+    after(() => recordAiUsage(auth.user, 'voice_mouth',
+      usageFromPayload(payload, provider, model, JSON.stringify(recent).length), { outcome: 'empty' }));
+  };
   if (groqKey) {
     try {
-      upstream = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      upstream = await openSpokenResponse('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST', cache: 'no-store',
-        signal: AbortSignal.any([request.signal, AbortSignal.timeout(19000)]),
+        signal: request.signal,
         headers: { Authorization: `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: groqModel, messages: recent, stream,
@@ -126,7 +132,7 @@ export async function POST(request: Request) {
           ...(groqModel === 'qwen/qwen3.8-27b'
             ? { reasoning_effort: 'none', include_reasoning: false } : {}),
         }),
-      });
+      }, { timeoutMs: 8000, stream, onEmpty: emptyUsage('groq', groqModel) });
     } catch (error) {
       console.warn('Live Class Groq connection unavailable', {
         name: error instanceof Error ? error.name : 'unknown',
@@ -137,6 +143,7 @@ export async function POST(request: Request) {
   // Gemini is a controlled continuity fallback, not the default mouth.
   // Only retry before any Groq audio/text has streamed to the learner.
   if (!upstream?.ok || !upstream.body) {
+    if (request.signal.aborted) return new Response(null, { status: 499 });
     if (upstream) {
       console.warn('Live Class Groq verbalizer rejected request', { status: upstream.status });
       await upstream.body?.cancel().catch(() => undefined);
@@ -147,16 +154,16 @@ export async function POST(request: Request) {
     }
     provider = 'gemini';
     try {
-      upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      upstream = await openSpokenResponse('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
         method: 'POST', cache: 'no-store',
-        signal: AbortSignal.any([request.signal, AbortSignal.timeout(27000)]),
+        signal: request.signal,
         headers: { Authorization: `Bearer ${geminiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: geminiModel, messages: recent, stream,
           ...(stream?{stream_options:{include_usage:true}}:{}),
           max_completion_tokens: maxTokens, temperature: 0.5,
         }),
-      });
+      }, { timeoutMs: 12000, stream, onEmpty: emptyUsage('gemini', geminiModel) });
     } catch {
       return NextResponse.json({ error: 'Both voice models are unavailable.' }, { status: 502 });
     }
@@ -192,3 +199,4 @@ export async function POST(request: Request) {
     },
   });
 }
+
