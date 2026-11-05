@@ -1,5 +1,8 @@
 name: Live Class paid-student validation
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/live-class-student-validation.yml']
   # This uses a disposable production student and real class minutes.
   # Keep unit checks automatic; run this longer service check on demand.
   workflow_dispatch:
