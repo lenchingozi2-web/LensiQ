@@ -1,6 +1,6 @@
 import { issueLiveClassGatewayToken } from '@/lib/voice/live-class-gateway-auth';
 import { NextResponse } from 'next/server';
-import { AccessToken, AgentDispatchClient, RoomServiceClient } from 'livekit-server-sdk';
+import { AccessToken, AgentDispatchClient } from 'livekit-server-sdk';
 import { createClient } from '../../../../lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAuthRequestRejection } from '../../../../lib/auth/request-diagnostics';
@@ -192,42 +192,6 @@ export async function POST(req: Request) {
     maxClassExpiry,
     Number.isFinite(quotaExpiry) ? quotaExpiry : maxClassExpiry,
   )).toISOString();
-  // Validate the exact Cloud project/key pairing before minting a browser
-  // token. A token can be signed locally with any key, but the browser then
-  // fails later with the unhelpful generic "voice server" message when the
-  // key belongs to a different LiveKit project.
-  let livekitUrl: string | null = null;
-  let dispatchHost: string | null = null;
-  let lastLivekitError: unknown = null;
-  const handshakeDiagnostics: Array<{ host: string; status?: number; code?: string; message?: string }> = [];
-  for (const candidateUrl of livekitUrls) {
-    const candidateHost = candidateUrl.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:').replace(/\/$/, '');
-    try {
-      const roomService = new RoomServiceClient(candidateHost, apiKey, apiSecret);
-      await roomService.listRooms();
-      livekitUrl = candidateUrl;
-      dispatchHost = candidateHost;
-      break;
-    } catch (livekitError) {
-      lastLivekitError = livekitError;
-      const errorRecord = livekitError as { status?: number; code?: string; message?: string };
-      handshakeDiagnostics.push({
-        host: new URL(candidateHost).host,
-        ...(typeof errorRecord.status === 'number' ? { status: errorRecord.status } : {}),
-        ...(typeof errorRecord.code === 'string' ? { code: errorRecord.code } : {}),
-        ...(typeof errorRecord.message === 'string' ? { message: errorRecord.message.slice(0, 120) } : {}),
-      });
-    }
-  }
-  if (!livekitUrl || !dispatchHost) {
-    console.error('LiveKit credential handshake failed for configured URLs:', lastLivekitError);
-    await releaseFailedStart();
-    return NextResponse.json({
-      error: 'livekit_credentials_rejected',
-      message: 'The configured LiveKit API credentials were rejected by every configured LiveKit project. Verify the LiveKit Cloud credentials configured in Vercel.',
-      diagnostics: handshakeDiagnostics,
-    }, { status: 503 });
-  }
   const voiceGatewayToken = issueLiveClassGatewayToken(apiSecret, {
     roomName,
     sessionId: String(quota.session_id),
@@ -270,13 +234,25 @@ export async function POST(req: Request) {
     },
   });
   
-  // Explicit dispatch starts only for an authorized, reserved Live Class.
-  try {
-    const dispatchClient = new AgentDispatchClient(dispatchHost, apiKey, apiSecret);
-    const agentName = process.env.LIVEKIT_AGENT_NAME?.trim() || 'lensiq-voice-tutor';
-    await dispatchClient.createDispatch(roomName, agentName, { metadata: dispatchMetadata });
-  } catch (dispatchError) {
-    console.error('LiveKit Cloud tutor dispatch failed:', dispatchError);
+  // Dispatch itself authenticates the Cloud project. A separate listRooms()
+  // probe duplicated that network round trip on every classroom start.
+  let livekitUrl: string | null = null;
+  const agentName = process.env.LIVEKIT_AGENT_NAME?.trim() || 'lensiq-voice-tutor';
+  for (const candidateUrl of livekitUrls) {
+    const dispatchHost = candidateUrl.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:');
+    try {
+      const dispatchClient = new AgentDispatchClient(dispatchHost, apiKey, apiSecret);
+      await dispatchClient.createDispatch(roomName, agentName, { metadata: dispatchMetadata });
+      livekitUrl = candidateUrl;
+      break;
+    } catch (error) {
+      const failure = error as { status?: number; code?: string };
+      console.warn('LiveKit dispatch failed', {
+        host: new URL(dispatchHost).host, status: failure.status, code: failure.code,
+      });
+    }
+  }
+  if (!livekitUrl) {
     await releaseFailedStart();
     return NextResponse.json({
       error: 'livekit_tutor_dispatch_failed',
@@ -315,3 +291,4 @@ export async function POST(req: Request) {
     },
   });
 }
+

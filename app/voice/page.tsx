@@ -138,6 +138,8 @@ function VoiceTutorContent() {
   const roomRef = useRef<LiveKitRoom | null>(null);
   const conversationIdRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const modelDiscoveryAbortRef = useRef<AbortController | null>(null);
+  const startingRef = useRef(false);
   const messagesRef = useRef<Message[]>([]);
   const transcriptIdsRef = useRef(new Set<string>());
   const audioContainerRef = useRef<HTMLDivElement>(null);
@@ -679,7 +681,7 @@ function VoiceTutorContent() {
   const requestMicrophone = async (): Promise<MediaStreamTrack | null> => {
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('This browser does not provide microphone access.');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: { ideal: 1 } }, video: false });
       const track = stream.getAudioTracks()[0];
       if (!track) throw new Error('No microphone track was returned by the phone.');
       setPermissionState('granted');
@@ -741,6 +743,7 @@ function VoiceTutorContent() {
   const endSession = useCallback(async (message = 'Live Class ended. Your spoken lesson is saved in History.') => {
     if (endingRef.current) return;
     endingRef.current = true;
+    modelDiscoveryAbortRef.current?.abort();
     if (wrapupTimeoutRef.current !== null) {
       window.clearTimeout(wrapupTimeoutRef.current);
       wrapupTimeoutRef.current = null;
@@ -841,7 +844,8 @@ function VoiceTutorContent() {
   }, [endSession]);
 
   const startSession = async () => {
-    if (connecting || connected) return;
+    if (startingRef.current || connecting || connected) return;
+    startingRef.current = true;
     setConnecting(true);
     setError('');
     setSessionSummary(null);
@@ -867,11 +871,15 @@ function VoiceTutorContent() {
     setRecordingReady(false);
     setRecordingDownloadUrl(null);
     setStatus('Opening your private live classroom…');
-    await unlockPlaybackAudio().catch(() => undefined);
+    const playbackReady = unlockPlaybackAudio().catch(() => undefined);
+    const microphoneReady = requestMicrophone();
     let livekit: typeof import('livekit-client');
     try {
       livekit = await import('livekit-client');
+      await playbackReady;
     } catch {
+      void microphoneReady.then(track => track?.stop());
+      startingRef.current = false;
       setError('The voice classroom could not be loaded. Refresh the page and try again.');
       setRuntimeState('ERROR');
       setConnecting(false);
@@ -884,45 +892,53 @@ function VoiceTutorContent() {
       webAudioMix: false,
     });
     Object.defineProperty(window, '__lensiqLiveRoom', { configurable: true, value: room });
-    const microphoneTrack = await requestMicrophone();
-    if (!microphoneTrack) { room.disconnect(); setRuntimeState('ERROR'); setConnecting(false); return; }
+    const microphoneTrack = await microphoneReady;
+    if (!microphoneTrack) { room.disconnect(); setRuntimeState('ERROR'); startingRef.current = false; setConnecting(false); return; }
     let activeConversation: Conversation | null = null;
     try {
       await startMicMonitor(microphoneTrack).catch(() => undefined);
       setStatus('Preparing your visual medical workspace…');
       if(uploadedFiles.length>0&&uploadedFileUrls.length!==uploadedFiles.length)throw new Error('Wait until every selected file has been parsed, or remove the file that could not be read. The tutor needs all your sources before this class starts.');
-      activeConversation = await createConversation();
+      modelDiscoveryAbortRef.current?.abort();
+      const modelDiscovery = new AbortController();
+      modelDiscoveryAbortRef.current = modelDiscovery;
       // Confirm the actual existing Supabase objects before accepting any
-      // worker-sent model URL. Late uploads need no code deployment.
-      try {
-        const libraryResponse = await fetch('/api/voice/models', {
-          cache: 'no-store', signal: AbortSignal.timeout(12000),
-        });
-        if (!libraryResponse.ok) throw new Error('Supabase catalogue not available');
-        const library = await libraryResponse.json() as {
-          count?: number;
-          truncated?: boolean;
-          models?: Array<{ url?: string; title?: string; category?: string }>;
-        };
-        const models = new Set<string>();
-        for (const entry of library.models || []) {
-          if (typeof entry.url === 'string' &&
-              entry.url.startsWith('https://hixvbcrrklyajhkyliay.supabase.co/storage/v1/object/public/medical-models/') &&
-              entry.url.toLowerCase().endsWith('.glb')) {
-            models.add(entry.url);
+      // worker-sent model URL. Discovery runs beside session creation so a
+      // slow storage catalogue cannot hold the first greeting.
+      void (async () => {
+        try {
+          const libraryResponse = await fetch('/api/voice/models', {
+            cache: 'no-store', signal: AbortSignal.any([modelDiscovery.signal, AbortSignal.timeout(12000)]),
+          });
+          if (!libraryResponse.ok) throw new Error('Supabase catalogue not available');
+          const library = await libraryResponse.json() as {
+            count?: number;
+            truncated?: boolean;
+            models?: Array<{ url?: string; title?: string; category?: string }>;
+          };
+          const models = new Set<string>();
+          for (const entry of library.models || []) {
+            if (typeof entry.url === 'string' &&
+                entry.url.startsWith('https://hixvbcrrklyajhkyliay.supabase.co/storage/v1/object/public/medical-models/') &&
+                entry.url.toLowerCase().endsWith('.glb')) {
+              models.add(entry.url);
+            }
           }
+          if (modelDiscovery.signal.aborted) return;
+          approvedBucketModelUrlsRef.current = models;
+          setLiveStorageModelCount(models.size);
+          setLiveStorageNotice(library.truncated
+            ? 'Your medical 3D library exceeds the current catalogue limit.'
+            : models.size === 0 ? 'No GLB models were found in the configured medical-models bucket.' : '');
+          console.info('[LenxiQ Live Class] Real Supabase models indexed:', models.size);
+        } catch {
+          if (modelDiscovery.signal.aborted) return;
+          approvedBucketModelUrlsRef.current = new Set();
+          setLiveStorageModelCount(null);
+          setLiveStorageNotice('Real model discovery unavailable. Existing curated 3D models remain accessible.');
         }
-        approvedBucketModelUrlsRef.current = models;
-        setLiveStorageModelCount(models.size);
-        setLiveStorageNotice(library.truncated
-          ? 'Your medical 3D library exceeds the current catalogue limit.'
-          : models.size === 0 ? 'No GLB models were found in the configured medical-models bucket.' : '');
-        console.info('[LenxiQ Live Class] Real Supabase models indexed:', models.size);
-      } catch {
-        approvedBucketModelUrlsRef.current = new Set();
-        setLiveStorageModelCount(null);
-        setLiveStorageNotice('Real model discovery unavailable. Existing curated 3D models remain accessible.');
-      }
+      })();
+      activeConversation = await createConversation();
       const tokenResponse = await fetch('/api/voice/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseName, topicFocus, focusText, conversationId: activeConversation.id, fileUrls: uploadedFileUrls, materialMapUrls: uploadedMapUrls, materialContext }) });
       const tokenData = await tokenResponse.json().catch(() => ({}));
       if (!tokenResponse.ok) throw new Error(tokenData.message || tokenData.error || 'Unable to create a secure Live Class session.');
@@ -1237,8 +1253,6 @@ function VoiceTutorContent() {
       // and mobile autoplay recovery.
       setMicMuted(false);
       setAudioState(room.canPlaybackAudio ? (agentAudioSubscribedRef.current ? 'playing' : 'ready') : agentAudioSubscribedRef.current ? 'blocked' : 'waiting');
-      setMessages([]);
-      messagesRef.current = [];
       if (runtimeStateRef.current === 'INITIALIZING' || runtimeStateRef.current === 'READY') {
         runtimeStateRef.current = 'GREETING';
         setRuntimeState('GREETING');
@@ -1246,6 +1260,7 @@ function VoiceTutorContent() {
       }
       setAmbienceNotice('Ambience is off by default. Turn it on only if it helps you focus.');
     } catch (sessionError) {
+      modelDiscoveryAbortRef.current?.abort();
       microphoneTrack.stop();
       setError(friendlyError(sessionError));
       setRuntimeState('ERROR');
@@ -1264,6 +1279,7 @@ function VoiceTutorContent() {
       setRemainingSeconds(null);
       setMicState('error');
     } finally {
+      startingRef.current = false;
       setConnecting(false);
     }
   };
@@ -1394,3 +1410,4 @@ function VoiceTutorContent() {
 export default function VoicePage() {
   return <Suspense fallback={<div className="min-h-screen bg-[#080d16]" />}><VoiceTutorContent /></Suspense>;
 }
+
