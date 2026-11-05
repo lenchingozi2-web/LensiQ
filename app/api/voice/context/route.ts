@@ -5,6 +5,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '../../../../lib/supabase/service';
 import { buildTeachingContext } from '../../../../lib/ai/teaching-context';
+import {verifyLiveClassGatewayToken} from '@/lib/voice/live-class-gateway-auth';
 
 type Evidence = Awaited<ReturnType<typeof buildTeachingContext>>;
 
@@ -43,7 +44,7 @@ async function planLessonWithGemini(courseName: string, query: string, context: 
       method: 'POST',
       cache: 'no-store',
       // Do not block an interrupted learner's spoken answer for a slow planner.
-      signal: AbortSignal.timeout(2800),
+      signal: AbortSignal.timeout(8000),
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: instructions }] }],
@@ -82,7 +83,7 @@ async function planLessonWithGemini(courseName: string, query: string, context: 
 }
 
 function expectedSignature(payload: string) {
-  const secret = process.env.LIVEKIT_API_SECRET;
+  const secret = process.env.LIVEKIT_API_SECRET?.trim();
   if (!secret) return null;
   return createHmac('sha256', secret).update(payload).digest('hex');
 }
@@ -108,13 +109,17 @@ export async function POST(request: Request) {
     ? sourceOutline ? { userId, courseName, query, sourceOutline } : { userId, courseName, query }
     : { userId, courseName, query, includePlan: false });
 
-  if (!userId || !courseName || !query || !isValidBearer(request, payload)) {
+  const gateway = verifyLiveClassGatewayToken(process.env.LIVEKIT_API_SECRET?.trim() || '', request.headers.get('authorization'));
+  if (!userId || !courseName || !query || (gateway ? gateway.user !== userId : !isValidBearer(request, payload))) {
     return NextResponse.json({ error: 'Invalid Live Class context request.' }, { status: 401 });
   }
 
   try {
     const supabase = createServiceClient();
-    const {data: active} = await supabase.from('live_class_sessions').select('id').eq('user_id',userId).eq('status','active').limit(1).maybeSingle();
+    let activeQuery = supabase.from('live_class_sessions').select('id').eq('user_id',userId).eq('status','active');
+    if(gateway) activeQuery=activeQuery.eq('id',gateway.session).eq('room_name',gateway.room);
+    const {data: active} = await activeQuery.limit(1).maybeSingle();
+    if(!active) return NextResponse.json({error:'Active Live Class required.'},{status:403});
     const {data: eligible,error: entitlementError} = await supabase.rpc('live_class_gateway_allowed',{p_session:active?.id,p_user:userId});
     if(entitlementError || eligible!==true) return NextResponse.json({error:'Active Live Class required.'},{status:403});
     const context = await buildTeachingContext(supabase, courseName, [{ role: 'user', content: query }]);

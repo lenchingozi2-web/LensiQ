@@ -39,7 +39,7 @@ class StudentValidation:
         self.browser=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.jar))
         self.events=[];self.changed=asyncio.Event();self.streams=[];self.tasks=[]
         self.report={'checks':[],'timingsSeconds':{},'audioSamples':0,'clippedSamples':0}
-        self.connected_at=0
+        self.connected_at=0;self.last_audible_at=0
     def check(self,label):
         self.report['checks'].append(label);print('PASS_'+label,flush=True)
     def request(self,path,body=None,*,service=False,method=None,raw=None,headers=None):
@@ -112,16 +112,9 @@ class StudentValidation:
         self.check('REAL_SIGNIN_AND_ACTIVE_PAID_SUBSCRIPTION')
     async def upload_sources(self):
         self.urls=[];self.maps=[];self.names=[]
-        statements=[
-            'Acute inflammation is a protective response to tissue injury. Neutrophils are prominent early inflammatory cells. Vascular changes allow plasma proteins and leukocytes to reach injured tissue.',
-            'Leukocytes first interact with the vessel wall, then migrate toward injured tissue. Diapedesis refers to leukocyte passage through the vessel wall. Discuss rolling, adhesion and migration as separate steps.',
-            'Inflammation removes the cause of injury, clears damaged tissue and supports repair. Explain the relationship between the initial injury and the protective response.',
-            'The inflammatory response involves vessels, circulating leukocytes and tissue signals. Keep the sequence of vascular changes and cellular events clear.',
-            'A teaching model is a simplified representation. Identify the vessel wall, the lumen and the migrating leukocyte. Explain the represented process without claiming it is a patient specimen.',
-            'Resolution and repair follow removal of the injurious stimulus. Persistent injury can sustain an inflammatory response. Explain the scope of the uploaded lecture and do not invent a drug dosing regimen.'
-        ]
-        for index,statement in enumerate(statements):
-            text='\n\n'.join(f'Acute inflammation — section {n+1}\n{statement}' for n in range(22))+'\nFINAL SOURCE PAGE '+str(index+1)
+        chapters=json.loads((Path(__file__).resolve().parents[1]/'tests/fixtures/live-class-lessons.json').read_text())
+        for index,chapter in enumerate(chapters):
+            text='\n\n'.join(f'{chapter["title"]} — section {n+1}\n{paragraph}' for n,paragraph in enumerate(chapter['sections']))+'\nFINAL SOURCE PAGE '+str(index+1)
             name=f'validation_source_{index+1}.txt';self.names.append(name)
             prepared=await self.http('/api/voice/materials',{'action':'prepare','fileName':name,'mimeType':'text/plain','fileSize':len(text.encode())})
             self.paths.add(prepared['path'])
@@ -154,8 +147,10 @@ class StudentValidation:
                 if samples:
                     self.report['audioSamples']+=len(samples)
                     self.report['clippedSamples']+=sum(abs(n)>=32760 for n in samples)
-                    if max(abs(n) for n in samples[::max(1,len(samples)//150)])>120 and 'firstAudibleSpeech' not in self.report['timingsSeconds']:
-                        self.report['timingsSeconds']['firstAudibleSpeech']=round(time.monotonic()-started,2)
+                    if max(abs(n) for n in samples[::max(1,len(samples)//150)])>120:
+                        self.last_audible_at=time.monotonic()
+                        if 'firstAudibleSpeech' not in self.report['timingsSeconds']:
+                            self.report['timingsSeconds']['firstAudibleSpeech']=round(time.monotonic()-started,2)
         @self.room.on('track_subscribed')
         def track_subscribed(track,publication,participant):
             if participant.identity.startswith('lensiq-voice-tutor') and track.kind==rtc.TrackKind.KIND_AUDIO:
@@ -204,7 +199,11 @@ class StudentValidation:
             await asyncio.sleep(10)
             recent=[e for e in self.events if e['at']>time.monotonic()-90 and e['data'].get('type')=='live_class_spoken_cue']
             errors=[e for e in self.events if e['data'].get('state')=='ERROR']
-            if errors or not recent:raise RuntimeError('Continuous teaching stalled or reported an error')
+            if errors:
+                detail=str(errors[-1]['data'].get('message',''))[:400]
+                detail=re.sub(r'https?://\S+|[A-Za-z0-9_-]{30,}(?:\.[A-Za-z0-9_-]+)*','[redacted]',detail)
+                raise RuntimeError('Classroom worker error: '+detail)
+            if not recent and time.monotonic()-self.last_audible_at>90:raise RuntimeError('Continuous teaching stalled without speech or a visual cue')
         self.report['durationSeconds']=round(time.monotonic()-self.connected_at)
         self.report['spokenCues']=sum(e['data'].get('type')=='live_class_spoken_cue' for e in self.events)
         notes=[e['data'].get('note') for e in self.events if e['data'].get('note')]
