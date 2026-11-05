@@ -2,7 +2,7 @@ import {observeAiStream,usageFromPayload} from '@/lib/ai/usage-meter';
 import {recordAiUsage} from '@/lib/ai/record-usage';
 import { verifyLiveClassGatewayToken } from '@/lib/voice/live-class-gateway-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -170,7 +170,17 @@ export async function POST(request: Request) {
   }
   const usedModel=provider==='groq'?groqModel:geminiModel;
   if(!stream){const data=await upstream.json();await recordAiUsage(auth.user,'voice_mouth',usageFromPayload(data,provider,usedModel,JSON.stringify(recent).length));return NextResponse.json(data);}
-  const monitored=observeAiStream(upstream.body,{provider,model:usedModel,inputCharacters:JSON.stringify(recent).length,onFinish:(usage,hasOutput,outcome)=>recordAiUsage(auth.user,'voice_mouth',usage,{outcome:hasOutput?'completed':outcome})});
+  // Accounting must not hold the end-of-speech signal or the next lesson turn.
+  type Observation={usage:Parameters<typeof recordAiUsage>[2];hasOutput:boolean;outcome:string};
+  let settleUsage!:(value:Observation)=>void;
+  const usageReady=new Promise<Observation>(resolve=>{settleUsage=resolve;});
+  after(async()=>{
+    const {usage,hasOutput,outcome}=await usageReady;
+    const recordedOutcome=outcome==='completed'?(hasOutput?'completed':'empty'):outcome;
+    if(recordedOutcome==='empty') console.warn('Live Class verbalizer returned no spoken text',{provider,model:usedModel,outputTokens:usage.outputTokens,thinkingTokens:usage.thinkingTokens});
+    await recordAiUsage(auth.user,'voice_mouth',usage,{outcome:recordedOutcome});
+  });
+  const monitored=observeAiStream(upstream.body,{provider,model:usedModel,inputCharacters:JSON.stringify(recent).length,onFinish:async(usage,hasOutput,outcome)=>{settleUsage({usage,hasOutput,outcome});}});
   return new Response(monitored, {
     status: 200,
     headers: {
