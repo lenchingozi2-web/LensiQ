@@ -14,7 +14,7 @@ export default function Whiteboard({topic,markdown,onConceptSelect}:WhiteboardPr
    <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[.18em] text-[#ffd080]">Live concept board</p><h1 className="mt-1 truncate text-base font-bold sm:text-xl">{topic||'Medical lesson'}</h1></div>
    <div className="flex shrink-0 gap-1"><button onClick={()=>setFlow(!flow)} aria-pressed={flow} className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold">{flow?'Focus':'Flow'}</button><button onClick={()=>setZoom(z=>Math.max(.8,z-.1))} aria-label="Zoom out" className="rounded-lg border border-white/15 px-3 py-2">−</button><button onClick={()=>setZoom(z=>Math.min(1.4,z+.1))} aria-label="Zoom in" className="rounded-lg border border-white/15 px-3 py-2">+</button></div>
   </header>
-  <div className="absolute inset-x-0 bottom-[9.8rem] top-[9.4rem] flex items-start justify-center overflow-y-auto px-5 py-5 sm:top-44 sm:px-12" style={{touchAction:'pan-y'}}>
+  <div className="absolute inset-x-0 bottom-[15rem] sm:bottom-[9.8rem] top-[9.4rem] flex items-start justify-center overflow-y-auto px-5 py-5 sm:top-44 sm:px-12" style={{touchAction:'pan-y'}}>
    {steps.length===0?<h2 className="my-auto text-center text-2xl font-bold text-white/75 sm:text-4xl">{topic||'Live Class'}</h2>:<div className="my-auto w-full max-w-3xl space-y-3" style={{zoom}}>
     {indexes.map((index,position)=><div key={index+'-'+steps[index]} className="animate-[lab-reveal_300ms_ease-out_both]">
      {flow&&position>0&&<p aria-hidden="true" className="py-2 text-center text-xl text-[#e8a23d]/70">↓</p>}
@@ -25,6 +25,6 @@ export default function Whiteboard({topic,markdown,onConceptSelect}:WhiteboardPr
     </div>)}
    </div>}
   </div>
-  {steps.length>0&&<nav aria-label="Concept navigation" className="absolute bottom-[5.4rem] left-4 right-4 z-10 mx-auto flex max-w-3xl items-center justify-between rounded-xl border border-white/10 bg-[#0b1422]/90 p-2 text-xs font-bold backdrop-blur-xl sm:bottom-24"><button onClick={()=>browse(active-1)} disabled={active===0} className="rounded-lg px-3 py-2 disabled:opacity-30">← Back</button>{following?<span className="text-white/55">Follow tutor · {active+1}</span>:<button onClick={()=>setFollowing(true)} className="rounded-lg bg-[#e8a23d]/15 px-3 py-2 text-[#ffd080]">Follow tutor ↗</button>}<button onClick={()=>browse(active+1)} disabled={active===steps.length-1} className="rounded-lg px-3 py-2 disabled:opacity-30">Next →</button></nav>}
+  {steps.length>0&&<nav aria-label="Concept navigation" className="absolute bottom-[11rem] left-4 right-4 z-10 mx-auto flex max-w-3xl items-center justify-between rounded-xl border border-white/10 bg-[#0b1422]/90 p-2 text-xs font-bold backdrop-blur-xl sm:bottom-24"><button onClick={()=>browse(active-1)} disabled={active===0} className="rounded-lg px-3 py-2 disabled:opacity-30">← Back</button>{following?<span className="text-white/55">Follow tutor · {active+1}</span>:<button onClick={()=>setFollowing(true)} className="rounded-lg bg-[#e8a23d]/15 px-3 py-2 text-[#ffd080]">Follow tutor ↗</button>}<button onClick={()=>browse(active+1)} disabled={active===steps.length-1} className="rounded-lg px-3 py-2 disabled:opacity-30">Next →</button></nav>}
  </section>;
 }
