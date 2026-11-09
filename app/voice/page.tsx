@@ -1411,7 +1411,7 @@ function VoiceTutorContent() {
         )}
       </aside>}
       {error && <div role="alert" className="absolute bottom-24 left-3 right-3 z-40 mx-auto max-w-xl rounded-xl border border-red-300/40 bg-red-950/90 px-4 py-3 text-xs font-semibold text-red-100">{error}</div>}
-      <section className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-2 right-2 z-30 mx-auto grid max-w-4xl grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-white/15 bg-[#0d1726]/90 px-2.5 py-2 text-white shadow-[0_12px_44px_#0007] backdrop-blur-xl sm:bottom-5 sm:left-5 sm:right-5 sm:gap-5 sm:px-5" aria-label="Live Class controls">
+      <section className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-2 right-2 z-30 mx-auto grid max-w-4xl grid-cols-1 items-center gap-2 rounded-2xl sm:grid-cols-[minmax(0,1fr)_auto] border border-white/15 bg-[#0d1726]/90 px-2.5 py-2 text-white shadow-[0_12px_44px_#0007] backdrop-blur-xl sm:bottom-5 sm:left-5 sm:right-5 sm:gap-5 sm:px-5" aria-label="Live Class controls">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${!liveStarted ? 'animate-pulse bg-[#e8a23d]' : voiceActive ? 'animate-pulse bg-[#e8a23d]' : micMuted ? 'bg-rose-400' : micHearing ? 'bg-emerald-300' : 'bg-emerald-500/70'}`} />
           <Waveform active={micHearing} level={micMuted ? 0 : micLevel} compact />
@@ -1420,7 +1420,7 @@ function VoiceTutorContent() {
             <p className="hidden truncate text-[10px] text-white/55 sm:block">{pressToTalk ? 'Hold to ask · release to close your mic' : micMuted ? 'Tap mic to unmute' : micHearing ? 'Your voice is reaching the class' : lastHeard ? `Heard: ${lastHeard}` : 'Speak anytime · interrupt naturally'}</p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
           <button type="button" onClick={() => {
             const next = !autoLessonRef.current;
             autoLessonRef.current = next;
