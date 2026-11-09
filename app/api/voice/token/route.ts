@@ -205,6 +205,7 @@ export async function POST(req: Request) {
     topicFocus,
     focusText,
     sessionType: 'live_class',
+    inputMode: body.inputMode === 'press_to_talk' ? 'press_to_talk' : 'open_mic',
     sessionId: quota.session_id,
     sessionExpiresAt,
     contextEndpoint: `${new URL(req.url).origin}/api/voice/context`,

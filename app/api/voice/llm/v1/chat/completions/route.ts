@@ -23,7 +23,7 @@ export function selectVoiceContext(messages: VoiceMessage[]): VoiceMessage[] {
   const conversation = messages.filter((message) => message.role !== 'system').slice(-14);
   // Retain source fidelity and the actual visible model even in long lessons.
   const pinned = ['UPLOADED SOURCE POLICY:', 'SOURCE NOTES:', 'CURRENT INTERACTIVE VISUAL:', 'CURRENT TEACHING BOARD:', 'OPTIONAL APPROVED VISUAL', 'PRIORITY APPROVED VISUAL', 'POINTED QUESTION:', 'LESSON PROGRESS MEMORY:'].flatMap(prefix=>{const latest=systems.findLast(message=>message.content.startsWith(prefix));return latest&&!dynamic.includes(latest)&&!first.includes(latest)?[latest]:[];});
-  return [...first, {role:'system', content:'SPOKEN DELIVERY: Start each response with one complete, direct sentence of at most 12 words. Preserve essential medical qualifications. Then explain one idea at a time in plain English: define unfamiliar terms, give the reason and one example before progressing. This short opening is not a summary of the whole lesson. Avoid acknowledgements or a long preamble before answering.'}, ...dynamic, ...pinned, ...conversation];
+  return [...first, {role:'system', content:'SPOKEN DELIVERY: Start the spoken part of each response with one complete, direct sentence of at most 12 words. Preserve essential medical qualifications. Then explain one idea at a time in plain English: define unfamiliar terms, give the reason and one example before progressing. This short opening is not a summary of the whole lesson. Avoid acknowledgements or a long preamble before answering.'}, ...dynamic, ...pinned, ...conversation];
 }
 
 /** Private, session-scoped OpenAI-compatible gateway.

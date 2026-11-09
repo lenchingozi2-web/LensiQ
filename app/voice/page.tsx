@@ -8,6 +8,7 @@ import PreClassSetup from '@/components/PreClassSetup';
 import LiveClassVisualStage from '@/components/LiveClassVisualStage';
 import type { PhysiologyPreset } from '@/components/PhysiologySimulator';
 import { shouldApplyTutorTranscriptVisual, getMoleculeAsset, isApprovedMedicalModelUrl, isApprovedMoleculeModelUrl, type VisualContext } from '@/lib/voice/live-class-visuals';
+import {SpokenCueQueue} from '@/lib/voice/spoken-cues';
 import {classroomStatus,conciseLessonPoint} from '@/lib/voice/lesson-presentation';
 import type { MaterialProfile } from '@/lib/curriculum/material-profile';
 
@@ -116,7 +117,11 @@ function VoiceTutorContent() {
   const [studioOpen, setStudioOpen] = useState(false);
   const [voiceActive, setVoiceActive] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
-  const [pressToTalk, setPressToTalk] = useState(false);
+  const [pressToTalk, setPressToTalk] = useState(true);
+  const [pressPhase, setPressPhase] = useState<'idle'|'holding'|'listening'|'processing'|'empty'>('idle');
+  const pressTurnRef = useRef<string | null>(null);
+  const spokenCuesRef = useRef<SpokenCueQueue | null>(null);
+  if (spokenCuesRef.current == null) { spokenCuesRef.current = new SpokenCueQueue(180); }
   const microphoneQueueRef = useRef<Promise<void>>(Promise.resolve());
   const pressHeldRef = useRef(false);
   const [showTranscript, setShowTranscript] = useState(false);
@@ -355,7 +360,7 @@ function VoiceTutorContent() {
     const modelFocusLocked = current.type === 'model' && Date.now() < learnerModelFocusUntilRef.current;
     if (current.type !== 'whiteboard') {
       unrelatedVisualStepsRef.current += 1;
-      if (modelFocusLocked || unrelatedVisualStepsRef.current < 4) return;
+      if (modelFocusLocked || unrelatedVisualStepsRef.current < 2) return;
       unrelatedVisualStepsRef.current = 0;
       teachingStepsRef.current = [];
     }
@@ -514,6 +519,7 @@ function VoiceTutorContent() {
     });
     audioElementsRef.current.clear();
     roomRef.current?.disconnect();
+    spokenCuesRef.current?.clear();
     stopMicMonitor();
     ambienceAudioRef.current?.pause();
     void ambienceGraphRef.current?.context.close().catch(() => undefined);
@@ -749,6 +755,10 @@ function VoiceTutorContent() {
   const endSession = useCallback(async (message = 'Live Class ended. Your spoken lesson is saved in History.') => {
     if (endingRef.current) return;
     endingRef.current = true;
+    spokenCuesRef.current?.clear();
+    pressHeldRef.current = false;
+    pressTurnRef.current = null;
+    setPressPhase('idle');
     modelDiscoveryAbortRef.current?.abort();
     if (wrapupTimeoutRef.current !== null) {
       window.clearTimeout(wrapupTimeoutRef.current);
@@ -858,7 +868,7 @@ function VoiceTutorContent() {
     setLiveStarted(false);
     setStudioOpen(false);
     sessionStartedAtRef.current = null;
-    updateVisualContext({ type: 'whiteboard', topic: topicFocus || courseName, ...(focusText.trim() ? { markdown: `### Study focus\n\n${focusText.trim()}` } : {}) });
+    updateVisualContext({ type: 'whiteboard', topic: courseName });
     setSelectedStructure('');
     explicitVisualThisTurnRef.current = false;
     teachingStepsRef.current = [];
@@ -945,7 +955,7 @@ function VoiceTutorContent() {
         }
       })();
       activeConversation = await createConversation();
-      const tokenResponse = await fetch('/api/voice/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseName, topicFocus, focusText, conversationId: activeConversation.id, fileUrls: uploadedFileUrls, materialMapUrls: uploadedMapUrls, materialContext }) });
+      const tokenResponse = await fetch('/api/voice/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseName, topicFocus, focusText, conversationId: activeConversation.id, inputMode: 'press_to_talk', fileUrls: uploadedFileUrls, materialMapUrls: uploadedMapUrls, materialContext }) });
       const tokenData = await tokenResponse.json().catch(() => ({}));
       if (!tokenResponse.ok) throw new Error(tokenData.message || tokenData.error || 'Unable to create a secure Live Class session.');
       setSessionId(tokenData.sessionId);
@@ -1005,14 +1015,28 @@ function VoiceTutorContent() {
           }
         }
       });
-      room.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
+      const receiveClassData = (payload: Uint8Array, _participant: import('livekit-client').RemoteParticipant | undefined, _kind: import('livekit-client').DataPacket_Kind | undefined, topic?: string, delayed = false) => {
         try {
-          let data = JSON.parse(new TextDecoder().decode(payload)) as {visual?:Record<string, unknown>; playbackSynchronized?:boolean; continuationOwner?:string; awaitingQuestion?:boolean; type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; message?: string; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; category?: string; structureId?: string; note?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
+          let data = JSON.parse(new TextDecoder().decode(payload)) as {turnId?:string;phase?:'listening'|'processing'|'released'|'empty'; visual?:Record<string, unknown>; playbackSynchronized?:boolean; continuationOwner?:string; awaitingQuestion?:boolean; type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; message?: string; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; category?: string; structureId?: string; note?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
           if (!_participant || !_participant.identity.startsWith('lensiq-voice-tutor')) return;
           if (data.type === 'live_class_policy_ack') {workerContinuationRef.current=true;clearLessonContinueTimer();return;}
+          if (data.type === 'live_class_ptt_state') {
+            if (data.turnId !== pressTurnRef.current) return;
+            if (data.phase === 'listening' && pressHeldRef.current) { setPressPhase('listening'); runtimeStateRef.current='LISTENING'; setRuntimeState('LISTENING'); }
+            if (data.phase === 'processing') { setPressPhase('processing'); runtimeStateRef.current='THINKING'; setRuntimeState('THINKING'); }
+            if (data.phase === 'released') { if (pressHeldRef.current) setPressMicrophone(false, true); setPressPhase('idle'); }
+            if (data.phase === 'empty') { setPressPhase('empty'); setStatus('No clear question heard. Hold to ask again.'); }
+            return;
+          }
+          if (data.type === 'live_class_spoken_cue' && !delayed) {
+            const cue = payload.slice();
+            spokenCuesRef.current?.schedule(() => { if (roomRef.current === room && !pressHeldRef.current) receiveClassData(cue, _participant, _kind, topic, true); });
+            return;
+          }
           if (data.type === 'live_class_spoken_cue') {
+            setPressPhase('idle');
             lastTutorActivityAtRef.current=Date.now();
-            if (!data.visual) {if(data.note&&visualContextRef.current.type==='whiteboard')applyTutorTranscript(data.note);return;}
+            if (!data.visual) {if(data.note)applyTutorTranscript(data.note);return;}
             data={...data.visual,playbackSynchronized:true} as typeof data;
           }
           if (data.type === 'live_class_user_transcript' && data.content?.trim()) {
@@ -1104,7 +1128,7 @@ function VoiceTutorContent() {
             explicitVisualThisTurnRef.current = true;
             pendingHighlightRef.current = null;
             setSelectedStructure('');
-            teachingStepsRef.current=data.markdown?[conciseLessonPoint(data.markdown)]:[];
+            teachingStepsRef.current=data.markdown?[conciseLessonPoint(data.markdown)].filter(Boolean):[];
             updateVisualContext({ type: 'whiteboard', topic: data.title || data.topic || courseName, markdown: data.markdown });
             return;
           }
@@ -1115,7 +1139,10 @@ function VoiceTutorContent() {
               clientStage(data.state === 'TTS_AUDIO_FRAME' ? 'AGENT_TTS_PCM_MEASURED' : 'AGENT_TTS_PCM_SUMMARY', { ...data });
               return;
             }
+            if (data.state === 'INTERRUPTED' || data.state === 'THINKING' || data.state === 'ENDING') spokenCuesRef.current?.clear();
             if (data.state === 'ERROR') {
+              if (pressHeldRef.current) setPressMicrophone(false, true);
+              setPressPhase('empty');
               const message = data.message || 'The tutor could not complete that response. Please try speaking again.';
               if (/usage allowance|temporarily paused/i.test(message)) {
                 startWrapupGrace('The lesson ended gracefully after the protected AI segment. Your puzzle questions are saved in History.');
@@ -1183,7 +1210,8 @@ function VoiceTutorContent() {
           void persistMessage(conversation.id, message);
           setStatus('LenxiQ AI is teaching…');
         } catch { /* Ignore malformed diagnostic packets. */ }
-      });
+      };
+      room.on(RoomEvent.DataReceived, (payload, participant, kind, topic) => receiveClassData(payload, participant, kind, topic));
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
         const tutorSpeaking = speakers.some((speaker) => !speaker.isLocal);
         if (tutorSpeaking) {
@@ -1257,9 +1285,12 @@ function VoiceTutorContent() {
       // Keep the premium preparation screen in place until the greeting is
       // audible, with a strict ten-second escape hatch above for diagnostics
       // and mobile autoplay recovery.
-      setPressToTalk(false);
+      await room.localParticipant.setMicrophoneEnabled(false);
+      setPressToTalk(true);
       pressHeldRef.current = false;
-      setMicMuted(false);
+      pressTurnRef.current = null;
+      setPressPhase('idle');
+      setMicMuted(true);
       setAudioState(room.canPlaybackAudio ? (agentAudioSubscribedRef.current ? 'playing' : 'ready') : agentAudioSubscribedRef.current ? 'blocked' : 'waiting');
       if (runtimeStateRef.current === 'INITIALIZING' || runtimeStateRef.current === 'READY') {
         runtimeStateRef.current = 'GREETING';
@@ -1323,19 +1354,29 @@ function VoiceTutorContent() {
     }
   };
 
-  const setPressMicrophone = useCallback((enabled: boolean) => {
-    pressHeldRef.current = enabled;
+  const setPressMicrophone = useCallback((enabled: boolean, cancel = false) => {
     const room = roomRef.current;
+    if (!room || (enabled && pressHeldRef.current) || (!enabled && !pressHeldRef.current)) return;
+    const turnId = enabled ? crypto.randomUUID() : pressTurnRef.current;
+    if (!turnId) return;
+    pressTurnRef.current = turnId;
+    pressHeldRef.current = enabled;
+    setPressPhase(enabled ? 'holding' : cancel ? 'idle' : 'processing');
+    if (enabled) { spokenCuesRef.current?.clear(); setRuntimeState('LISTENING'); setStatus('Holding — your tutor is listening. Release to send your question.'); }
+    else setStatus(cancel ? 'Question cancelled.' : 'Released — preparing your answer.');
     microphoneQueueRef.current = microphoneQueueRef.current.catch(() => undefined).then(async () => {
-      if (!room || roomRef.current !== room) return;
+      if (roomRef.current !== room) return;
+      const publish = (type: string) => room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({type,turnId})), {reliable:true,topic:'lensiq.live_class.lesson_control'});
+      if (enabled) await publish('ptt_start');
       await room.localParticipant.setMicrophoneEnabled(enabled, {echoCancellation:true, noiseSuppression:true, autoGainControl:false});
       setMicMuted(!enabled);
-    }).catch(() => { setError('Unable to change the microphone. Please reconnect your microphone.'); });
+      if (!enabled) await publish(cancel ? 'ptt_cancel' : 'ptt_end');
+    }).catch(() => { pressHeldRef.current = false; setPressPhase('empty'); setError('Unable to send your question. Hold to try again.'); });
   }, []);
 
   useEffect(() => {
     if (!pressToTalk) return;
-    const release = () => { if (pressHeldRef.current) setPressMicrophone(false); };
+    const release = () => { if (pressHeldRef.current) setPressMicrophone(false, true); };
     const visibility = () => { if (document.hidden) release(); };
     window.addEventListener('blur', release);
     document.addEventListener('visibilitychange', visibility);
@@ -1344,8 +1385,16 @@ function VoiceTutorContent() {
 
   const changeMicrophoneMode = () => {
     const next = !pressToTalk;
+    if (pressHeldRef.current) setPressMicrophone(false, true);
     setPressToTalk(next);
-    setPressMicrophone(!next);
+    setPressPhase('idle');
+    const room = roomRef.current;
+    microphoneQueueRef.current = microphoneQueueRef.current.catch(() => undefined).then(async () => {
+      if (!room || roomRef.current !== room) return;
+      await room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({type:'ptt_mode',enabled:next})), {reliable:true,topic:'lensiq.live_class.lesson_control'});
+      await room.localParticipant.setMicrophoneEnabled(!next, {echoCancellation:true,noiseSuppression:true,autoGainControl:false});
+      setMicMuted(next);
+    }).catch(() => setError('Unable to change microphone mode.'));
   };
 
   const toggleMicrophone = async () => {
@@ -1416,8 +1465,8 @@ function VoiceTutorContent() {
           <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${!liveStarted ? 'animate-pulse bg-[#e8a23d]' : voiceActive ? 'animate-pulse bg-[#e8a23d]' : micMuted ? 'bg-rose-400' : micHearing ? 'bg-emerald-300' : 'bg-emerald-500/70'}`} />
           <Waveform active={micHearing} level={micMuted ? 0 : micLevel} compact />
           <div className="min-w-0" aria-live="polite">
-            <p className="truncate text-[11px] font-bold sm:text-xs">{classroomStatus({started:liveStarted,blocked:audioState==='blocked',muted:micMuted,hearing:micHearing,speaking:voiceActive,paused:!autoLesson,state:runtimeState})}</p>
-            <p className="hidden truncate text-[10px] text-white/55 sm:block">{pressToTalk ? 'Hold to ask · release to close your mic' : micMuted ? 'Tap mic to unmute' : micHearing ? 'Your voice is reaching the class' : lastHeard ? `Heard: ${lastHeard}` : 'Speak anytime · interrupt naturally'}</p>
+            <p className="truncate text-[11px] font-bold sm:text-xs">{pressToTalk && (pressPhase === 'holding' || pressPhase === 'listening') ? 'I’m listening — release when finished' : pressToTalk && pressPhase === 'processing' ? 'Released — preparing answer' : pressToTalk && !voiceActive ? 'Hold to ask your tutor' : classroomStatus({started:liveStarted,blocked:audioState==='blocked',muted:micMuted,hearing:micHearing,speaking:voiceActive,paused:!autoLesson,state:runtimeState})}</p>
+            <p className="hidden truncate text-[10px] text-white/55 sm:block">{pressToTalk ? 'Hold → speak → release for an answer' : micMuted ? 'Tap mic to unmute' : micHearing ? 'Your voice is reaching the class' : lastHeard ? `Heard: ${lastHeard}` : 'Speak anytime · interrupt naturally'}</p>
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
@@ -1432,7 +1481,7 @@ function VoiceTutorContent() {
           <button type="button" onClick={() => setShowTranscript((value) => !value)} aria-label={showTranscript ? 'Hide transcript' : 'Show transcript'} aria-pressed={showTranscript} className="min-h-10 rounded-xl border border-white/15 bg-white/10 px-2 py-2 text-[11px] font-bold sm:px-3">Notes</button>
           <button type="button" onClick={() => void toggleTutorAudio()} aria-label={tutorMuted ? 'Unmute tutor audio' : 'Mute tutor audio'} className={`min-h-10 rounded-xl border px-2 py-2 text-[11px] font-bold sm:px-3 ${tutorMuted ? 'border-rose-300/40 bg-rose-900/60' : 'border-white/15 bg-white/10'}`}>{tutorMuted ? 'Audio off' : audioState === 'blocked' ? 'Enable sound' : 'Sound'}</button>
           <button type="button" onClick={changeMicrophoneMode} aria-pressed={pressToTalk} className="min-h-10 rounded-xl border border-white/15 bg-white/10 px-2 text-[11px] font-bold">{pressToTalk ? 'Press to talk' : 'Open mic'}</button>
-          {pressToTalk ? <button type="button" aria-label="Hold to ask a question" className="min-h-10 touch-none select-none rounded-xl bg-[#e8a23d] px-3 text-xs font-black text-[#0b1422]" onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); setPressMicrophone(true); }} onPointerUp={() => setPressMicrophone(false)} onPointerCancel={() => setPressMicrophone(false)} onLostPointerCapture={() => { if (pressHeldRef.current) setPressMicrophone(false); }} onKeyDown={(event) => { if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) { event.preventDefault(); setPressMicrophone(true); } }} onKeyUp={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); setPressMicrophone(false); } }} onBlur={() => { if (pressHeldRef.current) setPressMicrophone(false); }}>{micMuted ? 'Hold to ask' : 'Speak now'}</button> : <button type="button" onClick={() => void toggleMicrophone()} aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'} className={`flex h-10 w-10 items-center justify-center rounded-xl text-base font-black ${micMuted ? 'bg-rose-900 text-white' : 'bg-[#e8a23d] text-[#0b1422]'}`}>{micMuted ? '×' : '●'}</button>}
+          {pressToTalk ? <button type="button" aria-label={pressPhase === 'holding' || pressPhase === 'listening' ? 'Listening. Release to send your question' : 'Hold to ask a question'} aria-pressed={pressPhase === 'holding' || pressPhase === 'listening'} disabled={pressPhase === 'processing'} className={`min-h-12 touch-none select-none rounded-xl border-2 px-4 text-xs font-black transition ${pressPhase === 'holding' || pressPhase === 'listening' ? 'border-emerald-100 bg-emerald-400 text-[#082218] ring-4 ring-emerald-300/40 scale-[1.04]' : pressPhase === 'processing' ? 'border-amber-200/50 bg-amber-100/20 text-amber-100' : 'border-[#ffe4a4] bg-[#e8a23d] text-[#0b1422]'}`} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); setPressMicrophone(true); }} onPointerUp={() => setPressMicrophone(false)} onPointerCancel={() => setPressMicrophone(false, true)} onLostPointerCapture={() => { if (pressHeldRef.current) setPressMicrophone(false); }} onKeyDown={(event) => { if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) { event.preventDefault(); setPressMicrophone(true); } }} onKeyUp={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); setPressMicrophone(false); } }} onBlur={() => { if (pressHeldRef.current) setPressMicrophone(false); }}>{pressPhase === 'holding' || pressPhase === 'listening' ? '● Listening · release to send' : pressPhase === 'processing' ? 'Released · preparing answer' : 'Hold to ask'}</button> : <button type="button" onClick={() => void toggleMicrophone()} aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'} className={`flex h-10 w-10 items-center justify-center rounded-xl text-base font-black ${micMuted ? 'bg-rose-900 text-white' : 'bg-[#e8a23d] text-[#0b1422]'}`}>{micMuted ? '×' : '●'}</button>}
 
         </div>
       </section>
