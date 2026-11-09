@@ -201,6 +201,9 @@ function VoiceTutorContent() {
     visualContextRef.current = next;
     visualRevisionRef.current += 1;
     setVisualContext(next);
+    if (next.type === 'media' && roomRef.current) {
+      void roomRef.current.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({type:'visual_displayed', mediaUrl:next.mediaUrl, caption:next.caption || ''})), {reliable:true, topic:'lensiq.live_class.visual_feedback'}).catch(() => undefined);
+    }
   };
 
   useEffect(() => {
@@ -1320,15 +1323,24 @@ function VoiceTutorContent() {
     }
   };
 
-  const setPressMicrophone = (enabled: boolean) => {
+  const setPressMicrophone = useCallback((enabled: boolean) => {
     pressHeldRef.current = enabled;
     const room = roomRef.current;
     microphoneQueueRef.current = microphoneQueueRef.current.catch(() => undefined).then(async () => {
       if (!room || roomRef.current !== room) return;
-      await room.localParticipant.setMicrophoneEnabled(enabled);
+      await room.localParticipant.setMicrophoneEnabled(enabled, {echoCancellation:true, noiseSuppression:true, autoGainControl:false});
       setMicMuted(!enabled);
     }).catch(() => { setError('Unable to change the microphone. Please reconnect your microphone.'); });
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!pressToTalk) return;
+    const release = () => { if (pressHeldRef.current) setPressMicrophone(false); };
+    const visibility = () => { if (document.hidden) release(); };
+    window.addEventListener('blur', release);
+    document.addEventListener('visibilitychange', visibility);
+    return () => { window.removeEventListener('blur', release); document.removeEventListener('visibilitychange', visibility); };
+  }, [pressToTalk, setPressMicrophone]);
 
   const changeMicrophoneMode = () => {
     const next = !pressToTalk;

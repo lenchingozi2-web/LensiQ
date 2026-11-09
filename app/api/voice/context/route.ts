@@ -1,3 +1,4 @@
+import {inspectPointedImage} from '@/lib/voice/inspect-pointed-image';
 import {after} from 'next/server';
 import {recordAiUsage} from '@/lib/ai/record-usage';
 import {usageFromPayload} from '@/lib/ai/usage-meter';
@@ -122,6 +123,11 @@ export async function POST(request: Request) {
     if(!active) return NextResponse.json({error:'Active Live Class required.'},{status:403});
     const {data: eligible,error: entitlementError} = await supabase.rpc('live_class_gateway_allowed',{p_session:active?.id,p_user:userId});
     if(entitlementError || eligible!==true) return NextResponse.json({error:'Active Live Class required.'},{status:403});
+    if (body.imageSelection) {
+      if (!gateway) return NextResponse.json({error:'Session credential required.'},{status:401});
+      const imageEvidence = await inspectPointedImage(body.imageSelection, query, userId, request.signal);
+      return NextResponse.json({imageEvidence});
+    }
     const context = await buildTeachingContext(supabase, courseName, [{ role: 'user', content: query }]);
     const lessonPlan = includePlan ? await planLessonWithGemini(courseName, query, context, sourceOutline, userId) : null;
     return NextResponse.json({

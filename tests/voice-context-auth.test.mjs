@@ -16,6 +16,7 @@ async function handler(options={}){
  const active={id:sessionId,user_id:userId,status:'active',room_name:roomName,...options.active};
  const builder={select(){return this;},eq(key,value){filters.push([key,value]);return this;},limit(){return this;},async maybeSingle(){return{data:options.missing||filters.some(([key,value])=>active[key]!==value)?null:active};}};
  globalThis.__voiceContext={createHmac,timingSafeEqual,verifyLiveClassGatewayToken,
+  inspectPointedImage:async()=> 'Visible labelled epithelium',
   after:()=>{},recordAiUsage:async()=>{},usageFromPayload:()=>({}),
   NextResponse:{json:(value,init)=>Response.json(value,init)},
   createServiceClient:()=>{databaseCalls++;return{from:()=>builder,rpc:async()=>({data:options.eligible!==false,error:null})};},
@@ -23,7 +24,7 @@ async function handler(options={}){
  process.env.LIVEKIT_API_SECRET=secret;
  let source=await readFile(new URL('../app/api/voice/context/route.ts',import.meta.url),'utf8');
  source=source.replace(/^import .*\n/gm,'');
- const preamble='const {createHmac,timingSafeEqual,verifyLiveClassGatewayToken,after,recordAiUsage,usageFromPayload,NextResponse,createServiceClient,buildTeachingContext}=globalThis.__voiceContext;\n';
+ const preamble='const {createHmac,timingSafeEqual,verifyLiveClassGatewayToken,inspectPointedImage,after,recordAiUsage,usageFromPayload,NextResponse,createServiceClient,buildTeachingContext}=globalThis.__voiceContext;\n';
  const routeModule=await import('data:text/javascript;base64,'+Buffer.from(preamble+stripTypeScriptTypes(source)).toString('base64')+'#'+sequence++);
  const token=issueLiveClassGatewayToken(secret,{roomName,sessionId,userId,expiresAt:new Date(Date.now()+60_000).toISOString()});
  return{post:routeModule.POST,token,filters,calls:()=>databaseCalls};
@@ -48,4 +49,14 @@ test('a token cannot use a different active room or bypass the current allowance
 test('legacy signed workers remain gated during a rolling deployment',async()=>{
  const h=await handler();const token=createHmac('sha256',secret).update(JSON.stringify(body)).digest('hex');
  assert.equal((await h.post(request(token))).status,200);
+});
+
+test('image questions require the same active entitled classroom and session credential',async()=>{
+ const h=await handler();
+ const imageBody={...body,imageSelection:{url:'https://example.test/image.png',x:.2,y:.4}};
+ assert.equal((await h.post(request(h.token,imageBody))).status,200);
+ const denied=await handler({eligible:false});
+ assert.equal((await denied.post(request(denied.token,imageBody))).status,403);
+ const legacy=createHmac('sha256',secret).update(JSON.stringify(body)).digest('hex');
+ assert.equal((await h.post(request(legacy,imageBody))).status,401);
 });
