@@ -22,8 +22,8 @@ export function selectVoiceContext(messages: VoiceMessage[]): VoiceMessage[] {
   const dynamic = systems.slice(1).slice(-6);
   const conversation = messages.filter((message) => message.role !== 'system').slice(-14);
   // Retain source fidelity and the actual visible model even in long lessons.
-  const pinned = ['UPLOADED SOURCE POLICY:', 'SOURCE NOTES:', 'CURRENT INTERACTIVE VISUAL:', 'CURRENT TEACHING BOARD:', 'OPTIONAL APPROVED VISUAL', 'LESSON PROGRESS MEMORY:'].flatMap(prefix=>{const latest=systems.findLast(message=>message.content.startsWith(prefix));return latest&&!dynamic.includes(latest)&&!first.includes(latest)?[latest]:[];});
-  return [...first, {role:'system', content:'SPOKEN DELIVERY: Start each response with one complete, direct sentence of at most 12 words. Preserve essential medical qualifications. Then give the full requested explanation naturally. This short opening is not a summary of the whole lesson. Avoid acknowledgements or a long preamble before answering.'}, ...dynamic, ...pinned, ...conversation];
+  const pinned = ['UPLOADED SOURCE POLICY:', 'SOURCE NOTES:', 'CURRENT INTERACTIVE VISUAL:', 'CURRENT TEACHING BOARD:', 'OPTIONAL APPROVED VISUAL', 'PRIORITY APPROVED VISUAL', 'POINTED QUESTION:', 'LESSON PROGRESS MEMORY:'].flatMap(prefix=>{const latest=systems.findLast(message=>message.content.startsWith(prefix));return latest&&!dynamic.includes(latest)&&!first.includes(latest)?[latest]:[];});
+  return [...first, {role:'system', content:'SPOKEN DELIVERY: Start each response with one complete, direct sentence of at most 12 words. Preserve essential medical qualifications. Then explain one idea at a time in plain English: define unfamiliar terms, give the reason and one example before progressing. This short opening is not a summary of the whole lesson. Avoid acknowledgements or a long preamble before answering.'}, ...dynamic, ...pinned, ...conversation];
 }
 
 /** Private, session-scoped OpenAI-compatible gateway.
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
           ...(groqModel === 'qwen/qwen3.8-27b'
             ? { reasoning_effort: 'none', include_reasoning: false } : {}),
         }),
-      }, { timeoutMs: 8000, stream, onEmpty: emptyUsage('groq', groqModel) });
+      }, { timeoutMs: 3500, stream, onEmpty: emptyUsage('groq', groqModel) });
     } catch (error) {
       console.warn('Live Class Groq connection unavailable', {
         name: error instanceof Error ? error.name : 'unknown',
@@ -163,7 +163,7 @@ export async function POST(request: Request) {
           ...(stream?{stream_options:{include_usage:true}}:{}),
           max_completion_tokens: maxTokens, temperature: 0.5,
         }),
-      }, { timeoutMs: 12000, stream, onEmpty: emptyUsage('gemini', geminiModel) });
+      }, { timeoutMs: 6000, stream, onEmpty: emptyUsage('gemini', geminiModel) });
     } catch {
       return NextResponse.json({ error: 'Both voice models are unavailable.' }, { status: 502 });
     }

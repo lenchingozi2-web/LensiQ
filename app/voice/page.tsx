@@ -116,6 +116,9 @@ function VoiceTutorContent() {
   const [studioOpen, setStudioOpen] = useState(false);
   const [voiceActive, setVoiceActive] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
+  const [pressToTalk, setPressToTalk] = useState(false);
+  const microphoneQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const pressHeldRef = useRef(false);
   const [showTranscript, setShowTranscript] = useState(false);
   useEffect(() => {
     const handleMaterials = (event: Event) => {
@@ -681,7 +684,7 @@ function VoiceTutorContent() {
   const requestMicrophone = async (): Promise<MediaStreamTrack | null> => {
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('This browser does not provide microphone access.');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: { ideal: 1 } }, video: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false, channelCount: { ideal: 1 } }, video: false });
       const track = stream.getAudioTracks()[0];
       if (!track) throw new Error('No microphone track was returned by the phone.');
       setPermissionState('granted');
@@ -1001,7 +1004,7 @@ function VoiceTutorContent() {
       });
       room.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
         try {
-          let data = JSON.parse(new TextDecoder().decode(payload)) as {visual?:Record<string, unknown>; playbackSynchronized?:boolean; continuationOwner?:string; type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; message?: string; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; category?: string; structureId?: string; note?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
+          let data = JSON.parse(new TextDecoder().decode(payload)) as {visual?:Record<string, unknown>; playbackSynchronized?:boolean; continuationOwner?:string; awaitingQuestion?:boolean; type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; message?: string; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; category?: string; structureId?: string; note?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
           if (!_participant || !_participant.identity.startsWith('lensiq-voice-tutor')) return;
           if (data.type === 'live_class_policy_ack') {workerContinuationRef.current=true;clearLessonContinueTimer();return;}
           if (data.type === 'live_class_spoken_cue') {
@@ -1018,8 +1021,8 @@ function VoiceTutorContent() {
           }
           if (data.type === 'live_class_interaction_ack') {
             setError('');
-            runtimeStateRef.current='THINKING';setRuntimeState('THINKING');
-            setStatus('Tutor received your selection and is preparing an explanation.');
+            if (data.awaitingQuestion) { setStatus('Selection marked. Ask a question, then point to the part you mean.'); return; }
+            setStatus('Your question and selection reached the tutor.');
             return;
           }
           if (data.type === 'live_class_visual_step' && data.content?.trim()) {
@@ -1251,6 +1254,8 @@ function VoiceTutorContent() {
       // Keep the premium preparation screen in place until the greeting is
       // audible, with a strict ten-second escape hatch above for diagnostics
       // and mobile autoplay recovery.
+      setPressToTalk(false);
+      pressHeldRef.current = false;
       setMicMuted(false);
       setAudioState(room.canPlaybackAudio ? (agentAudioSubscribedRef.current ? 'playing' : 'ready') : agentAudioSubscribedRef.current ? 'blocked' : 'waiting');
       if (runtimeStateRef.current === 'INITIALIZING' || runtimeStateRef.current === 'READY') {
@@ -1313,6 +1318,22 @@ function VoiceTutorContent() {
       setRuntimeState('ERROR');
       setStatus('Your tutor audio is not connected yet. Tap again after the tutor joins.');
     }
+  };
+
+  const setPressMicrophone = (enabled: boolean) => {
+    pressHeldRef.current = enabled;
+    const room = roomRef.current;
+    microphoneQueueRef.current = microphoneQueueRef.current.catch(() => undefined).then(async () => {
+      if (!room || roomRef.current !== room) return;
+      await room.localParticipant.setMicrophoneEnabled(enabled);
+      setMicMuted(!enabled);
+    }).catch(() => { setError('Unable to change the microphone. Please reconnect your microphone.'); });
+  };
+
+  const changeMicrophoneMode = () => {
+    const next = !pressToTalk;
+    setPressToTalk(next);
+    setPressMicrophone(!next);
   };
 
   const toggleMicrophone = async () => {
@@ -1384,7 +1405,7 @@ function VoiceTutorContent() {
           <Waveform active={micHearing} level={micMuted ? 0 : micLevel} compact />
           <div className="min-w-0" aria-live="polite">
             <p className="truncate text-[11px] font-bold sm:text-xs">{classroomStatus({started:liveStarted,blocked:audioState==='blocked',muted:micMuted,hearing:micHearing,speaking:voiceActive,paused:!autoLesson,state:runtimeState})}</p>
-            <p className="hidden truncate text-[10px] text-white/55 sm:block">{micMuted ? 'Tap mic to unmute' : micHearing ? 'Your voice is reaching the class' : lastHeard ? `Heard: ${lastHeard}` : 'Speak anytime · interrupt naturally'}</p>
+            <p className="hidden truncate text-[10px] text-white/55 sm:block">{pressToTalk ? 'Hold to ask · release to close your mic' : micMuted ? 'Tap mic to unmute' : micHearing ? 'Your voice is reaching the class' : lastHeard ? `Heard: ${lastHeard}` : 'Speak anytime · interrupt naturally'}</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
@@ -1398,7 +1419,9 @@ function VoiceTutorContent() {
           }} aria-label={autoLesson ? 'Pause after this teaching segment' : 'Continue teaching automatically'} aria-pressed={autoLesson} className="min-h-10 rounded-xl border border-white/15 bg-white/10 px-2 py-2 text-[11px] font-bold sm:px-3">{autoLesson ? 'Pause' : 'Resume'}</button>
           <button type="button" onClick={() => setShowTranscript((value) => !value)} aria-label={showTranscript ? 'Hide transcript' : 'Show transcript'} aria-pressed={showTranscript} className="min-h-10 rounded-xl border border-white/15 bg-white/10 px-2 py-2 text-[11px] font-bold sm:px-3">Notes</button>
           <button type="button" onClick={() => void toggleTutorAudio()} aria-label={tutorMuted ? 'Unmute tutor audio' : 'Mute tutor audio'} className={`min-h-10 rounded-xl border px-2 py-2 text-[11px] font-bold sm:px-3 ${tutorMuted ? 'border-rose-300/40 bg-rose-900/60' : 'border-white/15 bg-white/10'}`}>{tutorMuted ? 'Audio off' : audioState === 'blocked' ? 'Enable sound' : 'Sound'}</button>
-          <button type="button" onClick={() => void toggleMicrophone()} aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'} className={`flex h-10 w-10 items-center justify-center rounded-xl text-base font-black ${micMuted ? 'bg-rose-900 text-white' : 'bg-[#e8a23d] text-[#0b1422]'}`}>{micMuted ? '×' : '●'}</button>
+          <button type="button" onClick={changeMicrophoneMode} aria-pressed={pressToTalk} className="min-h-10 rounded-xl border border-white/15 bg-white/10 px-2 text-[11px] font-bold">{pressToTalk ? 'Press to talk' : 'Open mic'}</button>
+          {pressToTalk ? <button type="button" aria-label="Hold to ask a question" className="min-h-10 touch-none select-none rounded-xl bg-[#e8a23d] px-3 text-xs font-black text-[#0b1422]" onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); setPressMicrophone(true); }} onPointerUp={() => setPressMicrophone(false)} onPointerCancel={() => setPressMicrophone(false)} onLostPointerCapture={() => { if (pressHeldRef.current) setPressMicrophone(false); }} onKeyDown={(event) => { if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) { event.preventDefault(); setPressMicrophone(true); } }} onKeyUp={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); setPressMicrophone(false); } }} onBlur={() => { if (pressHeldRef.current) setPressMicrophone(false); }}>{micMuted ? 'Hold to ask' : 'Speak now'}</button> : <button type="button" onClick={() => void toggleMicrophone()} aria-label={micMuted ? 'Unmute microphone' : 'Mute microphone'} className={`flex h-10 w-10 items-center justify-center rounded-xl text-base font-black ${micMuted ? 'bg-rose-900 text-white' : 'bg-[#e8a23d] text-[#0b1422]'}`}>{micMuted ? '×' : '●'}</button>}
+
         </div>
       </section>
     </>}

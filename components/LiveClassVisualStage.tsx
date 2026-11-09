@@ -70,7 +70,7 @@ function InspectableImage({ src, alt, onSelect }: { src: string; alt: string; on
         {point&&<span aria-hidden="true" className="pointer-events-none absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-amber-300 bg-amber-300/20 shadow-[0_0_0_5px_#e8a23d30]" style={{left:`${point.x*100}%`,top:`${point.y*100}%`}}/>}
         </div>
       </div>
-      {point&&<span role="status" className="pointer-events-none absolute right-3 top-3 rounded-full border border-amber-300/50 bg-slate-950/90 px-3 py-2 text-xs font-bold text-amber-100">Point selected · ask about this part</span>}
+      {point&&<span role="status" className="pointer-events-none absolute right-3 top-3 rounded-full border border-amber-300/50 bg-slate-950/90 px-3 py-2 text-xs font-bold text-amber-100">Ask your question, then point to a part</span>}
       <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-xl border border-white/10 bg-[#101827]/80 p-1.5 backdrop-blur-xl" aria-label="Image zoom controls">
         <button type="button" onClick={() => setZoom((value) => clampZoom(value - 0.2))} className="h-8 w-8 rounded-lg text-lg font-bold text-white/80 hover:bg-white/10" aria-label="Zoom out">−</button>
         <span className="min-w-11 text-center text-[10px] font-black tabular-nums text-white/60">{Math.round(zoom * 100)}%</span>
