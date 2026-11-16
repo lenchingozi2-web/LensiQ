@@ -22,10 +22,10 @@ function headingOf(line: string): string | null {
 export function parseDocumentSections(text: string, documentId: string, fileName: string): ParsedDocument {
   const sections: ParsedSection[] = [];
   let page: number | null = null;
-  let heading = 'General concepts', module = 'General', topic = 'Overview';
+  let heading = 'General concepts', moduleTitle = 'General', topic = 'Overview';
   let facts: CitedAtomicFact[] = [];
   const flush = () => {
-    if (facts.length) sections.push({ heading, module, topic, facts });
+    if (facts.length) sections.push({ heading, module: moduleTitle, topic, facts });
     facts = [];
   };
   const lines = text.replace(/\r\n?/g, '\n').split('\n');
@@ -33,7 +33,7 @@ export function parseDocumentSections(text: string, documentId: string, fileName
     const boundary = line.trim().match(/^\[(?:Page|Slide)\s+(\d+)\]$/i);
     if (boundary) { page = Number(boundary[1]); continue; }
     const title = headingOf(line);
-    if (title) { flush(); heading = title; topic = title; if (!sections.length) module = title; continue; }
+    if (title) { flush(); heading = title; topic = title; if (!sections.length) moduleTitle = title; continue; }
     // Every content-bearing line is retained. Original paragraph boundaries remain in chunk text.
     if (line.trim()) facts.push({ text: line.trim(), documentId, sourceFile: fileName, pageNumber: page });
   }

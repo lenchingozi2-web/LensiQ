@@ -36,8 +36,9 @@ export default function AiUsagePanel() {
   }, []);
 
   useEffect(() => {
-    void refresh();
-    return () => { requestRef.current += 1; };
+    let cancelled = false;
+    queueMicrotask(() => { if (!cancelled) void refresh(); });
+    return () => { cancelled = true; requestRef.current += 1; };
   }, [refresh]);
 
   return <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-8">
