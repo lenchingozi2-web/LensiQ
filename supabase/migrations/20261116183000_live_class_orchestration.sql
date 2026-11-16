@@ -62,4 +62,29 @@ end;$$;
 drop trigger if exists guard_study_syllabus_session on public.study_syllabi;
 create trigger guard_study_syllabus_session before insert or update of session_id
 on public.study_syllabi for each row execute function public.guard_study_syllabus_session();
+
+-- This endpoint is callable only with a service-role token, after the HTTP
+-- layer validates the session-scoped worker bearer and room identity.
+create or replace function public.search_study_chunks_worker(
+  p_syllabus_id uuid,p_query text,p_user_id uuid,p_limit integer default 10)
+returns table(id uuid,concept_node_id uuid,chunk_text text,source_file text,page_number integer,score double precision)
+language sql stable security definer set search_path=public,extensions as $
+with allowed as (
+  select s.id,s.active_generation from public.study_syllabi s
+    join public.live_class_sessions ls on ls.id=s.session_id
+  where s.id=p_syllabus_id and s.user_id=p_user_id and ls.user_id=p_user_id
+    and ls.status='active' and s.status='ready' and s.expires_at>now()
+),
+found as (
+  select c.id,c.concept_node_id,c.chunk_text,c.source_file,c.page_number,
+     ts_rank_cd(c.fts,websearch_to_tsquery('english',left(p_query,900)))::double precision as score
+    from public.document_atomic_chunks c join allowed a
+      on c.syllabus_id=a.id and c.generation=a.active_generation
+  where c.user_id=p_user_id and c.fts @@ websearch_to_tsquery('english',left(p_query,900))
+)
+select * from found order by score desc,id limit greatest(1,least(coalesce(p_limit,10),25))
+$;
+revoke all on function public.search_study_chunks_worker(uuid,text,uuid,integer) from public,anon,authenticated;
+grant execute on function public.search_study_chunks_worker(uuid,text,uuid,integer) to service_role;
+
 commit;
