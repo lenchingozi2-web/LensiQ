@@ -18,3 +18,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Scheduled maintenance failed.' }, { status: 500 });
   }
 }
+
+// Vercel Cron invokes GET; share the same secret-checked routine as manual POST.
+export async function GET(req: Request) { return POST(req); }

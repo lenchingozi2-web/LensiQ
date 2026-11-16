@@ -2,7 +2,11 @@
  * Callers own persistence of the canonical cursor and cannot advance from a cache miss. */
 export class LookaheadBuffer<T> {
   private readonly cached=new Map<string,Promise<T>>();
-  constructor(private readonly load:(id:string)=>Promise<T>,private readonly maxEntries=3){}
+  private readonly load:(id:string)=>Promise<T>;
+  private readonly maxEntries:number;
+  constructor(load:(id:string)=>Promise<T>,maxEntries=3){
+    this.load=load;this.maxEntries=maxEntries;
+  }
   warm(id:string): Promise<T> {
     const existing=this.cached.get(id);
     if(existing)return existing;
