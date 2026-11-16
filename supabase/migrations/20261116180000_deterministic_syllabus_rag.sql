@@ -80,6 +80,20 @@ values ('ephemeral_class_materials','ephemeral_class_materials',false,73400320,
  'application/vnd.openxmlformats-officedocument.presentationml.presentation','text/plain'])
 on conflict(id) do update set public=false,file_size_limit=73400320,allowed_mime_types=excluded.allowed_mime_types;
 
+-- Signed URL creation requires Storage INSERT authorization. Limit it to
+-- exact rows reserved for the authenticated learner; bucket remains private.
+create policy "Owner can sign reserved syllabus uploads"
+on storage.objects for insert to authenticated
+with check (
+ bucket_id='ephemeral_class_materials'
+ and exists (
+   select 1 from public.study_documents d
+   join public.study_syllabi s on s.id=d.syllabus_id
+   where d.storage_path=storage.objects.name and d.user_id=(select auth.uid())
+     and d.status='reserved' and s.user_id=d.user_id and s.status='draft'
+     and s.expires_at>now()
+ )
+);
 -- Atomic reservations prevent parallel uploads exceeding 25 files or 70 MiB.
 create or replace function public.reserve_study_documents(p_syllabus_id uuid,p_files jsonb)
 returns table(document_id uuid,storage_path text,original_name text) language plpgsql security definer

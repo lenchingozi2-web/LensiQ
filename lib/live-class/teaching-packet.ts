@@ -40,16 +40,21 @@ export function makeTeachingPacket(sessionId:string,syllabusId:string,version:nu
   const visual=record.visual_spec_json && typeof record.visual_spec_json==='object'
     ? record.visual_spec_json as Record<string,unknown>:{};
   const stage=typeof visual.mode==='string'?visual.mode:'';
-  if(second){
-    if(['anatomy_3d','molecule_3d','physiology_sim','source_diagram'].includes(stage)
-      && typeof visual.asset_url==='string' && visual.asset_url.startsWith('https://')){
-      cues.push(parseVisualCue({
-        id:record.id+'-1',mode:stage,title:record.title,spoken_text:second,steps:[],
-        asset_url:visual.asset_url,structure_id:visual.structure_id,citations:refs,
-      }));
-    }else cues.push(checkpoint(record.id,record.title,second,refs,1));
+  const approvedStage=['anatomy_3d','molecule_3d','source_diagram'].includes(stage)
+    ? typeof visual.asset_url==='string' && visual.asset_url.startsWith('https://')
+    : stage==='physiology_sim' && typeof visual.structure_id==='string';
+  if(approvedStage){
+    cues.push(parseVisualCue({
+      id:record.id+'-1',mode:stage,title:record.title,
+      spoken_text:second || ('Examine how this visual demonstrates '+record.title+'. '+first.slice(0,420)),
+      steps:[],asset_url:visual.asset_url,structure_id:visual.structure_id,citations:refs,
+    }));
+    cues.push(checkpoint(record.id,record.title,
+      final || ('Key concept: '+record.title+'. '+(segment[0]||'').slice(0,420)),refs,2));
+  }else{
+    if(second)cues.push(checkpoint(record.id,record.title,second,refs,1));
+    if(final)cues.push(checkpoint(record.id,record.title,final,refs,2));
   }
-  if(final)cues.push(checkpoint(record.id,record.title,final,refs,2));
   return parseTeachingPacket({type:'TEACHING_PACKET',session_id:sessionId,syllabus_id:syllabusId,
     state_version:version,concept_node_id:record.id,title:record.title,visual_cues:cues});
 }

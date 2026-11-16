@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { parseUploadedDocument, chunkFacts, type ParsedDocument } from './ingestor';
 import { processSyllabus } from './process-syllabus';
 import { embedStudyText } from './embeddings';
+import { matchCuratedClassVisual } from '@/lib/live-class/model-matcher';
 
 type Progress = { stage: string; current: number; total: number; detail?: string; syllabusId?: string };
 const BUCKET = 'ephemeral_class_materials';
@@ -86,7 +87,7 @@ export async function* compileStudySyllabus(userId: string, syllabusId: string):
         consolidated_notes: concept.notes,
         key_details_json: concept.facts,
         source_citations_json: concept.citations,
-        visual_spec_json: { mode: 'whiteboard', title: concept.title },
+        visual_spec_json: matchCuratedClassVisual(concept.title) || { mode: 'whiteboard', title: concept.title },
       }).select('id').single();
       ensureNoError(nodeError, 'Create concept');
       const chunks = chunkFacts(concept.facts);

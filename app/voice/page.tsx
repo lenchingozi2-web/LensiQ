@@ -928,6 +928,9 @@ function VoiceTutorContent() {
       return;
     }
     const { Room, RoomEvent, Track } = livekit;
+    // Sweep abandoned uploads before creating another session. The server
+    // checks ownership and TTL; failures never block a functioning class.
+    void rag.sweepStale().catch(() => undefined);
     const room = new Room({
       adaptiveStream: true,
       dynacast: true,

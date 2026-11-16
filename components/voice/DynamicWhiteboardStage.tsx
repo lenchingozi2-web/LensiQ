@@ -2,7 +2,8 @@
 
 import type { ComponentProps } from 'react';
 import LiveClassVisualStage from '@/components/LiveClassVisualStage';
-import { getLiveClassModelCatalogEntry } from '@/lib/voice/live-class-model-catalog';
+import { getLiveClassModelCatalogEntry, getLiveClassMoleculeCatalogEntry } from '@/lib/voice/live-class-model-catalog';
+import type { PhysiologyPreset } from '@/components/PhysiologySimulator';
 import type { VisualCue, Citation } from '@/lib/live-class/visual-protocol';
 import type { VisualContext } from '@/lib/voice/live-class-visuals';
 
@@ -12,6 +13,22 @@ export default function DynamicWhiteboardStage({cue,steps,citations,...original}
   if(!cue)return <LiveClassVisualStage {...original}/>;
   if(cue.mode==='anatomy_3d'&&cue.asset_url&&getLiveClassModelCatalogEntry(cue.asset_url)){
     const context:VisualContext={type:'model',modelUrl:cue.asset_url,title:cue.title,structureId:cue.structure_id};
+    return <LiveClassVisualStage {...original} visualContext={context}/>;
+  }
+  if(cue.mode==='molecule_3d'&&cue.asset_url){
+    const asset=getLiveClassMoleculeCatalogEntry(cue.asset_url);
+    if(asset){
+      const context:VisualContext={
+        type:'molecule',modelUrl:asset.modelUrl,pdbId:asset.pdbId,ligand:asset.ligand,
+        note:asset.note,title:cue.title,
+      };
+      return <LiveClassVisualStage {...original} visualContext={context}/>;
+    }
+  }
+  const allowedPresets:PhysiologyPreset[]=['cardiac_output','mean_arterial_pressure','alveolar_ventilation',
+    'acid_base_balance','anion_gap','drug_half_life','competitive_antagonism','oxygen_content','renal_clearance'];
+  if(cue.mode==='physiology_sim'&&cue.structure_id&&allowedPresets.includes(cue.structure_id as PhysiologyPreset)){
+    const context:VisualContext={type:'simulation',preset:cue.structure_id as PhysiologyPreset,title:cue.title};
     return <LiveClassVisualStage {...original} visualContext={context}/>;
   }
   if(cue.mode==='source_diagram'&&cue.asset_url&&/^https:\/\//i.test(cue.asset_url)){

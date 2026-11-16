@@ -209,7 +209,10 @@ class SyllabusVoiceTutor:
             await self.publish({"type": "TUTOR_RECOVERY_REQUIRED", "state_version": self.state_version})
 
     async def receive_packet(self, packet: dict[str, Any]) -> None:
-        if packet.get("type") == "TEACHING_PACKET":
+        if packet.get("type") == "HELLO" and packet.get("session_id") == self.session_id:
+            await self.publish({"type": "WORKER_READY", "session_id": self.session_id,
+                                "state_version": self.state_version})
+        elif packet.get("type") == "TEACHING_PACKET":
             if packet.get("session_id") != self.session_id:
                 return
             version = packet.get("state_version")
@@ -288,6 +291,8 @@ async def entrypoint(ctx: JobContext) -> None:
     )
     try:
         await ctx.connect()
+        await tutor.publish({"type": "WORKER_READY", "session_id": tutor.session_id,
+                             "state_version": 0})
         await asyncio.Future()
     finally:
         await tutor.close()

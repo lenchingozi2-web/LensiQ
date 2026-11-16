@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Room } from 'livekit-client';
+import { RoomEvent, type Room } from 'livekit-client';
 import type { LessonState } from '@/lib/live-class/orchestrator';
 import type { TeachingPacket } from '@/lib/live-class/visual-protocol';
 
@@ -14,6 +14,38 @@ async function invoke(payload:Record<string,unknown>):Promise<LessonReply>{
   const data=await response.json().catch(()=>null);
   if(!response.ok)throw new Error(data?.error||'Lesson transition failed');
   return data as LessonReply;
+}
+/** Wait for an actual session-scoped worker handshake; never silently send a
+ * teaching packet to an external worker that cannot consume the new protocol. */
+async function waitForTutorWorker(room:Room,sessionId:string):Promise<void>{
+  return new Promise<void>((resolve,reject)=>{
+    let finished=false;
+    const ack=(payload:Uint8Array,_participant:unknown,_kind:unknown,topic?:string)=>{
+      if(topic!=='lk-lesson-state'||payload.byteLength>3000)return;
+      try{
+        const message=JSON.parse(new TextDecoder().decode(payload)) as {type?:string;session_id?:string};
+        if(message.type==='WORKER_READY'&&message.session_id===sessionId)finish();
+      }catch{return;}
+    };
+    const hello=()=>{void room.localParticipant.publishData(
+      new TextEncoder().encode(JSON.stringify({type:'HELLO',session_id:sessionId})),
+      {reliable:true,topic:'lk-lesson-state'},
+    ).catch(()=>undefined);};
+    const finish=(error?:Error)=>{
+      if(finished)return;
+      finished=true;
+      window.clearTimeout(deadline);
+      room.off(RoomEvent.DataReceived,ack);
+      room.off(RoomEvent.ParticipantConnected,hello);
+      if(error)reject(error);else resolve();
+    };
+    const deadline=window.setTimeout(()=>finish(new Error(
+      'The currently deployed voice worker does not support the syllabus protocol. The existing Live Class remains available.',
+    )),12000);
+    room.on(RoomEvent.DataReceived,ack);
+    room.on(RoomEvent.ParticipantConnected,hello);
+    hello();
+  });
 }
 export function useLiveClassOrchestrator(){
   const [state,setState]=useState<LessonState|null>(null);
@@ -47,6 +79,7 @@ export function useLiveClassOrchestrator(){
       if(!link.ok)throw new Error((await link.json().catch(()=>null))?.error||'Cannot link class sources');
       const bootstrap=await invoke({action:'bootstrap',sessionId,syllabusId});
       record(bootstrap);
+      await waitForTutorWorker(room,sessionId);
       let teaching=bootstrap;
       if(bootstrap.state.phase==='SYLLABUS_READY')teaching=await invoke({
         action:'start',sessionId,stateVersion:bootstrap.state.state_version,
