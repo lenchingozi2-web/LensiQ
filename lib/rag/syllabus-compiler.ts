@@ -67,7 +67,7 @@ export async function* compileStudySyllabus(userId: string, syllabusId: string):
         }).select('id').single();
         ensureNoError(error, 'Create module');
         moduleId = data!.id;
-        modules.set(concept.module, moduleId);
+        modules.set(concept.module, moduleId!);
       }
       const topicKey = concept.module + '\u0000' + concept.topic;
       let topicId = topics.get(topicKey);
@@ -78,7 +78,7 @@ export async function* compileStudySyllabus(userId: string, syllabusId: string):
         }).select('id').single();
         ensureNoError(error, 'Create topic');
         topicId = data!.id;
-        topics.set(topicKey, topicId);
+        topics.set(topicKey, topicId!);
       }
       const { data: node, error: nodeError } = await admin.from('syllabus_concept_nodes').insert({
         syllabus_id: syllabusId, user_id: userId, generation, node_type: 'concept',
