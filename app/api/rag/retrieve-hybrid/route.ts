@@ -14,7 +14,9 @@ export async function POST(request: Request) {
   const query = typeof body?.query === 'string' ? body.query.trim().slice(0, 1000) : '';
   if (!UUID.test(syllabusId) || !query) return Response.json({ error: 'Syllabus ID and query required' }, { status: 400 });
   // Authenticated SQL enforces owner ID and active generation; no service-role key is used for searching.
-  const embedding = await embedStudyText(query, { taskType: 'RETRIEVAL_QUERY', timeoutMs: 1800 });
+  const embedding = body?.searchMode === 'semantic'
+    ? await embedStudyText(query, { taskType: 'RETRIEVAL_QUERY', timeoutMs: 1800 })
+    : { provider: 'lexical' as const, values: null };
   const { data, error } = await client.rpc('search_study_chunks', {
     p_syllabus_id: syllabusId, p_query: query,
     p_embedding: embedding.values ? '[' + embedding.values.join(',') + ']' : null,

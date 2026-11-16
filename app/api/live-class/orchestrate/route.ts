@@ -39,8 +39,9 @@ export async function POST(request:Request){
   const {data:entitled,error:entitlementError}=await admin.rpc('live_class_gateway_allowed',{p_session:sessionId,p_user:user.id});
   if(entitlementError||entitled!==true)return NextResponse.json({error:'Live Class entitlement unavailable'},{status:403});
   try{
-    let {data:lesson,error:lookupError}=await admin.from('live_class_lessons').select('*').eq('session_id',sessionId).eq('user_id',user.id).maybeSingle();
+    const {data:existingLesson,error:lookupError}=await admin.from('live_class_lessons').select('*').eq('session_id',sessionId).eq('user_id',user.id).maybeSingle();
     if(lookupError)throw lookupError;
+    let lesson=existingLesson;
     if(action==='bootstrap'){
       if(lesson)return NextResponse.json({ok:true,state:toState(lesson as LessonRow)});
       const syllabusId=typeof body.syllabusId==='string'?body.syllabusId:'';

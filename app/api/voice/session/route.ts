@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { purgeSessionMaterialsOnEnd } from '@/lib/rag/ephemeral-cleanup';
 import { createClient } from '../../../../lib/supabase/server';
 import { logAuthRequestRejection } from '../../../../lib/auth/request-diagnostics';
 
@@ -49,7 +51,26 @@ export async function POST(req: Request) {
     if (error) return NextResponse.json({ error: 'Unable to update the Live Class session.' }, { status: 500 });
   }
 
+  // Enforce post-class source/vector purge on the server even if the browser
+  // disconnects before its own Storage removal can complete.
+  let cleanupPending = false;
+  let purgedSyllabi = 0;
+  if (action === 'end' || Boolean(charge.should_end)) {
+    const admin = createAdminClient();
+    if (!admin) cleanupPending = true;
+    else {
+      try {
+        const removed = await purgeSessionMaterialsOnEnd(admin, user.id, sessionId);
+        purgedSyllabi = removed.length;
+      } catch (error) {
+        cleanupPending = true;
+        console.error('Live Class material purge is pending retry', error instanceof Error ? error.message : 'unknown');
+      }
+    }
+  }
   return NextResponse.json({
+    cleanupPending,
+    purgedSyllabi,
     ok: true,
     remainingVoiceMinutes: charge.remaining_voice_minutes ?? null,
     shouldEnd: Boolean(charge.should_end),

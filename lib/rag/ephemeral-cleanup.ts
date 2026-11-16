@@ -90,3 +90,20 @@ export async function sweepExpiredSyllabi(admin:SupabaseClient,userId:string,max
   }
   return{purged,failed};
 }
+
+/** Invoked by authenticated scheduled maintenance. Limit work per invocation,
+ * including previously interrupted purges, to avoid unbounded serverless runtime. */
+export async function sweepAllExpiredSyllabi(admin:SupabaseClient,max=25):Promise<{purged:number;failed:number}>{
+  const {data,error}=await admin.from('study_syllabi').select('id,user_id')
+    .neq('status','purged')
+    .or('expires_at.lt.'+new Date().toISOString()+',status.eq.purging')
+    .order('created_at',{ascending:true}).limit(max);
+  errorIf(error,'Find globally expired syllabi');
+  let purged=0,failed=0;
+  for(const syllabus of data||[]){
+    try{await purgeSyllabusMaterials(admin,syllabus.user_id,syllabus.id);purged++;}catch(error){
+      failed++;console.error('Scheduled expired syllabus cleanup needs retry',syllabus.id,error instanceof Error?error.message:'unknown');
+    }
+  }
+  return{purged,failed};
+}
