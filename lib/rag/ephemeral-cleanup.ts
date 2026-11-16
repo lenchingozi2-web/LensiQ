@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const BUCKET='ephemeral_class_materials';
+const BUCKET='study-documents';
 type CleanupOutcome={syllabusId:string;deletedFiles:number;purged:true};
 function errorIf(error:{message:string}|null,stage:string):void{
   if(error)throw new Error(stage+': '+error.message);

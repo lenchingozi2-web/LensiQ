@@ -75,7 +75,7 @@ revoke insert,update,delete on public.syllabus_concept_nodes from anon,authentic
 revoke insert,update,delete on public.document_atomic_chunks from anon,authenticated;
 
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
-values ('ephemeral_class_materials','ephemeral_class_materials',false,73400320,
+values ('study-documents','study-documents',false,73400320,
  array['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document',
  'application/vnd.openxmlformats-officedocument.presentationml.presentation','text/plain'])
 on conflict(id) do update set public=false,file_size_limit=73400320,allowed_mime_types=excluded.allowed_mime_types;
@@ -85,7 +85,7 @@ on conflict(id) do update set public=false,file_size_limit=73400320,allowed_mime
 create policy "Owner can sign reserved syllabus uploads"
 on storage.objects for insert to authenticated
 with check (
- bucket_id='ephemeral_class_materials'
+ bucket_id='study-documents'
  and exists (
    select 1 from public.study_documents d
    join public.study_syllabi s on s.id=d.syllabus_id
@@ -143,7 +143,7 @@ begin
   if v_doc.status in ('uploaded','indexed') then return v_doc.actual_size_bytes; end if;
   if v_doc.status<>'reserved' then raise exception 'Document not confirmable'; end if;
   select nullif(metadata->>'size','')::bigint into v_size from storage.objects
-    where bucket_id='ephemeral_class_materials' and name=v_doc.storage_path;
+    where bucket_id='study-documents' and name=v_doc.storage_path;
   if v_size is null or v_size<=0 or v_size>v_doc.reserved_size_bytes
     then raise exception 'Storage upload size differs from reservation'; end if;
   update public.study_documents set status='uploaded',actual_size_bytes=v_size where id=p_document_id;
@@ -153,7 +153,7 @@ end;$$;
 revoke all on function public.confirm_study_document(uuid) from public;
 grant execute on function public.confirm_study_document(uuid) to authenticated;
 
-create or replace function public.search_study_chunks(
+create or replace function public.match_study_concepts_hybrid(
  p_syllabus_id uuid,p_query text,p_embedding vector(1536) default null,p_limit integer default 8)
 returns table(id uuid,concept_node_id uuid,chunk_text text,source_file text,page_number integer,score double precision)
 language sql stable security invoker set search_path=public,extensions as $$
@@ -180,6 +180,6 @@ select c.id,c.concept_node_id,c.chunk_text,c.source_file,c.page_number,f.rr::dou
 from fused f join public.document_atomic_chunks c on c.id=f.id
 order by f.rr desc,c.id limit greatest(1,least(coalesce(p_limit,8),25))
 $$;
-revoke all on function public.search_study_chunks(uuid,text,vector(1536),integer) from public;
-grant execute on function public.search_study_chunks(uuid,text,vector(1536),integer) to authenticated;
+revoke all on function public.match_study_concepts_hybrid(uuid,text,vector(1536),integer) from public;
+grant execute on function public.match_study_concepts_hybrid(uuid,text,vector(1536),integer) to authenticated;
 commit;

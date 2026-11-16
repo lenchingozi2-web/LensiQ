@@ -5,7 +5,7 @@ import { embedStudyText } from './embeddings';
 import { matchCuratedClassVisual } from '@/lib/live-class/model-matcher';
 
 type Progress = { stage: string; current: number; total: number; detail?: string; syllabusId?: string };
-const BUCKET = 'ephemeral_class_materials';
+const BUCKET = 'study-documents';
 const emit = (stage: string, current: number, total: number, detail?: string): Progress => ({ stage, current, total, detail });
 
 function ensureNoError(error: { message?: string } | null, context: string): void {
@@ -90,7 +90,7 @@ export async function* compileStudySyllabus(userId: string, syllabusId: string):
         visual_spec_json: matchCuratedClassVisual(concept.title) || { mode: 'whiteboard', title: concept.title },
       }).select('id').single();
       ensureNoError(nodeError, 'Create concept');
-      const chunks = chunkFacts(concept.facts);
+      const chunks = chunkFacts(concept.sourceFacts);
       // The atomic chunks, never a compressed AI abstract, are the authoritative evidence store.
       for (const chunk of chunks) {
         const result = await embedStudyText(chunk.text, { taskType: 'RETRIEVAL_DOCUMENT' });

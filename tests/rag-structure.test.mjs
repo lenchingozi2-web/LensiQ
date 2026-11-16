@@ -33,12 +33,13 @@ test('only exact duplicate statements are removed; exceptions and sources persis
   const result = compileCanonicalConcept('Dose', source);
   assert.equal(uniqueFacts(source).length, 2);
   assert.equal(result.facts.length, 2);
+  assert.equal(result.sourceFacts.length, 3); // repeated wording in a second handout retains its provenance
   assert.equal(result.citations.length, 2);
   assert.match(result.notes, /renal failure/);
 });
 test('private schema, quota, generation and hybrid indexes are declared', async () => {
   const sql = await readFile(new URL('../supabase/migrations/20261116180000_deterministic_syllabus_rag.sql', import.meta.url),'utf8');
   for (const token of ['study_syllabi','study_documents','syllabus_concept_nodes','document_atomic_chunks','73400320',
-    'vector(1536)','using hnsw','using gin','search_study_chunks','active_generation',
+    'vector(1536)','using hnsw','using gin','match_study_concepts_hybrid','active_generation',
     'enable row level security','confirm_study_document']) assert.ok(sql.includes(token), token);
 });

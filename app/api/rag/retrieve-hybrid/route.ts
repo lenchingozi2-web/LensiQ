@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const embedding = body?.searchMode === 'semantic'
     ? await embedStudyText(query, { taskType: 'RETRIEVAL_QUERY', timeoutMs: 1800 })
     : { provider: 'lexical' as const, values: null };
-  const { data, error } = await client.rpc('search_study_chunks', {
+  const { data, error } = await client.rpc('match_study_concepts_hybrid', {
     p_syllabus_id: syllabusId, p_query: query,
     p_embedding: embedding.values ? '[' + embedding.values.join(',') + ']' : null,
     p_limit: 12,

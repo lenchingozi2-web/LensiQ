@@ -68,7 +68,7 @@ on public.study_syllabi for each row execute function public.guard_study_syllabu
 create or replace function public.search_study_chunks_worker(
   p_syllabus_id uuid,p_query text,p_user_id uuid,p_limit integer default 10)
 returns table(id uuid,concept_node_id uuid,chunk_text text,source_file text,page_number integer,score double precision)
-language sql stable security definer set search_path=public,extensions as $
+language sql stable security definer set search_path=public,extensions as $$
 with allowed as (
   select s.id,s.active_generation from public.study_syllabi s
     join public.live_class_sessions ls on ls.id=s.session_id
@@ -83,7 +83,7 @@ found as (
   where c.user_id=p_user_id and c.fts @@ websearch_to_tsquery('english',left(p_query,900))
 )
 select * from found order by score desc,id limit greatest(1,least(coalesce(p_limit,10),25))
-$;
+$$;
 revoke all on function public.search_study_chunks_worker(uuid,text,uuid,integer) from public,anon,authenticated;
 grant execute on function public.search_study_chunks_worker(uuid,text,uuid,integer) to service_role;
 

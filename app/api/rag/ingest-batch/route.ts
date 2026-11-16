@@ -5,7 +5,7 @@ import { includesLiveClass } from '@/lib/plans';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-const BUCKET = 'ephemeral_class_materials';
+const BUCKET = 'study-documents';
 const MAX_BYTES = 70 * 1024 * 1024;
 const UUID = /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i;
 

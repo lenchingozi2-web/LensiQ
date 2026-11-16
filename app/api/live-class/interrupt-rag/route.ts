@@ -25,7 +25,7 @@ export async function POST(request:Request){
   // checks the owner and active session in SQL, and performs lexical retrieval without model calls.
   const {data,error}=gateway
     ?await admin.rpc('search_study_chunks_worker',{p_syllabus_id:lesson.syllabus_id,p_query:query,p_user_id:user.id,p_limit:10})
-    :await (await createClient()).rpc('search_study_chunks',{p_syllabus_id:lesson.syllabus_id,p_query:query,p_embedding:null,p_limit:10});
+    :await (await createClient()).rpc('match_study_concepts_hybrid',{p_syllabus_id:lesson.syllabus_id,p_query:query,p_embedding:null,p_limit:10});
   if(error)return NextResponse.json({error:'Cited class retrieval temporarily unavailable'},{status:503});
   const matches=(data||[]).map((row:{id:string;concept_node_id:string;chunk_text:string;source_file:string;page_number:number|null;score:number})=>({
     id:row.id,conceptNodeId:row.concept_node_id,text:row.chunk_text,

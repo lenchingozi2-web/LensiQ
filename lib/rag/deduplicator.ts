@@ -5,6 +5,7 @@ export type CanonicalConcept = {
   title: string;
   notes: string;
   facts: CitedAtomicFact[];
+  sourceFacts: CitedAtomicFact[];
   citations: Array<{ file_name: string; page_number: number | null; document_id: string }>;
 };
 
@@ -26,5 +27,5 @@ export function compileCanonicalConcept(title: string, facts: CitedAtomicFact[])
   const uniqueCitations = citations.filter((citation, index) =>
     citations.findIndex((entry) => entry.file_name === citation.file_name && entry.page_number === citation.page_number && entry.document_id === citation.document_id) === index
   );
-  return { title, facts: distinct, notes: distinct.map((fact) => fact.text).join('\n\n'), citations: uniqueCitations };
+  return { title, facts: distinct, sourceFacts: facts, notes: distinct.map((fact) => fact.text).join('\n\n'), citations: uniqueCitations };
 }
