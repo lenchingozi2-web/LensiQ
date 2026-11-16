@@ -128,28 +128,48 @@ try {
 
   const groqKey = requireEnv('GROQ_API_KEY');
   const geminiKey = requireEnv('GEMINI_API_KEY');
-  try {
-    const ms = await timeTTFT('groq', 'https://api.groq.com/openai/v1/chat/completions',
-      { authorization: 'Bearer ' + groqKey },
-      { model: 'llama-3.1-8b-instant', stream: true, max_tokens: 12,
-        messages: [{ role: 'user', content: 'Reply with one word: ready' }] },
-      (frame) => typeof frame?.choices?.[0]?.delta?.content === 'string' &&
-        !!frame.choices[0].delta.content.trim());
-    mark('groq_stream', true, 'first content token ' + ms + 'ms');
-  } catch (error) {
-    mark('groq_stream', false, error.message);
+  // Benchmark both Groq models that the live tutor actually routes to.
+  for (const [label, model] of [
+    ['groq_barge_in', 'llama-3.1-8b-instant'],
+    ['groq_teach', 'llama-3.3-70b-versatile'],
+  ]) {
+    try {
+      const ms = await timeTTFT(label, 'https://api.groq.com/openai/v1/chat/completions',
+        { authorization: 'Bearer ' + groqKey },
+        { model, stream: true, max_completion_tokens: 24,
+          messages: [{ role: 'user', content: 'Reply with one word: ready' }] },
+        (frame) => typeof frame?.choices?.[0]?.delta?.content === 'string' &&
+          !!frame.choices[0].delta.content.trim());
+      mark(label + '_stream', true, 'first content token ' + ms + 'ms');
+    } catch (error) {
+      mark(label + '_stream', false, error.message);
+    }
   }
+  // The production fallback uses generateContent, NOT streaming; for that
+  // path first usable content is available only after the full HTTP response.
   try {
-    const ms = await timeTTFT('gemini',
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse',
-      { 'x-goog-api-key': geminiKey },
-      { contents: [{ role: 'user', parts: [{ text: 'Reply with one word: ready' }] }],
-        generationConfig: { maxOutputTokens: 64, thinkingConfig: { thinkingBudget: 0 } } },
-      (frame) => !!frame?.candidates?.[0]?.content?.parts?.some(
-        (part) => typeof part.text === 'string' && !!part.text.trim()));
-    mark('gemini_stream', true, 'first content token ' + ms + 'ms');
+    const started = performance.now();
+    const response = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': geminiKey },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: 'Reply with one word: ready' }] }],
+          generationConfig: { temperature: 0.4, maxOutputTokens: 700,
+            thinkingConfig: { thinkingBudget: 0 } },
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
+    if (!response.ok) throw new Error('Gemini fallback HTTP ' + response.status);
+    const data = await response.json();
+    const answer = data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '';
+    if (!answer.trim()) throw new Error('Gemini fallback returned no usable content');
+    const ms = Math.round((performance.now()-started)*100)/100;
+    report.latency_ms.gemini_actual_fallback_first_output = ms;
+    mark('gemini_actual_fallback', true,
+      'first usable non-streaming response ' + ms + 'ms (production fallback behavior)');
   } catch (error) {
-    mark('gemini_stream', false, error.message);
+    mark('gemini_actual_fallback', false, error.message);
   }
   report.pass = Object.values(report.checks).every((value) => value.ok);
 } catch (error) {
