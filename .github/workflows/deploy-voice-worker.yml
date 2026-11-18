@@ -1,0 +1,87 @@
+name: Deploy LenxiQ LiveKit Voice Worker
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'worker/lensiq-voice-tutor/**'
+      - '.github/workflows/deploy-voice-worker.yml'
+  workflow_dispatch:
+    inputs:
+      agent_id:
+        description: 'Existing LiveKit Cloud agent ID (overrides LIVEKIT_AGENT_ID repository variable)'
+        required: false
+        type: string
+      confirm_production:
+        description: 'Type DEPLOY to authorize a manual production deployment'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: lensiq-voice-tutor-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'DEPLOY')
+    environment: production-voice-worker
+    runs-on: ubuntu-latest
+    env:
+      LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+      LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+      LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+      LIVEKIT_AGENT_ID: ${{ inputs.agent_id || vars.LIVEKIT_AGENT_ID }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify agent identity and configuration
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from urllib.parse import urlsplit
+          required = ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET',
+                      'LIVEKIT_AGENT_ID', 'GROQ_API_KEY', 'GEMINI_API_KEY',
+                      'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']
+          missing = [key for key in required if not os.environ.get(key)]
+          if missing:
+              raise SystemExit('Missing deployment configuration: ' + ', '.join(missing))
+          agent_id = os.environ['LIVEKIT_AGENT_ID']
+          if not agent_id.startswith('CA_') or not agent_id[3:].replace('_', '').isalnum():
+              raise SystemExit('LIVEKIT_AGENT_ID must be an existing CA_ agent ID; never create a duplicate automatically')
+          project = urlsplit(os.environ['LIVEKIT_URL']).hostname
+          if not project or not project.endswith('.livekit.cloud'):
+              raise SystemExit('LIVEKIT_URL must identify the intended LiveKit Cloud project')
+          ref = urlsplit(os.environ['NEXT_PUBLIC_SUPABASE_URL']).hostname
+          if ref != 'hixvbcrrklyajhkyliay.supabase.co':
+              raise SystemExit('Study Hub Supabase project mismatch; refusing worker cutover')
+          text = '[project]\nsubdomain = "' + project.removesuffix('.livekit.cloud') + '"\n\n'
+          text += '[agent]\nid = "' + agent_id + '"\n'
+          Path('worker/lensiq-voice-tutor/livekit.toml').write_text(text)
+          print('Validated production worker ID, LiveKit host and Study Hub Supabase project')
+          PY
+      - name: Check Python worker syntax
+        run: python3 -m py_compile worker/lensiq-voice-tutor/agent.py
+      - name: Deploy existing agent with rolling health checks
+        uses: livekit/deploy-action@v2.12.2
+        env:
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+          LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+          SECRET_LIST: GROQ_API_KEY=${{ secrets.GROQ_API_KEY }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }},SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        with:
+          OPERATION: deploy
+          WORKING_DIRECTORY: worker/lensiq-voice-tutor
+      - name: Verify worker healthy
+        uses: livekit/deploy-action@v2.12.2
+        env:
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+          LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+        with:
+          OPERATION: status-retry
+          WORKING_DIRECTORY: worker/lensiq-voice-tutor
+          TIMEOUT: 5m

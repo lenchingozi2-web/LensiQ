@@ -14,7 +14,7 @@ export default async function DashboardPage() {
     supabase.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id }),
   ]);
   if (!profile) {
-    return <main className="min-h-[65dvh] bg-[#F6F8FB] px-5 py-16"><div className="mx-auto max-w-lg rounded-2xl border border-amber-200 bg-white p-8 text-center shadow-sm"><h1 className="text-xl font-black text-[#0B1220]">Your account status couldn't be loaded</h1><p className="mt-3 text-sm leading-6 text-slate-600">We couldn't verify your subscription right now. Your payment and learning records have not been changed.</p><Link href="/dashboard" className="mt-5 inline-flex rounded-xl bg-[#0B1220] px-4 py-3 text-sm font-bold text-white">Retry account check</Link></div></main>;
+    return <main className="min-h-[65dvh] bg-[#F6F8FB] px-5 py-16"><div className="mx-auto max-w-lg rounded-2xl border border-amber-200 bg-white p-8 text-center shadow-sm"><h1 className="text-xl font-black text-[#0B1220]">Your account status couldn&apos;t be loaded</h1><p className="mt-3 text-sm leading-6 text-slate-600">We couldn&apos;t verify your subscription right now. Your payment and learning records have not been changed.</p><Link href="/dashboard" className="mt-5 inline-flex rounded-xl bg-[#0B1220] px-4 py-3 text-sm font-bold text-white">Retry account check</Link></div></main>;
   }
   const isAdmin = profile.role === 'admin';
   const isPremium = isAdmin || (isPaidPlan(profile?.plan) && (!profile?.plan_expires_at || new Date(profile.plan_expires_at) > new Date()));

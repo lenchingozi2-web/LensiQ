@@ -11,8 +11,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Install dependencies for real document parsing and UI checks
+      - name: Install dependencies for document parsing and UI checks
         run: npm ci --ignore-scripts
       - name: Verify Study Hub regression tests
         run: node --test tests/*.test.mjs
-
+      - name: Check LiveKit worker Python syntax
+        run: python3 -m py_compile worker/lensiq-voice-tutor/agent.py
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: ESLint
+        run: npm run lint
+      - name: Production build
+        run: npm run build

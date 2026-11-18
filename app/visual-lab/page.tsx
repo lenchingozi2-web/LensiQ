@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useSyncExternalStore, useState } from 'react';
 import LiveClassVisualStage from '@/components/LiveClassVisualStage';
 import type { PhysiologyPreset } from '@/components/PhysiologySimulator';
 import { LIVE_CLASS_MODEL_ASSETS, getLiveClassModelLabel, type VisualContext } from '@/lib/voice/live-class-visuals';
@@ -51,8 +51,7 @@ export default function VisualLabPage() {
       .catch(() => { if (!controller.signal.aborted) setModelLibraryState('Curated previews only; real bucket catalogue unavailable'); });
     return () => controller.abort();
   }, []);
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => setHydrated(true), []);
+  const hydrated = useSyncExternalStore(() => () => {}, () => true, () => false);
   const [structure, setStructure] = useState('');
   const [experiment, setExperiment] = useState('');
   const [labState, setLabState] = useState('');

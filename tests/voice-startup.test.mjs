@@ -22,8 +22,8 @@ async function handler({paid=true,failDispatch=false}={}) {
   let source=await readFile(new URL('../app/api/voice/token/route.ts',import.meta.url),'utf8');
   source=source.replace(/^import .*\n/gm,'');
   const names=Object.keys(globalThis.__voiceStartup).join(',');
-  const module=await import('data:text/javascript;base64,'+Buffer.from('const {'+names+'}=globalThis.__voiceStartup;\n'+stripTypeScriptTypes(source)).toString('base64')+'#'+sequence++);
-  return {calls,post:()=>module.POST(new Request('https://fixture.test/api/voice/token',{method:'POST',body:JSON.stringify({courseName:'Pathology'})}))};
+  const loadedModule=await import('data:text/javascript;base64,'+Buffer.from('const {'+names+'}=globalThis.__voiceStartup;\n'+stripTypeScriptTypes(source)).toString('base64')+'#'+sequence++);
+  return {calls,post:()=>loadedModule.POST(new Request('https://fixture.test/api/voice/token',{method:'POST',body:JSON.stringify({courseName:'Pathology'})}))};
 }
 
 test('one authenticated dispatch starts a reserved class without an extra room probe',async()=>{

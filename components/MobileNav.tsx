@@ -21,7 +21,10 @@ export default function MobileNav({ links, secondaryLinks, isAuthenticated }: Pr
   const currentPath = `${pathname}${search}`;
   const loginPath = `${LOGIN_PATH}?next=${encodeURIComponent(currentPath)}`;
 
-  useEffect(() => { setIsOpen(false); }, [pathname, search]);
+  useEffect(() => {
+    const task = window.setTimeout(() => setIsOpen(false), 0);
+    return () => window.clearTimeout(task);
+  }, [pathname, search]);
 
   useEffect(() => {
     if (!isOpen) return;
