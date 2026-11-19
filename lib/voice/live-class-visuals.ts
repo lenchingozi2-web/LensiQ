@@ -266,6 +266,7 @@ const FILLER_ONLY_UTTERANCES = new Set([
   'uh', 'um', 'erm', 'hmm', 'mm', 'mm hmm', 'uh huh', 'oh', 'ah', 'well',
 ]);
 const NON_TEACHING_UTTERANCE_PATTERNS = [
+  /^(?:sorry[, ]+)?(?:i\s+)?(?:didn['’]t|couldn['’]t|did not|could not)\s+(?:catch|hear|understand)(?:\s+that|\s+you)?[.!?\s]*$/i,
   /^(?:i(?:'m| am)\s+)?listening(?:\s+to\s+you)?[.!\s]*$/i,
   /^(?:no problem|sure thing|okay|ok|alright|all right),?\s+(?:i(?:'ll| will)|let(?:'s| us))\s+(?:keep|move|continue|go)\b.*$/i,
   /^(?:i(?:'m| am)\s+)?ready\s+to\s+(?:listen|help|continue)\b.*$/i,

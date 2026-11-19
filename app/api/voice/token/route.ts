@@ -52,7 +52,8 @@ export async function POST(req: Request) {
 
   // Both real-time media and the Pipecat tutor are hosted on LiveKit Cloud.
   // One authenticated session reserves a room before explicit agent dispatch.
-  const rawLivekitUrl = process.env.LIVEKIT_PUBLIC_URL || process.env.LIVEKIT_URL;
+  // Use the same canonical project URL as the deployed worker, not a stale public override.
+  const rawLivekitUrl = process.env.LIVEKIT_URL || process.env.LIVEKIT_PUBLIC_URL;
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
 
@@ -60,10 +61,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Voice tutoring is not configured yet. Please check the LiveKit server settings.' }, { status: 503 });
   }
 
-  const rawLivekitUrls = Array.from(new Set([
-    rawLivekitUrl,
-    process.env.LIVEKIT_URL,
-  ].filter((value): value is string => Boolean(value?.trim()))));
+  const rawLivekitUrls = [rawLivekitUrl];
   const livekitUrls: string[] = [];
   for (const candidate of rawLivekitUrls) {
     try {
