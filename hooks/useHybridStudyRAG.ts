@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { uploadStudyDocumentToSignedUrl } from '@/lib/rag/signed-upload';
 
 export const STUDY_RAG_MAX_FILES=25;
 export const STUDY_RAG_MAX_BYTES=70*1024*1024;
@@ -81,8 +82,7 @@ export function useHybridStudyRAG(){
         while(nextIndex<files.length){
           const index=nextIndex++;
           const file=files[index],item=preparation.uploads[index];
-          const {error:uploadError}=await client.storage.from('ephemeral_class_materials')
-            .uploadToSignedUrl(item.path,item.token,file,{contentType:file.type||undefined,upsert:false});
+          const {error:uploadError}=await uploadStudyDocumentToSignedUrl(client,item,file);
           if(uploadError)throw new Error('Upload failed for '+file.name+': '+uploadError.message);
           await postJson('/api/rag/ingest-batch',{action:'confirm',documentId:item.documentId});
           completed++;

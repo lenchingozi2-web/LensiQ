@@ -59,9 +59,9 @@ export async function POST(request: Request) {
   try {
     for (const reservation of reservations) {
       const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(reservation.storage_path);
-      if (error || !data?.token) throw new Error('Unable to sign upload');
+      if (error || !data?.path || !data?.token) throw new Error('Unable to sign upload');
       uploads.push({ documentId: reservation.document_id, fileName: reservation.original_name,
-        path: reservation.storage_path, token: data.token });
+        path: data.path, token: data.token });
     }
   } catch {
     // Reservation remains visible and expires with the syllabus. Never silently exceed a quota.
