@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getLectureFileExtension } from '@/lib/curriculum/file-types';
+import { buildTeachingContext } from '@/lib/ai/teaching-context';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { includesLiveClass } from '@/lib/plans';
 
 export const runtime = 'nodejs';
@@ -19,6 +21,19 @@ export async function POST(request: Request) {
   if (!hasPlan) return NextResponse.json({ error: 'Active Live Class subscription required' }, { status: 403 });
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  if (body.action === 'course'){
+    const course=typeof body.course==='string'?body.course.trim().slice(0,100):'';
+    const admin=createAdminClient();
+    if(!course||!admin)return NextResponse.json({error:'Course context unavailable'},{status:503});
+    const context=await buildTeachingContext(admin,course,[{role:'user',content:String(body.focus||course).slice(0,300)}]);
+    const sources=context.knowledgeSources.filter(s=>s.content?.trim()).slice(0,8).map(s=>'# '+s.title+'\n'+s.content);
+    if(!sources.length)for(const q of context.questions.filter(q=>q.question_text&&(q.model_answer||q.correct_answer)&&
+      (!q.division||q.division.toLowerCase().includes(course.toLowerCase())||course==='Pharmacology')).slice(0,12)){
+      sources.push('# '+(q.topic||course)+'\n'+q.question_text+'\n'+(q.model_answer||q.correct_answer));
+    }
+    if(!sources.length)return NextResponse.json({error:'No course-bank passages available. Choose lecture notes to start this class.'},{status:422});
+    return NextResponse.json({text:sources.join('\n\n')});
+  }
   if (body.action === 'confirm') {
     const documentId = typeof body.documentId === 'string' ? body.documentId : '';
     if (!UUID.test(documentId)) return NextResponse.json({ error: 'Invalid document ID' }, { status: 400 });

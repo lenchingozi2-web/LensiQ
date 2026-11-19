@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { RoomEvent, type Room } from 'livekit-client';
+import { RoomEvent, type Room, type RemoteParticipant } from 'livekit-client';
 import { parseVisualCue, type VisualCue, type Citation } from '@/lib/live-class/visual-protocol';
 
 type VisualSnapshot={active_mode:string;concept_node_id:string;cue_index:number;whiteboard_snapshot:string[];active_cue:VisualCue};
@@ -16,8 +16,8 @@ export function useVisualSyncEngine(room:Room|null){
   const lastConceptRef=useRef<string|null>(null);
   useEffect(()=>{
     if(!room)return;
-    const receive=(payload:Uint8Array,participant:unknown,kind:unknown,topic?:string)=>{
-      void participant;void kind;
+    const receive=(payload:Uint8Array,participant:RemoteParticipant|undefined,kind:unknown,topic?:string)=>{
+      void kind; if(!participant?.isAgent)return;
       if(topic!=='lk-lesson-state'||payload.byteLength>15000)return;
       let data:Record<string,unknown>;
       try{data=JSON.parse(new TextDecoder().decode(payload)) as Record<string,unknown>;}catch{return;}

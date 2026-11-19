@@ -1,10 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
 import { includesLiveClass } from '@/lib/plans';
-import { compileStudySyllabus } from '@/lib/rag/syllabus-compiler';
+import { compileStep } from '@/lib/rag/syllabus-compiler';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300;
+export const maxDuration = 60;
 const UUID = /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i;
 
 export async function POST(request: Request) {
@@ -18,28 +18,17 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const syllabusId = typeof body?.syllabusId === 'string' ? body.syllabusId : '';
   if (!UUID.test(syllabusId)) return Response.json({ error: 'Invalid syllabus ID' }, { status: 400 });
-  const { data: syllabus } = await supabase.from('study_syllabi').select('id').eq('id', syllabusId).eq('user_id',user.id).maybeSingle();
-  if (!syllabus) return Response.json({ error: 'Syllabus not found' }, { status: 404 });
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      const send = (event: string, value: unknown) => controller.enqueue(encoder.encode('event: ' + event + '\ndata: ' + JSON.stringify(value) + '\n\n'));
-      try {
-        for await (const progress of compileStudySyllabus(user.id, syllabusId)) {
-          if (request.signal.aborted) throw new Error('Compilation request disconnected');
-          send('progress', progress);
-        }
-        send('complete', { ok: true, syllabusId });
-      } catch (error) {
-        send('error', { error: error instanceof Error ? error.message : 'Compilation failed', syllabusId });
-      } finally {
-        controller.close();
-      }
-    },
-  });
-  return new Response(stream, { headers: {
-    'Content-Type': 'text/event-stream; charset=utf-8',
-    'Cache-Control': 'no-cache, no-transform',
-    'X-Accel-Buffering': 'no',
-  } });
+  const action = body?.action;
+  const itemId = body?.itemId ?? '';
+  const offset = body?.offset ?? 0;
+  if (!['prepare','parse','publish','node'].includes(action) ||
+      (['parse','node'].includes(action) && (typeof itemId !== 'string' || !UUID.test(itemId))) ||
+      !Number.isSafeInteger(offset) || offset < 0 || offset % 32 !== 0) {
+    return Response.json({error:'Invalid compilation checkpoint'},{status:400});
+  }
+  try {
+    return Response.json(await compileStep(user.id, syllabusId, action, itemId, offset, AbortSignal.any([request.signal,AbortSignal.timeout(42000)])));
+  } catch (error) {
+    return Response.json({error:error instanceof Error ? error.message : 'Compilation step failed'},{status:503});
+  }
 }

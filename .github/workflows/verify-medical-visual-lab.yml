@@ -6,6 +6,7 @@ on:
       - '.github/workflows/verify-medical-visual-lab.yml'
       - 'scripts/visual_lab_e2e.mjs'
       - 'app/visual-lab/page.tsx'
+      - 'components/voice/DynamicWhiteboardStage.tsx'
   workflow_dispatch:
 permissions:
   contents: read

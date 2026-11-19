@@ -5,6 +5,7 @@ on:
     paths:
       - 'worker/lensiq-voice-tutor/**'
       - '.github/workflows/deploy-voice-worker.yml'
+      - 'scripts/verify-tutor-audio.py'
   workflow_dispatch:
     inputs:
       agent_id:
@@ -85,3 +86,8 @@ jobs:
           OPERATION: status-retry
           WORKING_DIRECTORY: worker/lensiq-voice-tutor
           TIMEOUT: 5m
+      - name: Verify remote tutor handshake and audible greeting
+        run: |
+          python3 -m venv "$RUNNER_TEMP/tutor-probe"
+          "$RUNNER_TEMP/tutor-probe/bin/pip" install --disable-pip-version-check 'livekit-api==1.2.3' 'livekit==1.2.1'
+          "$RUNNER_TEMP/tutor-probe/bin/python" scripts/verify-tutor-audio.py

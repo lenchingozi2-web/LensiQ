@@ -90,9 +90,9 @@ function mockCleanupClient(failStorage=false){
     syllabi:[{id:a,user_id:c,session_id:b,status:'ready',reserved_bytes:123,used_bytes:123,active_generation:1}],
     documents:[{id:'d',user_id:c,syllabus_id:a,storage_path:c+'/'+a+'/'+b+'.pdf'}],
     nodes:[{syllabus_id:a,user_id:c}],chunks:[{syllabus_id:a,user_id:c}],
-    removed:[],
+    lessons:[{syllabus_id:a,user_id:c,visual_stack_json:['fixture source text']}],removed:[],
   };
-  const tableMap={study_syllabi:'syllabi',study_documents:'documents',syllabus_concept_nodes:'nodes',document_atomic_chunks:'chunks'};
+  const tableMap={live_class_lessons:'lessons',study_syllabi:'syllabi',study_documents:'documents',syllabus_concept_nodes:'nodes',document_atomic_chunks:'chunks'};
   const from=table=>{
     const q={filters:[],kind:'select',values:null,
       select(){return this},eq(key,value){this.filters.push(r=>r[key]===value);return this},
@@ -119,7 +119,7 @@ test('class completion permanently wipes raw files, vectors, notes and releases 
   const result=await purgeSessionMaterialsOnEnd(client,c,b);
   assert.equal(result.length,1);assert.equal(result[0].deletedFiles,1);
   assert.equal(state.removed.length,1);assert.equal(state.chunks.length,0);
-  assert.equal(state.nodes.length,0);assert.equal(state.documents.length,0);
+  assert.equal(state.nodes.length,0);assert.equal(state.documents.length,0);assert.deepEqual(state.lessons[0].visual_stack_json,[]);
   assert.equal(state.syllabi[0].status,'purged');assert.equal(state.syllabi[0].used_bytes,0);
   assert.equal(state.syllabi[0].reserved_bytes,0);
 });

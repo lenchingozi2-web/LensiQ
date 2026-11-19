@@ -5,7 +5,7 @@ import { verifyLiveClassGatewayToken } from '@/lib/voice/live-class-gateway-auth
 import { transitionLessonState, initialLessonState, type LessonState, type LessonEvent } from '@/lib/live-class/orchestrator';
 import { makeTeachingPacket, type ConceptRecord } from '@/lib/live-class/teaching-packet';
 import { purgeSessionMaterialsOnEnd } from '@/lib/rag/ephemeral-cleanup';
-import { LookaheadBuffer } from '@/lib/live-class/lookahead-buffer';
+
 import type { VisualSnapshot } from '@/lib/live-class/visual-protocol';
 
 export const runtime='nodejs';export const dynamic='force-dynamic';export const maxDuration=60;
@@ -42,17 +42,32 @@ export async function POST(request:Request){
     const {data:existingLesson,error:lookupError}=await admin.from('live_class_lessons').select('*').eq('session_id',sessionId).eq('user_id',user.id).maybeSingle();
     if(lookupError)throw lookupError;
     let lesson=existingLesson;
+    async function discover(syllabusId:string){
+      const {data:s,error}=await admin!.from('study_syllabi').select('id,status,active_generation,staging_generation')
+        .eq('id',syllabusId).eq('user_id',user!.id).eq('session_id',sessionId).in('status',['ready','compiling']).single();
+      if(error||!s)throw new Error('Active linked syllabus unavailable');
+      const nodes:{id:string;title:string}[]=[];
+      const fingerprints=new Set<string>();
+      for(let from=0;;from+=500){
+        const page=await admin!.from('syllabus_concept_nodes').select('id,title,visual_spec_json->>fingerprint').eq('syllabus_id',s.id)
+          .eq('user_id',user!.id).eq('generation',s.staging_generation??s.active_generation).eq('node_type','concept')
+          .order('sort_order').order('id').range(from,from+499);
+        if(page.error)throw page.error;
+        for(const node of page.data){
+          // Keep every source chunk searchable. Speak an identical checkpoint only once.
+          if(node.fingerprint && fingerprints.has(node.fingerprint)&&node.id!==body.conceptNodeId)continue;
+          if(node.fingerprint)fingerprints.add(node.fingerprint);
+          nodes.push({id:node.id,title:node.title});
+        }
+        if(page.data.length<500)break;
+      }
+      return {nodes,pending:s.status==='compiling'};
+    }
     if(action==='bootstrap'){
       if(lesson)return NextResponse.json({ok:true,state:toState(lesson as LessonRow)});
       const syllabusId=typeof body.syllabusId==='string'?body.syllabusId:'';
       if(!UUID.test(syllabusId))return NextResponse.json({error:'Syllabus required'},{status:400});
-      const {data:syllabus}=await admin.from('study_syllabi').select('id,active_generation')
-        .eq('id',syllabusId).eq('user_id',user.id).eq('session_id',sessionId).eq('status','ready').maybeSingle();
-      if(!syllabus)return NextResponse.json({error:'Publish and link your syllabus first'},{status:409});
-      const {data:nodes,error:nodesError}=await admin.from('syllabus_concept_nodes').select('id,title')
-        .eq('syllabus_id',syllabusId).eq('user_id',user.id).eq('generation',syllabus.active_generation)
-        .eq('node_type','concept').order('sort_order',{ascending:true});
-      if(nodesError)throw nodesError;
+      const {nodes}=await discover(syllabusId);
       if(!nodes?.length)return NextResponse.json({error:'Compiled concepts missing'},{status:409});
       const prepared=transitionLessonState(initialLessonState(),{type:'SYLLABUS_COMPILED',nodes:nodes.map(n=>n.id)});
       const inserted=await admin.from('live_class_lessons').insert({
@@ -66,7 +81,16 @@ export async function POST(request:Request){
     if(!lesson)return NextResponse.json({error:'Initialize syllabus before starting the lesson'},{status:409});
     const record=lesson as LessonRow;
     const current=toState(record);
-    if(action==='state')return NextResponse.json({ok:true,state:current});
+    async function packetFor(state:LessonState){
+      if(state.phase!=='TEACHING_NODE'||!state.current_node_id)return null;
+      const {data,error}=await admin!.from('syllabus_concept_nodes')
+        .select('id,title,consolidated_notes,key_details_json,source_citations_json,visual_spec_json')
+        .eq('id',state.current_node_id).eq('syllabus_id',record.syllabus_id).eq('user_id',user!.id).single();
+      if(error||!data)throw new Error('Concept lookup failed');
+      return makeTeachingPacket(sessionId,record.syllabus_id,state.state_version,data as ConceptRecord);
+    }
+    if(action==='state')return NextResponse.json({ok:true,state:current,packet:await packetFor(current)});
+
     const version=Number(body.stateVersion);
     if(!Number.isSafeInteger(version)||version!==current.state_version)
       return NextResponse.json({error:'Stale lesson state',state:current},{status:409});
@@ -91,6 +115,14 @@ export async function POST(request:Request){
           concept_node_id:String(body.conceptNodeId||''),worker_verified:Boolean(gateway)};break;
       default:return NextResponse.json({error:'Unsupported lesson action'},{status:400});
     }
+    if(action==='jump'&&!current.nodes.includes(String(body.conceptNodeId)) ||
+       ['node_complete','next'].includes(action)&&current.cursor+1>=current.nodes.length){
+      const {nodes,pending}=await discover(record.syllabus_id);
+      const known=new Set(current.nodes);
+      current.nodes.push(...nodes.filter(n=>!known.has(n.id)).map(n=>n.id));
+      if(action!=='jump'&&pending&&current.cursor+1>=current.nodes.length)
+        return NextResponse.json({ok:true,waiting:true,state:current});
+    }
     const next=transitionLessonState(current,event);
     if(next===current)return NextResponse.json({ok:true,stale:true,state:current});
     const stack=Array.isArray(record.visual_stack_json)?[...record.visual_stack_json]:[];
@@ -105,26 +137,12 @@ export async function POST(request:Request){
       .eq('state_version',current.state_version).select('session_id').maybeSingle();
     if(writeError)throw writeError;
     if(!changed)return NextResponse.json({error:'Concurrent state change; refresh lesson state'},{status:409});
-    let packet=null,lookahead=null;
-    if(next.phase==='TEACHING_NODE'&&next.current_node_id){
-      const load=async(id:string)=>{
-        const {data,error}=await admin.from('syllabus_concept_nodes')
-          .select('id,title,consolidated_notes,key_details_json,source_citations_json,visual_spec_json')
-          .eq('id',id).eq('syllabus_id',record.syllabus_id).eq('user_id',user.id).single();
-        if(error||!data)throw new Error('Concept lookup failed');
-        return data as ConceptRecord;
-      };
-      const buffer=new LookaheadBuffer(load);
-      const item=await buffer.get(next.current_node_id);
-      packet=makeTeachingPacket(sessionId,record.syllabus_id,next.state_version,item);
-      const nextId=next.nodes[next.cursor+1];
-      if(nextId){const subsequent=await buffer.warm(nextId);lookahead={conceptNodeId:subsequent.id,title:subsequent.title};}
-    }
+    const packet=await packetFor(next);
     let purge=null;
-    if(next.phase==='COMPLETED'){
+    if(action==='end'){
       purge=await purgeSessionMaterialsOnEnd(admin,user.id,sessionId);
     }
-    return NextResponse.json({ok:true,state:next,packet,lookahead,restoredVisual:restored,purge});
+    return NextResponse.json({ok:true,state:next,packet,restoredVisual:restored,purge});
   }catch(error){
     console.error('Live Class orchestration failed',error instanceof Error?error.message:'unknown');
     return NextResponse.json({error:'Unable to complete lesson transition; no classroom state was fabricated'},{status:503});

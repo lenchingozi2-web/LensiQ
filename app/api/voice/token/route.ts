@@ -198,7 +198,16 @@ export async function POST(req: Request) {
     userId: user.id,
     expiresAt: sessionExpiresAt,
   });
+  const syllabusId = typeof body.syllabusId === 'string' ? body.syllabusId : null;
+  if (syllabusId) {
+    const {data:linked,error}=await admin.from('study_syllabi')
+      .update({session_id:quota.session_id,expires_at:sessionExpiresAt})
+      .eq('user_id',user.id).eq('id',syllabusId).is('session_id',null)
+      .in('status',['compiling','ready']).gt('expires_at',new Date().toISOString()).select('id').maybeSingle();
+    if(error||!linked){await releaseFailedStart();return NextResponse.json({error:'This syllabus expired or is already in use.'},{status:409});}
+  }
   const dispatchMetadata = JSON.stringify({
+    syllabusId,
     voiceGatewayToken,
     userId: user.id,
     courseName,
@@ -239,7 +248,7 @@ export async function POST(req: Request) {
   // Dispatch itself authenticates the Cloud project. A separate listRooms()
   // probe duplicated that network round trip on every classroom start.
   let livekitUrl: string | null = null;
-  const agentName = process.env.LIVEKIT_AGENT_NAME?.trim() || 'lensiq-voice-tutor';
+  const agentName = 'lensiq-voice-tutor';
   for (const candidateUrl of livekitUrls) {
     const dispatchHost = candidateUrl.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:');
     try {
@@ -255,6 +264,7 @@ export async function POST(req: Request) {
     }
   }
   if (!livekitUrl) {
+    if(syllabusId)await admin.from('study_syllabi').update({session_id:null}).eq('id',syllabusId).eq('user_id',user.id).eq('session_id',quota.session_id);
     await releaseFailedStart();
     return NextResponse.json({
       error: 'livekit_tutor_dispatch_failed',

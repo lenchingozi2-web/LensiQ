@@ -30,6 +30,9 @@ export async function purgeSyllabusMaterials(admin:SupabaseClient,userId:string,
     const {error}=await admin.storage.from(BUCKET).remove(paths.slice(i,i+50));
     errorIf(error,'Delete class source binaries');
   }
+  const {error:lessonError}=await admin.from('live_class_lessons').update({phase:'COMPLETED',visual_stack_json:[],nodes_json:[],current_node_id:null})
+    .eq('syllabus_id',syllabusId).eq('user_id',userId);
+  errorIf(lessonError,'Clear saved lesson checkpoints');
   const {error:chunksError}=await admin.from('document_atomic_chunks').delete()
     .eq('syllabus_id',syllabusId).eq('user_id',userId);
   errorIf(chunksError,'Delete session vectors');

@@ -1,8 +1,10 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { uploadStudyDocumentToSignedUrl } from '@/lib/rag/signed-upload';
+
+import { inPool, retryStep } from '@/lib/rag/compile-pool';
 
 export const STUDY_RAG_MAX_FILES=25;
 export const STUDY_RAG_MAX_BYTES=70*1024*1024;
@@ -13,8 +15,8 @@ export type SyllabusTreeNode={
 export type StudyRAGProgress={stage:string;current:number;total:number;detail?:string};
 type SearchHit={id:string;text:string;source:{fileName:string;pageOrSlide:number|null};score:number};
 const supported=/\.(?:pdf|doc|docx|pptx|txt)$/i;
-async function postJson(url:string,value:Record<string,unknown>){
-  const response=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(value),cache:'no-store'});
+async function postJson(url:string,value:Record<string,unknown>, signal?:AbortSignal){
+  const response=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(value),cache:'no-store',signal});
   const payload=await response.json().catch(()=>null);
   if(!response.ok)throw new Error(payload?.error||'Study material request failed');
   return payload;
@@ -28,7 +30,16 @@ export function useHybridStudyRAG(){
   const [error,setError]=useState('');
   const [lastSearch,setLastSearch]=useState<SearchHit[]>([]);
   const busyRef=useRef(false);
-  const ready=status==='ready'&&Boolean(syllabusId);
+  const [ready,setReady]=useState(false);
+  const [flagged,setFlagged]=useState<string[]>([]);
+  const jobRef=useRef<AbortController|null>(null);
+  const checkpoint=useRef<string|null>(null);
+  const [resumeId,setResumeId]=useState<string|null>(null);
+  useEffect(()=>{
+    const id=sessionStorage.getItem('lensiq.pending-syllabus');
+    if(id){checkpoint.current=id;queueMicrotask(()=>setResumeId(id));}
+    return ()=>jobRef.current?.abort();
+  },[]);
   const addFiles=useCallback((incoming:File[])=>{
     setFiles(current=>{
       const seen=new Set(current.map(file=>[file.name,file.size,file.lastModified].join(':')));
@@ -47,90 +58,103 @@ export function useHybridStudyRAG(){
     });
   },[]);
   const removeFile=useCallback((index:number)=>{setFiles(current=>current.filter((_,i)=>i!==index));setStatus('idle');setSyllabusId(null);setTree([]);},[]);
-  const clear=useCallback(()=>{setFiles([]);setSyllabusId(null);setTree([]);setStatus('idle');setProgress(null);setError('');},[]);
+  const clear=useCallback(()=>{jobRef.current?.abort();jobRef.current=null;busyRef.current=false;
+    checkpoint.current=null;sessionStorage.removeItem('lensiq.pending-syllabus');setResumeId(null);setFlagged([]);setReady(false);setFiles([]);setSyllabusId(null);setTree([]);setStatus('idle');setProgress(null);setError('');},[]);
+  const discard=useCallback(()=>{
+    const id=checkpoint.current;clear();
+    if(id)void postJson('/api/rag/cleanup',{action:'purge-syllabus',syllabusId:id}).catch(()=>undefined);
+  },[clear]);
   const loadTree=useCallback(async(id:string):Promise<SyllabusTreeNode[]>=>{
     const client=createClient();
-    const {data:syllabus,error:syllabusError}=await client.from('study_syllabi').select('active_generation,status').eq('id',id).maybeSingle();
-    if(syllabusError||syllabus?.status!=='ready')throw new Error('The syllabus has not been published');
-    const {data:nodes,error:nodesError}=await client.from('syllabus_concept_nodes')
-      .select('id,title,parent_id,node_type,sort_order,source_citations_json')
-      .eq('syllabus_id',id).eq('generation',syllabus.active_generation)
-      .order('sort_order',{ascending:true});
-    if(nodesError)throw new Error('Unable to retrieve the master syllabus tree');
-    const results=(nodes||[]) as SyllabusTreeNode[];
-    setTree(results);
+    const {data:syllabus,error}=await client.from('study_syllabi').select('active_generation,staging_generation,status').eq('id',id).maybeSingle();
+    if(error||!syllabus||!['compiling','ready'].includes(syllabus.status))throw new Error('Syllabus is no longer available');
+    const results:SyllabusTreeNode[]=[];
+    for(let from=0;;from+=500){
+      const page=await client.from('syllabus_concept_nodes').select('id,title,parent_id,node_type,sort_order,source_citations_json')
+        .eq('syllabus_id',id).eq('generation',syllabus.staging_generation??syllabus.active_generation)
+        .order('sort_order').order('id').range(from,from+499);
+      if(page.error)throw new Error('Unable to retrieve the syllabus tree');
+      results.push(...(page.data||[]) as SyllabusTreeNode[]);
+      if(!page.data||page.data.length<500)break;
+    }
+    if(checkpoint.current===id)setTree(results);
     return results;
   },[]);
-  const uploadAndCompile=useCallback(async():Promise<string>=>{
-    if(busyRef.current)throw new Error('Compilation is already running');
-    if(!files.length)throw new Error('Choose at least one study document');
-    const size=files.reduce((sum,file)=>sum+file.size,0);
-    if(files.length>STUDY_RAG_MAX_FILES||size>STUDY_RAG_MAX_BYTES)throw new Error('Syllabus exceeds 25 files or 70 MiB');
-    busyRef.current=true;
-    let newSyllabusId:string|null=null;
-    setStatus('uploading');setError('');setProgress({stage:'reserving',current:0,total:files.length});
+  const uploadAndCompile=useCallback(async(overrideFiles?:File[],sessionId?:string)=>{
+    if(busyRef.current)return;
+    const selected=overrideFiles??files;
+    let id=checkpoint.current;
+    if(!selected.length&&!id)throw new Error('Choose at least one study document');
+    const job=new AbortController(), signal=job.signal;
+    jobRef.current=job;busyRef.current=true;
+    setError('');setFlagged([]);
     try{
-      const preparation=await postJson('/api/rag/ingest-batch',{
-        action:'prepare',files:files.map(file=>({name:file.name,size:file.size,type:file.type})),
-      }) as {syllabusId:string;uploads:Array<{documentId:string;path:string;token:string}>};
-      newSyllabusId=preparation.syllabusId;
-      setSyllabusId(newSyllabusId);
-      if(preparation.uploads.length!==files.length)throw new Error('File reservation count was inconsistent');
-      const client=createClient();
-      let completed=0,nextIndex=0;
-      const worker=async()=>{
-        while(nextIndex<files.length){
-          const index=nextIndex++;
-          const file=files[index],item=preparation.uploads[index];
-          const {error:uploadError}=await uploadStudyDocumentToSignedUrl(client,item,file);
-          if(uploadError)throw new Error('Upload failed for '+file.name+': '+uploadError.message);
-          await postJson('/api/rag/ingest-batch',{action:'confirm',documentId:item.documentId});
-          completed++;
-          setProgress({stage:'uploading',current:completed,total:files.length,detail:file.name});
-        }
-      };
-      await Promise.all(Array.from({length:Math.min(3,files.length)},()=>worker()));
-      setStatus('compiling');setProgress({stage:'parsing',current:0,total:files.length});
-      const response=await fetch('/api/rag/compile-syllabus',{
-        method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({syllabusId:newSyllabusId}),cache:'no-store',
-      });
-      if(!response.ok||!response.body)throw new Error('Syllabus compilation service is unavailable');
-      const reader=response.body.getReader(),decoder=new TextDecoder();
-      let pending='',complete=false;
-      const handle=(message:string)=>{
-        const event=message.split('\n').find(line=>line.startsWith('event: '))?.slice(7).trim()||'';
-        const dataLine=message.split('\n').find(line=>line.startsWith('data: '));
-        if(!dataLine)return;
-        const data=JSON.parse(dataLine.slice(6));
-        if(event==='error')throw new Error(data.error||'Syllabus compilation failed');
-        if(event==='progress')setProgress({stage:data.stage,current:data.current,total:data.total,detail:data.detail});
-        if(event==='complete')complete=true;
-      };
-      try{
-        for(;;){
-          const read=await reader.read();
-          if(read.done)break;
-          pending+=decoder.decode(read.value,{stream:true}).replace(/\r\n/g,'\n');
-          const messages=pending.split('\n\n');pending=messages.pop()||'';
-          for(const message of messages)handle(message);
-        }
-        if(pending.trim())handle(pending);
-      }finally{reader.releaseLock();}
-      if(!complete)throw new Error('Syllabus compilation ended without a completion acknowledgment');
-      await loadTree(newSyllabusId);
-      setProgress({stage:'ready',current:files.length,total:files.length});
-      setStatus('ready');
-      return newSyllabusId;
-    }catch(caught){
-      const message=caught instanceof Error?caught.message:'Unable to compile study files';
-      setError(message);setStatus('error');
-      if(newSyllabusId){
-        void postJson('/api/rag/cleanup',{action:'purge-syllabus',syllabusId:newSyllabusId}).catch(()=>{
-          console.warn('Failed syllabus cleanup will be retried by the automatic sweep');
+      if(!id){
+        setStatus('uploading');setProgress({stage:'Uploading',current:0,total:selected.length});
+        const prepared=await postJson('/api/rag/ingest-batch',{action:'prepare',sessionId,
+          files:selected.map(f=>({name:f.name,size:f.size,type:f.type}))},signal);
+        id=String(prepared.syllabusId);
+        if(prepared.uploads.length!==selected.length)throw new Error('File reservation count mismatch');
+        const client=createClient();let uploaded=0;
+        await inPool(selected,async(file,i)=>{
+          signal.throwIfAborted();
+          const item=prepared.uploads[i];
+          const {error}=await uploadStudyDocumentToSignedUrl(client,item,file);
+          if(error)throw new Error(file.name+': '+error.message);
+          await retryStep(()=>postJson('/api/rag/ingest-batch',{action:'confirm',documentId:item.documentId},signal),signal);
+          setProgress({stage:'Uploading',current:++uploaded,total:selected.length,detail:file.name});
         });
+        signal.throwIfAborted();checkpoint.current=id;setResumeId(id);sessionStorage.setItem('lensiq.pending-syllabus',id);
       }
+      const syllabus=id;
+      setSyllabusId(syllabus);setStatus('compiling');
+      const step=(action:string,itemId?:string,offset?:number)=>retryStep(()=>postJson('/api/rag/compile-syllabus',
+        {syllabusId:syllabus,action,itemId,offset},AbortSignal.any([signal,AbortSignal.timeout(52000)])),signal);
+      const plan=await step('prepare');
+      const docs=plan.documents as {id:string;indexed:boolean}[];
+      const completed=new Set<string>();let total=0;
+      const enrich=async(node:SyllabusTreeNode)=>{
+        try{await step('node',node.id);}
+        catch(failure){signal.throwIfAborted();setFlagged(old=>[...old,node.title]);if(!completed.size)console.warn('Using indexed source text',failure instanceof Error?failure.name:'');}
+        signal.throwIfAborted();completed.add(node.id);
+        setProgress({stage:'Preparing concepts',current:completed.size,total,detail:node.title});
+      };
+      let firstOffset=0;
+      if(!docs[0].indexed){
+        setProgress({stage:'Reading first document',current:0,total:docs.length});
+        const first=await step('parse',docs[0].id,0);
+        docs[0].indexed=first.done;firstOffset=first.next??0;
+      }
+      const firstTree=await loadTree(syllabus);
+      const firstNodes=firstTree.filter(n=>n.node_type==='concept');
+      if(!firstNodes.length)throw new Error('No readable concepts were indexed');
+      total=firstNodes.length;
+      // These nodes already contain the complete cited source and a usable visual.
+      // Semantic vectors and optional Flash layout hints must never hold the classroom door.
+      signal.throwIfAborted();setReady(true);
+      await inPool(firstNodes.slice(0,2),enrich);
+      let parsed=docs.filter(d=>d.indexed).length;
+      await inPool(docs,async(doc,i)=>{
+        if(doc.indexed)return;
+        let offset=i===0?firstOffset:0;
+        for(;;){
+          const result=await step('parse',doc.id,offset);
+          if(result.done)break;
+          offset=result.next;
+        }
+        setProgress({stage:'Indexing documents',current:++parsed,total:docs.length});
+      });
+      if(!plan.published)await step('publish');
+      const nodes=(await loadTree(syllabus)).filter(n=>n.node_type==='concept');
+      total=nodes.length;
+      await inPool(nodes.filter(n=>!completed.has(n.id)),enrich);
+      signal.throwIfAborted();setStatus('ready');
+      setProgress({stage:'Source index ready',current:total,total});
+    }catch(caught){
+      if(signal.aborted)return;
+      setError(caught instanceof Error?caught.message:'Unable to prepare study material');setStatus('error');
       throw caught;
-    }finally{busyRef.current=false;}
+    }finally{if(jobRef.current===job)busyRef.current=false;}
   },[files,loadTree]);
   const search=useCallback(async(query:string,semantic=false):Promise<SearchHit[]>=>{
     if(!syllabusId)return[];
@@ -142,5 +166,5 @@ export function useHybridStudyRAG(){
   const sweepStale=useCallback(async()=>{
     return postJson('/api/rag/cleanup',{action:'sweep'});
   },[]);
-  return {files,addFiles,removeFile,clear,syllabusId,tree,status,ready,progress,error,lastSearch,uploadAndCompile,loadTree,search,sweepStale};
+  return {files,addFiles,removeFile,clear,discard,syllabusId,tree,status,ready,progress,error,flagged,resumeId,lastSearch,uploadAndCompile,loadTree,search,sweepStale};
 }

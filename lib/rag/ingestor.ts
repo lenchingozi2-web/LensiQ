@@ -24,6 +24,8 @@ export function parseDocumentSections(text: string, documentId: string, fileName
   let page: number | null = null;
   let heading = 'General concepts', moduleTitle = 'General', topic = 'Overview';
   let facts: CitedAtomicFact[] = [];
+  let slideStart = false;
+  let inSlides = false;
   const flush = () => {
     if (facts.length) sections.push({ heading, module: moduleTitle, topic, facts });
     facts = [];
@@ -31,9 +33,21 @@ export function parseDocumentSections(text: string, documentId: string, fileName
   const lines = text.replace(/\r\n?/g, '\n').split('\n');
   for (const line of lines) {
     const boundary = line.trim().match(/^\[(?:Page|Slide)\s+(\d+)\]$/i);
-    if (boundary) { page = Number(boundary[1]); continue; }
-    const title = headingOf(line);
-    if (title) { flush(); heading = title; topic = title; if (!sections.length) moduleTitle = title; continue; }
+    if (boundary) {
+      flush(); page = Number(boundary[1]); slideStart = /^\[Slide/i.test(line.trim());
+      inSlides = slideStart;
+      if (slideStart) heading = 'Slide ' + page;
+      continue;
+    }
+    if (/^\[Slide \d+: Image-only visual slide\]$/i.test(line.trim())) { flush(); continue; }
+    if (!line.trim() || line.trim() === '[Speaker notes]') continue;
+    const title = !inSlides||slideStart?headingOf(line):null;
+    if (slideStart || title) {
+      flush(); heading = title || (line.trim().length <= 120 ? line.trim() : heading);
+      topic = heading; if (!sections.length) moduleTitle = heading;
+      slideStart = false;
+      if (/^#{1,5}\s+/.test(line.trim()))continue;
+    }
     // Every content-bearing line is retained. Original paragraph boundaries remain in chunk text.
     if (line.trim()) facts.push({ text: line.trim(), documentId, sourceFile: fileName, pageNumber: page });
   }

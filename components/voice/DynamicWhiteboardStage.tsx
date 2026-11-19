@@ -47,7 +47,9 @@ export default function DynamicWhiteboardStage({cue,steps,citations,...original}
       </p>
       <h2 className="mt-3 text-2xl font-black leading-tight sm:text-4xl">{cue.title}</h2>
       <div className="mt-7 space-y-3" aria-live="polite">
-        {(cue.mode==='whiteboard_scratchpad'?cue.steps:steps).slice(-12).map((step,index)=>
+        {cue.comparison_table&&<div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{cue.comparison_table.columns.map((c,i)=><th key={i} className="p-2 text-amber-200">{c}</th>)}</tr></thead><tbody>{cue.comparison_table.rows.map((r,i)=><tr key={i}>{r.map((v,j)=><td key={j} className="border-t border-white/10 p-2">{v}</td>)}</tr>)}</tbody></table></div>}
+        {Boolean(cue.mechanism_flow_arrows?.length)&&<p className="rounded-xl bg-sky-400/10 p-3 text-sky-100">{cue.mechanism_flow_arrows?.join(' → ')}</p>}
+        {!(cue.comparison_table||cue.mechanism_flow_arrows?.length)&&(cue.mode==='whiteboard_scratchpad'?cue.steps:steps).slice(-12).map((step,index)=>
           <div key={index+'-'+step.slice(0,30)} className="flex items-start gap-4 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-4">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#E8A23D]/15 text-xs font-black text-[#ffd080]">{index+1}</span>
             <p className="text-sm leading-7 text-white/85 sm:text-lg">{step}</p>

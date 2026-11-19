@@ -1,23 +1,29 @@
-import type { ParsedDocument } from './ingestor';
-import { compileCanonicalConcept, type CitedAtomicFact } from './deduplicator';
+import { chunkFacts, type ParsedDocument } from './ingestor';
+import { compileCanonicalConcept } from './deduplicator';
 
-export type CompiledNode = ReturnType<typeof compileCanonicalConcept> & { module: string; topic: string; order: number };
+const clinicalSections = [
+  ['Foundations', /definition|overview|introduction|anatomy/i],
+  ['Classification', /classification|subtypes/i],
+  ['Etiology', /etiolog|aetiolog|risk factors|causes/i],
+  ['Pathogenesis', /pathogenesis|pathophysiology|mechanism/i],
+  ['Morphology', /morpholog|histolog|gross appearance|microscop/i],
+  ['Clinical features', /clinical features|presentation|symptoms|signs/i],
+  ['Investigations', /investigation|diagnos|laboratory/i],
+  ['Management', /management|treatment|therapy|prognosis/i],
+] as const;
 
-/** Coalesce repeated headings, without rewriting or deleting non-identical statements. */
-export function processSyllabus(documents: ParsedDocument[]): CompiledNode[] {
-  const groups = new Map<string, { module: string; topic: string; title: string; facts: CitedAtomicFact[] }>();
-  for (const document of documents) {
-    for (const section of document.sections) {
-      const key = section.heading.normalize('NFKC').toLocaleLowerCase('en').replace(/\s+/g, ' ').trim();
-      const existing = groups.get(key);
-      if (existing) existing.facts.push(...section.facts);
-      else groups.set(key, { module: section.module, topic: section.topic, title: section.heading, facts: [...section.facts] });
-    }
-  }
-  return [...groups.values()].map((group, order) => ({
-    ...compileCanonicalConcept(group.title, group.facts),
-    module: group.module,
-    topic: group.topic,
-    order,
+/** Keep contiguous source passages together. Never merge identically titled
+ * slides from different diseases or lose an exception to a teaching window. */
+export function processSyllabus(documents: ParsedDocument[]) {
+  return documents.flatMap(document => document.sections.flatMap(section => {
+    const topic = clinicalSections.find(([, pattern]) => pattern.test(section.heading))?.[0] || section.topic;
+    const chunks = chunkFacts(section.facts, 1150);
+    return chunks.map((chunk, index) => {
+      const lines = chunk.text.split('\n').filter(Boolean).map(text => ({
+        text, sourceFile: chunk.sourceFile, pageNumber: chunk.pageNumber, documentId: chunk.documentId,
+      }));
+      const title = section.heading + (chunks.length > 1 ? ' · ' + (index + 1) : '');
+      return { ...compileCanonicalConcept(title, lines), module: document.source, topic, chunk };
+    });
   }));
 }

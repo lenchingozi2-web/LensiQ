@@ -23,7 +23,13 @@ export async function POST(request:Request){
   if(!lesson)return NextResponse.json({error:'Lesson syllabus unavailable'},{status:409});
   // The gateway has a server-verified per-session bearer. This RPC is service-role-only,
   // checks the owner and active session in SQL, and performs lexical retrieval without model calls.
-  const {data,error}=gateway
+  const {data:source}=await admin.from('study_syllabi').select('status,staging_generation')
+    .eq('id',lesson.syllabus_id).eq('user_id',user.id).eq('session_id',sessionId).gt('expires_at',new Date().toISOString()).maybeSingle();
+  const {data,error}=source?.status==='compiling'
+    ?await admin.from('document_atomic_chunks').select('id,concept_node_id,chunk_text,source_file,page_number')
+      .eq('syllabus_id',lesson.syllabus_id).eq('user_id',user.id).eq('generation',source.staging_generation)
+      .textSearch('fts',query,{config:'english',type:'websearch'}).limit(10)
+    :gateway
     ?await admin.rpc('search_study_chunks_worker',{p_syllabus_id:lesson.syllabus_id,p_query:query,p_user_id:user.id,p_limit:10})
     :await (await createClient()).rpc('match_study_concepts_hybrid',{p_syllabus_id:lesson.syllabus_id,p_query:query,p_embedding:null,p_limit:10});
   if(error)return NextResponse.json({error:'Cited class retrieval temporarily unavailable'},{status:503});
