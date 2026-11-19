@@ -22,7 +22,7 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/lensiq-worker"
           "$RUNNER_TEMP/lensiq-worker/bin/pip" install --disable-pip-version-check -r worker/lensiq-voice-tutor/requirements.txt
           cd worker/lensiq-voice-tutor
-          "$RUNNER_TEMP/lensiq-worker/bin/python" -c "import agent; assert agent.server is not None"
+          "$RUNNER_TEMP/lensiq-worker/bin/python" -c "import agent, inspect; from livekit.agents import AgentSession; assert agent.server is not None; assert 'skip_reply' in inspect.signature(AgentSession.commit_user_turn).parameters"
       - name: TypeScript
         run: npx tsc --noEmit
       - name: ESLint

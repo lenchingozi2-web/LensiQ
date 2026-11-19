@@ -1,5 +1,7 @@
 'use client';
 
+import { isSyllabusTutor } from '@/lib/live-class/tutor-identity';
+
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -154,7 +156,7 @@ function VoiceTutorContent() {
   const roomRef = useRef<LiveKitRoom | null>(null);
   const [currentLiveRoom, setCurrentLiveRoom] = useState<LiveKitRoom | null>(null);
   const lesson = useLiveClassOrchestrator();
-  const visualSync = useVisualSyncEngine(currentLiveRoom);
+  const visualSync = useVisualSyncEngine(currentLiveRoom,sessionId);
   const [tutorFailure,setTutorFailure]=useState('');
   const [reconnectingTutor,setReconnectingTutor]=useState(false);
   const [boardPending,setBoardPending]=useState(true);
@@ -1040,7 +1042,18 @@ function VoiceTutorContent() {
       messagesRef.current = [];
       transcriptIdsRef.current.clear();
       setReplaying(false);
-      room.on(RoomEvent.TrackSubscribed, (track) => {
+      const trustedTutor = (participant: import('livekit-client').RemoteParticipant | undefined) => isSyllabusTutor(participant, tokenData.sessionId);
+      const subscribeTutor = (participant: import('livekit-client').RemoteParticipant) => {
+        for (const publication of participant.audioTrackPublications.values()) publication.setSubscribed(trustedTutor(participant));
+      };
+      room.on(RoomEvent.TrackPublished, (_publication, participant) => subscribeTutor(participant));
+      room.on(RoomEvent.ParticipantConnected, subscribeTutor);
+      room.on(RoomEvent.ParticipantAttributesChanged, (_changed, participant) => {
+        const remote=room.remoteParticipants.get(participant.identity);
+        if(remote)subscribeTutor(remote);
+      });
+      room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+        if(!trustedTutor(participant)){publication.setSubscribed(false);return;}
         if (track.kind === 'audio') lastTutorActivityAtRef.current = Date.now();
         if (track.kind !== 'audio') return;
         agentAudioSubscribedRef.current = true;
@@ -1072,6 +1085,8 @@ function VoiceTutorContent() {
         clientStage('LIVEKIT_VISUAL_STATE_RESYNCED', { revision: visualRevisionRef.current, type: restoredVisual.type });
         void playTutorAudioElements().catch(() => undefined);
         for (const participant of room.remoteParticipants.values()) {
+          subscribeTutor(participant);
+          if(!trustedTutor(participant))continue;
           for (const publication of participant.trackPublications.values()) {
             if (publication.track?.kind === 'audio') {
               agentAudioSubscribedRef.current = true;
@@ -1084,11 +1099,11 @@ function VoiceTutorContent() {
       const receiveClassData = (payload: Uint8Array, _participant: import('livekit-client').RemoteParticipant | undefined, _kind: import('livekit-client').DataPacket_Kind | undefined, topic?: string, delayed = false) => {
         try {
           let data = JSON.parse(new TextDecoder().decode(payload)) as {turnId?:string;phase?:'listening'|'processing'|'released'|'empty'; visual?:Record<string, unknown>; playbackSynchronized?:boolean; continuationOwner?:string; awaitingQuestion?:boolean; type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; message?: string; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; category?: string; structureId?: string; note?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
-          if (!_participant?.isAgent) return;
+          if (!trustedTutor(_participant)) return;
           if(topic==='lk-lesson-state'){
             if(data.type==='TUTOR_RECOVERY_REQUIRED'){setTutorFailure('Tutor audio or lesson delivery failed. Reconnect to continue from this concept.');setPressPhase('idle');return;}
             if(data.type==='SYNC_VISUAL_STAGE'){setBoardPending(false);setStudioOpen(true);setTutorFailure('');workerContinuationRef.current=true;}
-            if(data.type==='WORKER_READY')workerContinuationRef.current=true;
+            if(data.type==='WORKER_READY'){workerContinuationRef.current=true;setTutorFailure(previous=>previous.includes('acknowledge')?'':previous);}
             if(data.type==='TUTOR_JOINED'){setStudioOpen(true);updateVisualContext({type:'whiteboard',topic:courseName,
               markdown:rag.ready?'Opening your first cited passage.':'Preparing the first passage from your course sources.'});}
           }
@@ -1286,7 +1301,7 @@ function VoiceTutorContent() {
       };
       room.on(RoomEvent.DataReceived, (payload, participant, kind, topic) => receiveClassData(payload, participant, kind, topic));
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
-        const tutorSpeaking = speakers.some((speaker) => !speaker.isLocal);
+        const tutorSpeaking = speakers.some((speaker) => isSyllabusTutor(speaker,tokenData.sessionId));
         if (tutorSpeaking) {
           lastTutorActivityAtRef.current = Date.now();
           setError('');
@@ -1303,7 +1318,7 @@ function VoiceTutorContent() {
       });
       room.on(RoomEvent.TranscriptionReceived, (segments: TranscriptionSegment[], participant?: Participant) => {
         for (const segment of segments) {
-          if (participant?.isLocal || !segment.final || !segment.text.trim()) continue;
+          if (!isSyllabusTutor(participant,tokenData.sessionId) || !segment.final || !segment.text.trim()) continue;
           const message: Message = { role: 'assistant', content: segment.text.trim() };
           if (/^(?:i(?:'m| am)\\s+)?listening(?:\\s+to\\s+you)?[.!\\s]*$/i.test(message.content)) continue;
           // WebRTC transcript packets are history only; TTS visual packets
@@ -1326,11 +1341,13 @@ function VoiceTutorContent() {
       // Capture first speech even if it arrives during connection setup.
       roomRef.current = room;
       setCurrentLiveRoom(room);
-      await room.connect(livekitUrl, tokenData.token);
+      await room.connect(livekitUrl, tokenData.token, {autoSubscribe:false});
+      for(const participant of room.remoteParticipants.values())subscribeTutor(participant);
       void room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({type:'lesson_policy',autoContinue:autoLessonRef.current})),{reliable:true,topic:'lensiq.live_class.lesson_control'}).catch(()=>undefined);
       clientStage('LIVEKIT_ROOM_CONNECTED', { roomName: tokenData.roomName });
       await room.startAudio().catch((playbackError) => { clientStage('AGENT_AUDIO_PLAYBACK_BLOCKED', { error: String(playbackError) }); setAudioState('blocked'); });
       for (const participant of room.remoteParticipants.values()) {
+        if(!trustedTutor(participant))continue;
         for (const publication of participant.trackPublications.values()) {
           if (publication.track?.kind === 'audio') {
             agentAudioSubscribedRef.current = true;
@@ -1419,7 +1436,7 @@ function VoiceTutorContent() {
       setAudioState(agentAudioSubscribedRef.current ? 'playing' : 'waiting');
       // Audio unblocking is not speech; check the remote speaker instead.
       const tutorSpeakingNow = Array.from(roomRef.current?.remoteParticipants.values() ?? [])
-        .some((participant) => participant.isSpeaking);
+        .some((participant) => isSyllabusTutor(participant,sessionIdRef.current)&&participant.isSpeaking);
       if (tutorSpeakingNow && roomRef.current?.canPlaybackAudio) markFirstTutorSpeech();
       if (sessionStartedAtRef.current) setStatus('Tutor audio is live again.');
       else setStatus('Tutor audio is enabled; your tutor is joining the room.');
@@ -1444,7 +1461,7 @@ function VoiceTutorContent() {
       if (roomRef.current !== room) return;
       const publish = (type: string) => room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({type,turnId})), {reliable:true,topic:'lensiq.live_class.lesson_control'});
       if (enabled) await publish('ptt_start');
-      await room.localParticipant.setMicrophoneEnabled(enabled, {echoCancellation:true, noiseSuppression:true, autoGainControl:false});
+      await room.localParticipant.setMicrophoneEnabled(enabled, {echoCancellation:true, noiseSuppression:true, autoGainControl:true});
       setMicMuted(!enabled);
       if (!enabled) await publish(cancel ? 'ptt_cancel' : 'ptt_end');
     }).catch(() => { pressHeldRef.current = false; setPressPhase('empty'); setError('Unable to send your question. Hold to try again.'); });

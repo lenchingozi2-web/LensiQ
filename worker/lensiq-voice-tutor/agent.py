@@ -138,17 +138,23 @@ class SyllabusVoiceTutor:
                     self.pending_visual = None
                 prompt = ("Teach only the supplied evidence. Preserve qualifications, numerical values and exceptions. "
                           "If the notes do not explain something, acknowledge the gap. "
-                          "You are a lively, warm clinical lecturer. Explain this section, do not read raw "
-                          "JSON or citations. Accurate source evidence follows:\n"
+                          "You are a patient, warm clinical lecturer. Explain one idea at a time in simple English. "
+                          "Define medical terms, explain the causal link, then relate it to a clinical example only if supported. "
+                          "Use short complete sentences, natural punctuation and deliberate pauses; never rush or recite raw bullets. "
+                          "Keep all source qualifications. Do not read JSON or citations. Accurate source evidence follows:\n"
                           + json.dumps({"title": packet.get("title"), "evidence": cue["spoken_text"], "focus": self.focus[:240]}, ensure_ascii=False))
-                # The visual stage is sent when the audio state enters 'speaking',
-                # not when text generation starts, reducing whiteboard lead.
-                speech = cue["spoken_text"] if not self.started else self.grounded_speech(prompt, "teach", cue["spoken_text"])
+                # Publish every checkpoint even when LiveKit coalesces speaking
+                # state transitions across consecutive speech handles.
+                if self.pending_visual:
+                    await self.publish(self.pending_visual)
+                    self.pending_visual = None
+                speech = self.grounded_speech(prompt, "teach", cue["spoken_text"])
                 self.started = True
                 handle = self.session.say(speech, allow_interruptions=True)
                 await handle.wait_for_playout()
                 if self.interrupting or handle.interrupted:
                     return
+                await asyncio.sleep(0.45)
             if not self.interrupting:
                 while True:
                     result = await self.api("/api/live-class/orchestrate", {
@@ -304,15 +310,19 @@ class SyllabusVoiceTutor:
         await self.session.interrupt(force=True)
 
     async def finish_turn(self, turn_id: str, cancelled: bool) -> None:
-        if not cancelled:
-            await asyncio.sleep(0.65)
-            if not self.turn_words:
-                await asyncio.sleep(0.85)
         if self.turn_id != turn_id:
             return
-        question = " ".join(self.turn_words)[:900]
-        self.turn_id = None
         try:
+            if cancelled:
+                self.session.clear_user_turn()
+                question = ""
+            else:
+                await self.publish({"type":"live_class_ptt_state","turnId":turn_id,"phase":"processing"})
+                transcript = await self.session.commit_user_turn(skip_reply=True, transcript_timeout=3.0, stt_flush_duration=0.8)
+                question = (transcript or " ".join(self.turn_words)).strip()[:900]
+            if self.turn_id != turn_id:
+                return
+            self.turn_id = None
             # Unlock hold-to-talk as soon as the transcript is accepted. Another
             # press can interrupt the spoken answer and reuse the saved checkpoint.
             await self.publish({"type":"live_class_ptt_state","turnId":turn_id,
@@ -329,6 +339,7 @@ class SyllabusVoiceTutor:
                         self.speech_task = asyncio.create_task(self.play_packet(result["packet"], self.cue_index))
         except Exception:
             log.exception("Could not finish the learner turn")
+            self.turn_id = None
             await self.publish({"type":"TUTOR_RECOVERY_REQUIRED","state_version":self.state_version})
 
     async def receive_packet(self, packet: dict[str, Any]) -> None:
@@ -357,6 +368,8 @@ class SyllabusVoiceTutor:
                     await self.session.interrupt(force=True)
                 self.turn_id = packet.get("turnId")
                 self.turn_words = []
+                self.session.clear_user_turn()
+                await self.publish({"type":"live_class_ptt_state","turnId":self.turn_id,"phase":"listening"})
                 async with self._commands:
                     await self.interrupt()
             elif kind in ("ptt_end","ptt_cancel") and self.turn_id == packet.get("turnId"):
@@ -431,6 +444,9 @@ async def entrypoint(ctx: JobContext) -> None:
 
     await ctx.connect()
     await ctx.wait_for_participant(identity=tutor.user_id)
+    await ctx.room.local_participant.set_attributes({
+        "lensiq.protocol": "lensiq-syllabus-v2", "lensiq.session": tutor.session_id,
+    })
     @session.on("error")
     def on_error(event: Any) -> None:
         log.error("Tutor media error: %s", type(event.error).__name__)

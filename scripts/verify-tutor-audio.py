@@ -38,7 +38,9 @@ async def main():
 
     @room.on("track_subscribed")
     def track_subscribed(track, publication, participant):
-        if track.kind == rtc.TrackKind.KIND_AUDIO and participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_AGENT:
+        if (track.kind == rtc.TrackKind.KIND_AUDIO and participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_AGENT
+                and participant.attributes.get("lensiq.protocol") == "lensiq-syllabus-v2"
+                and participant.attributes.get("lensiq.session") == session):
             task = asyncio.create_task(listen(track))
             listeners.add(task)
 
@@ -47,6 +49,8 @@ async def main():
         if packet.topic == "lk-lesson-state" and packet.participant and packet.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_AGENT:
             data = json.loads(packet.data)
             if data.get("type") == "WORKER_READY" and data.get("session_id") == session:
+                assert packet.participant.attributes.get("lensiq.protocol") == "lensiq-syllabus-v2"
+                assert packet.participant.attributes.get("lensiq.session") == session
                 handshake.set()
 
     async with api.LiveKitAPI() as cloud:
