@@ -17,6 +17,12 @@ jobs:
         run: node --test tests/*.test.mjs
       - name: Check LiveKit worker Python syntax
         run: python3 -m py_compile worker/lensiq-voice-tutor/agent.py
+      - name: Check pinned worker imports
+        run: |
+          python3 -m venv "$RUNNER_TEMP/lensiq-worker"
+          "$RUNNER_TEMP/lensiq-worker/bin/pip" install --disable-pip-version-check -r worker/lensiq-voice-tutor/requirements.txt
+          cd worker/lensiq-voice-tutor
+          "$RUNNER_TEMP/lensiq-worker/bin/python" -c "import agent; assert agent.server is not None"
       - name: TypeScript
         run: npx tsc --noEmit
       - name: ESLint

@@ -172,6 +172,11 @@ function VoiceTutorContent() {
     const timer=window.setTimeout(()=>setTutorFailure('The tutor has not delivered the opening board. Reconnect to resume this class.'),10000);
     return ()=>window.clearTimeout(timer);
   },[connected,rag.ready,boardPending,tutorFailure]);
+  useEffect(()=>{
+    if(!connected||liveStarted||tutorMuted||audioState==='blocked'||tutorFailure||reconnectingTutor)return;
+    const timer=window.setTimeout(()=>setTutorFailure('No tutor audio has been detected. Reconnect Tutor to retry the voice stream.'),10000);
+    return ()=>window.clearTimeout(timer);
+  },[connected,liveStarted,tutorMuted,audioState,tutorFailure,reconnectingTutor]);
   const reconnectTutor=async()=>{
     if(!sessionId||!currentLiveRoom||reconnectingTutor)return;
     setReconnectingTutor(true);
@@ -670,6 +675,7 @@ function VoiceTutorContent() {
     elapsedSecondsRef.current = 0;
     setElapsedSeconds(0);
     setLiveStarted(true);
+    setTutorFailure(previous=>previous.startsWith('No tutor audio')?'':previous);
     setStudioOpen(true);
     runtimeStateRef.current = 'TEACHING';
     setRuntimeState('TEACHING');

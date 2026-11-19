@@ -74,7 +74,15 @@ export async function POST(request:Request){
         session_id:sessionId,syllabus_id:syllabusId,user_id:user.id,phase:prepared.phase,
         state_version:prepared.state_version,nodes_json:prepared.nodes,cursor:prepared.cursor,
       }).select('*').maybeSingle();
-      if(inserted.error)throw inserted.error;
+      if(inserted.error){
+        // A replacement worker and the original dispatch can briefly overlap.
+        // Treat an already-created, same-owner lesson as an idempotent bootstrap.
+        if(inserted.error.code!=='23505')throw inserted.error;
+        const existing=await admin.from('live_class_lessons').select('*')
+          .eq('session_id',sessionId).eq('user_id',user.id).eq('syllabus_id',syllabusId).single();
+        if(existing.error||!existing.data)throw inserted.error;
+        return NextResponse.json({ok:true,state:toState(existing.data as LessonRow)});
+      }
       lesson=inserted.data;
       return NextResponse.json({ok:true,state:toState(lesson as LessonRow),syllabusId,tree:nodes});
     }
