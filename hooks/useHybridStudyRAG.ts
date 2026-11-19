@@ -123,7 +123,7 @@ export function useHybridStudyRAG(){
         const first=await step('parse',docs[0].id,0);
         docs[0].indexed=first.done;firstOffset=first.next??0;
       }
-      const firstTree=await loadTree(syllabus);
+      const firstTree=await retryStep(()=>loadTree(syllabus),signal);
       const firstNodes=firstTree.filter(n=>n.node_type==='concept');
       if(!firstNodes.length)throw new Error('No readable concepts were indexed');
       total=firstNodes.length;
@@ -132,18 +132,25 @@ export function useHybridStudyRAG(){
       signal.throwIfAborted();setReady(true);
       await inPool(firstNodes.slice(0,2),enrich);
       let parsed=docs.filter(d=>d.indexed).length;
-      await inPool(docs,async(doc,i)=>{
-        if(doc.indexed)return;
+      // Publish source pages in lecture order. Parallel document parsing could
+      // expose a later lecture before an earlier one, causing the tutor to
+      // append the missing earlier concepts after the later lecture.
+      // Optional concept enrichment still uses the bounded three-way pool.
+      for(const [i,doc] of docs.entries()){
+        if(doc.indexed)continue;
         let offset=i===0?firstOffset:0;
         for(;;){
           const result=await step('parse',doc.id,offset);
           if(result.done)break;
           offset=result.next;
         }
+        doc.indexed=true;
         setProgress({stage:'Indexing documents',current:++parsed,total:docs.length});
-      });
+        // Newly indexed, cited concepts become navigable during the lesson.
+        await retryStep(()=>loadTree(syllabus),signal).catch(()=>signal.throwIfAborted());
+      }
       if(!plan.published)await step('publish');
-      const nodes=(await loadTree(syllabus)).filter(n=>n.node_type==='concept');
+      const nodes=(await retryStep(()=>loadTree(syllabus),signal)).filter(n=>n.node_type==='concept');
       total=nodes.length;
       await inPool(nodes.filter(n=>!completed.has(n.id)),enrich);
       signal.throwIfAborted();setStatus('ready');

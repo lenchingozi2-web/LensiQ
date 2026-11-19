@@ -87,6 +87,24 @@ class SyllabusVoiceTutor:
                 elif data.get("error"):
                     raise RuntimeError("Both tutor speech model providers unavailable")
 
+    async def grounded_speech(self, prompt: str, task: str, fallback: str) -> AsyncIterator[str]:
+        """If generation fails before producing speech, retain the exact cited source.
+        Never restart a partially spoken stream or invent an alternative fact."""
+        emitted = False
+        try:
+            async for text in self.text_stream(prompt, task):
+                if text:
+                    emitted = True
+                    yield text
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            if emitted:
+                raise
+            log.warning("Tutor generation unavailable before first token; using source evidence", exc_info=True)
+        if not emitted:
+            yield fallback
+
     async def play_packet(self, packet: dict[str, Any], begin: int = 0) -> None:
         self.packet = packet
         self.state_version = int(packet["state_version"])
@@ -125,7 +143,7 @@ class SyllabusVoiceTutor:
                           + json.dumps({"title": packet.get("title"), "evidence": cue["spoken_text"], "focus": self.focus[:240]}, ensure_ascii=False))
                 # The visual stage is sent when the audio state enters 'speaking',
                 # not when text generation starts, reducing whiteboard lead.
-                speech = cue["spoken_text"] if not self.started else self.text_stream(prompt, "teach")
+                speech = cue["spoken_text"] if not self.started else self.grounded_speech(prompt, "teach", cue["spoken_text"])
                 self.started = True
                 handle = self.session.say(speech, allow_interruptions=True)
                 await handle.wait_for_playout()
@@ -413,9 +431,6 @@ async def entrypoint(ctx: JobContext) -> None:
 
     await ctx.connect()
     await ctx.wait_for_participant(identity=tutor.user_id)
-    await session.start(room=ctx.room, agent=Agent(instructions=(
-        "Teach from verified lesson packets and retrieved lecture evidence only."
-    )))
     @session.on("error")
     def on_error(event: Any) -> None:
         log.error("Tutor media error: %s", type(event.error).__name__)
@@ -430,10 +445,24 @@ async def entrypoint(ctx: JobContext) -> None:
         finally:
             await tutor.close()
     ctx.add_shutdown_callback(shutdown)
+    try:
+        await session.start(room=ctx.room, agent=Agent(instructions=(
+            "Teach from verified lesson packets and retrieved lecture evidence only."
+        )))
+    except Exception:
+        log.exception("Tutor failed during media initialization")
+        try:
+            await tutor.publish({"type": "TUTOR_RECOVERY_REQUIRED", "state_version": 0})
+        except Exception:
+            log.warning("Startup diagnostic could not be delivered", exc_info=True)
+        raise
     tutor.media_ready = True
     await tutor.publish({"type":"WORKER_READY","session_id":tutor.session_id,"state_version":0})
     await tutor.publish({"type":"TUTOR_JOINED","session_id":tutor.session_id,"course":tutor.course})
-    session.say("Welcome to class. Let's begin.", allow_interruptions=True)
+    try:
+        session.say("Welcome to class. Let's begin.", allow_interruptions=True)
+    except Exception:
+        log.exception("Opening greeting could not be queued")
     if tutor.syllabus_id:
         try:
             await tutor.deliver(tutor.syllabus_id)
