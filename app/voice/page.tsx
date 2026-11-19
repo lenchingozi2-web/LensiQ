@@ -1,6 +1,6 @@
 'use client';
 
-import { isSyllabusTutor } from '@/lib/live-class/tutor-identity';
+import { acceptTutorPacket, isSyllabusTutor } from '@/lib/live-class/tutor-identity';
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -1099,14 +1099,16 @@ function VoiceTutorContent() {
       const receiveClassData = (payload: Uint8Array, _participant: import('livekit-client').RemoteParticipant | undefined, _kind: import('livekit-client').DataPacket_Kind | undefined, topic?: string, delayed = false) => {
         try {
           let data = JSON.parse(new TextDecoder().decode(payload)) as {turnId?:string;phase?:'listening'|'processing'|'released'|'empty'; visual?:Record<string, unknown>; playbackSynchronized?:boolean; continuationOwner?:string; awaitingQuestion?:boolean; type?: string; state?: LiveRuntimeState | 'TTS_AUDIO_FRAME' | 'TTS_AUDIO_SUMMARY'; message?: string; role?: Role; content?: string; id?: string | null; source?: string; modelUrl?: string; category?: string; structureId?: string; note?: string; color?: string; mediaUrl?: string; imageUrl?: string; bucket?: string; path?: string; alt?: string; topic?: string; title?: string; markdown?: string; cardId?: string; preset?: PhysiologyPreset; caption?: string; rms?: number; maxAbs?: number; nonSilent?: boolean; providerFrames?: number; providerSamples?: number; providerMaxAbs?: number; providerNonSilent?: boolean; sinkFrames?: number; sinkSamples?: number; sinkMaxAbs?: number; sinkNonSilent?: boolean };
-          if (!trustedTutor(_participant)) return;
           if(topic==='lk-lesson-state'){
+            if(!acceptTutorPacket(_participant,tokenData.sessionId,topic,data))return;
+            if(_participant)subscribeTutor(_participant);
             if(data.type==='TUTOR_RECOVERY_REQUIRED'){setTutorFailure('Tutor audio or lesson delivery failed. Reconnect to continue from this concept.');setPressPhase('idle');return;}
             if(data.type==='SYNC_VISUAL_STAGE'){setBoardPending(false);setStudioOpen(true);setTutorFailure('');workerContinuationRef.current=true;}
             if(data.type==='WORKER_READY'){workerContinuationRef.current=true;setTutorFailure(previous=>previous.includes('acknowledge')?'':previous);}
             if(data.type==='TUTOR_JOINED'){setStudioOpen(true);updateVisualContext({type:'whiteboard',topic:courseName,
               markdown:rag.ready?'Opening your first cited passage.':'Preparing the first passage from your course sources.'});}
           }
+          if (!trustedTutor(_participant)) return;
           if (data.type === 'live_class_policy_ack') {workerContinuationRef.current=true;clearLessonContinueTimer();return;}
           if (data.type === 'live_class_ptt_state') {
             if (data.turnId !== pressTurnRef.current) return;

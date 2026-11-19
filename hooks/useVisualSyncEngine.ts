@@ -1,6 +1,6 @@
 'use client';
 
-import { isSyllabusTutor } from '@/lib/live-class/tutor-identity';
+import { acceptTutorPacket } from '@/lib/live-class/tutor-identity';
 
 import { useEffect, useRef, useState } from 'react';
 import { RoomEvent, type Room, type RemoteParticipant } from 'livekit-client';
@@ -20,10 +20,11 @@ export function useVisualSyncEngine(room:Room|null,sessionId:string|null){
   useEffect(()=>{
     if(!room)return;
     const receive=(payload:Uint8Array,participant:RemoteParticipant|undefined,kind:unknown,topic?:string)=>{
-      void kind; if(!isSyllabusTutor(participant,sessionId))return;
+      void kind; if(!participant?.isAgent)return;
       if(topic!=='lk-lesson-state'||payload.byteLength>15000)return;
       let data:Record<string,unknown>;
       try{data=JSON.parse(new TextDecoder().decode(payload)) as Record<string,unknown>;}catch{return;}
+      if(!acceptTutorPacket(participant,sessionId,topic,data))return;
       const version=Number(data.state_version);
       if(!Number.isSafeInteger(version)||version<versionRef.current)return;
       if(data.type==='LESSON_OPENED'){

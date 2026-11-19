@@ -52,7 +52,7 @@ class SyllabusVoiceTutor:
         if data.get("type") == "SYNC_VISUAL_STAGE":
             self.last_visual = data
         await self.ctx.room.local_participant.publish_data(
-            json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode(),
+            json.dumps({**data, "protocol": "lensiq-syllabus-v2", "session_id": self.session_id}, ensure_ascii=False, separators=(",", ":")).encode(),
             reliable=True, topic=CHANNEL,
             destination_identities=[self.user_id],
         )
@@ -394,7 +394,7 @@ class SyllabusVoiceTutor:
         await self.http.aclose()
 
 
-@server.rtc_session(agent_name="lensiq-voice-tutor")
+@server.rtc_session(agent_name="lensiq-syllabus-tutor-v2")
 async def entrypoint(ctx: JobContext) -> None:
     metadata = json.loads(ctx.job.metadata or "{}")
     expected = ["userId", "sessionId", "voiceGatewayToken", "orchestrateEndpoint"]
@@ -444,9 +444,6 @@ async def entrypoint(ctx: JobContext) -> None:
 
     await ctx.connect()
     await ctx.wait_for_participant(identity=tutor.user_id)
-    await ctx.room.local_participant.set_attributes({
-        "lensiq.protocol": "lensiq-syllabus-v2", "lensiq.session": tutor.session_id,
-    })
     @session.on("error")
     def on_error(event: Any) -> None:
         log.error("Tutor media error: %s", type(event.error).__name__)
@@ -472,9 +469,16 @@ async def entrypoint(ctx: JobContext) -> None:
         except Exception:
             log.warning("Startup diagnostic could not be delivered", exc_info=True)
         raise
+    try:
+        await ctx.room.local_participant.set_attributes({
+            "lensiq.protocol": "lensiq-syllabus-v2", "lensiq.session": tutor.session_id,
+        })
+    except Exception:
+        log.warning("Participant attributes unavailable; using session-scoped packets", exc_info=True)
     tutor.media_ready = True
     await tutor.publish({"type":"WORKER_READY","session_id":tutor.session_id,"state_version":0})
     await tutor.publish({"type":"TUTOR_JOINED","session_id":tutor.session_id,"course":tutor.course})
+    await asyncio.sleep(0.45)
     try:
         session.say("Welcome to class. Let's begin.", allow_interruptions=True)
     except Exception:
