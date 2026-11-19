@@ -22,7 +22,7 @@ export default function StudySyllabusUploader({rag,focusText,onFocusTextChange}:
     <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-[#E8A23D]/50 bg-[#E8A23D]/[0.07] px-4 py-4 text-center text-sm font-bold text-[#FFE2A8] hover:bg-[#E8A23D]/15">
       Choose PDF, DOC, DOCX, PPTX or TXT files
       <input type="file" multiple accept=".pdf,.doc,.docx,.pptx,.txt" onChange={onChoose}
-        disabled={working||rag.ready||Boolean(rag.resumeId)} className="sr-only" aria-label="Choose study documents" />
+        disabled={!rag.interactive||working||rag.ready||Boolean(rag.resumeId)} className="sr-only" aria-label="Choose study documents" />
     </label>
     {rag.files.length>0 && <div className="max-h-32 space-y-1 overflow-y-auto rounded-xl bg-black/25 p-2">
       {rag.files.map((file,index)=><div key={file.name+file.size+file.lastModified} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5">

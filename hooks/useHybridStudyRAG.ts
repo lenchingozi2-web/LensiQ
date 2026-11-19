@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { uploadStudyDocumentToSignedUrl } from '@/lib/rag/signed-upload';
 
@@ -21,7 +21,9 @@ async function postJson(url:string,value:Record<string,unknown>, signal?:AbortSi
   if(!response.ok)throw new Error(payload?.error||'Study material request failed');
   return payload;
 }
+const subscribeToHydration=()=>()=>{};
 export function useHybridStudyRAG(){
+  const interactive=useSyncExternalStore(subscribeToHydration,()=>true,()=>false);
   const [files,setFiles]=useState<File[]>([]);
   const [syllabusId,setSyllabusId]=useState<string|null>(null);
   const [tree,setTree]=useState<SyllabusTreeNode[]>([]);
@@ -41,22 +43,18 @@ export function useHybridStudyRAG(){
     return ()=>jobRef.current?.abort();
   },[]);
   const addFiles=useCallback((incoming:File[])=>{
-    setFiles(current=>{
-      const seen=new Set(current.map(file=>[file.name,file.size,file.lastModified].join(':')));
-      const next=[...current];
-      for(const file of incoming){
-        if(!supported.test(file.name)){setError('Use PDF, DOC, DOCX, PPTX or TXT documents.');continue;}
-        const key=[file.name,file.size,file.lastModified].join(':');
-        if(!seen.has(key)){next.push(file);seen.add(key);}
-      }
-      if(next.length>STUDY_RAG_MAX_FILES||next.reduce((sum,file)=>sum+file.size,0)>STUDY_RAG_MAX_BYTES){
-        setError('Up to 25 documents, combined maximum 70 MiB. Remove some files before uploading.');
-        return current;
-      }
-      setStatus('idle');setError('');setSyllabusId(null);setTree([]);
-      return next;
-    });
-  },[]);
+    const seen=new Set(files.map(file=>[file.name,file.size,file.lastModified].join(':')));
+    const next=[...files];
+    for(const file of incoming){
+      if(!supported.test(file.name)){setError('Use PDF, DOC, DOCX, PPTX or TXT documents.');return;}
+      const key=[file.name,file.size,file.lastModified].join(':');
+      if(!seen.has(key)){next.push(file);seen.add(key);}
+    }
+    if(next.length>STUDY_RAG_MAX_FILES||next.reduce((sum,file)=>sum+file.size,0)>STUDY_RAG_MAX_BYTES){
+      setError('Up to 25 documents, combined maximum 70 MiB. Remove some files before uploading.');return;
+    }
+    setFiles(next);setStatus('idle');setError('');setSyllabusId(null);setTree([]);
+  },[files]);
   const removeFile=useCallback((index:number)=>{setFiles(current=>current.filter((_,i)=>i!==index));setStatus('idle');setSyllabusId(null);setTree([]);},[]);
   const clear=useCallback(()=>{jobRef.current?.abort();jobRef.current=null;busyRef.current=false;
     checkpoint.current=null;sessionStorage.removeItem('lensiq.pending-syllabus');setResumeId(null);setFlagged([]);setReady(false);setFiles([]);setSyllabusId(null);setTree([]);setStatus('idle');setProgress(null);setError('');},[]);
@@ -166,5 +164,5 @@ export function useHybridStudyRAG(){
   const sweepStale=useCallback(async()=>{
     return postJson('/api/rag/cleanup',{action:'sweep'});
   },[]);
-  return {files,addFiles,removeFile,clear,discard,syllabusId,tree,status,ready,progress,error,flagged,resumeId,lastSearch,uploadAndCompile,loadTree,search,sweepStale};
+  return {interactive,files,addFiles,removeFile,clear,discard,syllabusId,tree,status,ready,progress,error,flagged,resumeId,lastSearch,uploadAndCompile,loadTree,search,sweepStale};
 }

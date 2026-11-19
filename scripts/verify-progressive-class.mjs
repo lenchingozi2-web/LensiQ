@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({viewport:{width:360,height:800},isMobile:true,hasTouch:true});
 const origin='https://www.lenxiq.online';
+page.on('pageerror',e=>console.error('Classroom JS error:',e.message));
 const id='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const docs=['fixture-a','fixture-b','fixture-c'];
 const nodes=Array.from({length:42},(_,i)=>({id:'concept-'+i,title:'Cited passage '+(i+1),
@@ -39,6 +40,10 @@ try{
   await page.goto(origin+'/voice',{waitUntil:'domcontentloaded',timeout:45000});
   const enter=page.getByRole('button',{name:'Enter Live Class'});
   await enter.waitFor();
+  await page.locator('input[type=file]:enabled').waitFor({state:'attached'});
+  const history=page.getByRole('button',{name:/^History/});
+  await history.click();
+  await page.getByRole('button',{name:'Close',exact:true}).click();
   await page.getByLabel('Choose study documents').setInputFiles(docs.map((_,i)=>({
     name:'Lecture '+String.fromCharCode(65+i)+'.txt',mimeType:'text/plain',buffer:Buffer.from('Source fixture.'),
   })));
@@ -53,4 +58,8 @@ try{
   assert.equal(attempts.size,42);assert.equal(attempts.get('concept-2'),2);assert.equal(attempts.get('concept-11'),3);
   assert.ok(peak<=3&&peak>1);assert.equal(await enter.isEnabled(),true);
   console.log('Passed 360px touch UI: entry after two cited passages, three concurrent requests, dropped response retried and exhausted node isolated.');
+}catch(error){
+  console.error('Classroom state at failure:',(await page.locator('body').innerText()).slice(-1600));
+  console.error('Indexed requests:',attempts.size,'tree reads:',treeReads,'published:',published);
+  throw error;
 }finally{releaseIndex();await browser.close();}
