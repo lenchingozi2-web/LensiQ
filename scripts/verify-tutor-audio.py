@@ -20,9 +20,11 @@ async def main():
     room = rtc.Room()
     handshake, audible = asyncio.Event(), asyncio.Event()
     listeners = set()
+    heard = set()
+    verified = set()
     start = time.monotonic()
 
-    async def listen(track):
+    async def listen(track, identity):
         stream = rtc.AudioStream(track, sample_rate=16000, num_channels=1)
         frames = 0
         try:
@@ -31,27 +33,28 @@ async def main():
                     frames += 1
                 if frames >= 5:
                     print(f"Non-silent tutor audio received at {time.monotonic()-start:.2f}s", flush=True)
-                    audible.set()
+                    heard.add(identity)
+                    if identity in verified:
+                        audible.set()
                     return
         finally:
             await stream.aclose()
 
     @room.on("track_subscribed")
     def track_subscribed(track, publication, participant):
-        if (track.kind == rtc.TrackKind.KIND_AUDIO and participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_AGENT
-                and participant.attributes.get("lensiq.protocol") == "lensiq-syllabus-v2"
-                and participant.attributes.get("lensiq.session") == session):
-            task = asyncio.create_task(listen(track))
+        if track.kind == rtc.TrackKind.KIND_AUDIO and participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_AGENT:
+            task = asyncio.create_task(listen(track, participant.identity))
             listeners.add(task)
 
     @room.on("data_received")
     def data_received(packet):
         if packet.topic == "lk-lesson-state" and packet.participant and packet.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_AGENT:
             data = json.loads(packet.data)
-            if data.get("type") == "WORKER_READY" and data.get("session_id") == session:
-                assert packet.participant.attributes.get("lensiq.protocol") == "lensiq-syllabus-v2"
-                assert packet.participant.attributes.get("lensiq.session") == session
+            if data.get("type") == "WORKER_READY" and data.get("session_id") == session and data.get("protocol") == "lensiq-syllabus-v2":
+                verified.add(packet.participant.identity)
                 handshake.set()
+                if packet.participant.identity in heard:
+                    audible.set()
 
     async with api.LiveKitAPI() as cloud:
         await cloud.room.create_room(api.CreateRoomRequest(name=room_name, empty_timeout=30))
@@ -60,11 +63,16 @@ async def main():
             metadata = {"userId":identity,"sessionId":session,"voiceGatewayToken":"rtc-greeting-probe",
                         "orchestrateEndpoint":"https://www.lenxiq.online/api/live-class/orchestrate","courseName":"Audio check"}
             await cloud.agent_dispatch.create_dispatch(api.CreateAgentDispatchRequest(
-                room=room_name, agent_name="lensiq-voice-tutor", metadata=json.dumps(metadata)))
+                room=room_name, agent_name="lensiq-syllabus-tutor-v2", metadata=json.dumps(metadata)))
             token = api.AccessToken().with_identity(identity).with_ttl(timedelta(minutes=2)).with_grants(
                 api.VideoGrants(room_join=True, room=room_name, can_publish=False, can_subscribe=True, can_publish_data=True))
             await room.connect(os.environ["LIVEKIT_URL"],token.to_jwt())
-            await asyncio.wait_for(asyncio.gather(handshake.wait(),audible.wait()),timeout=35)
+            async def ask_ready():
+                while not handshake.is_set():
+                    await room.local_participant.publish_data(json.dumps({"type":"HELLO","session_id":session}).encode(), reliable=True, topic="lk-lesson-state")
+                    await asyncio.sleep(0.75)
+            listeners.add(asyncio.create_task(ask_ready()))
+            await asyncio.wait_for(asyncio.gather(handshake.wait(),audible.wait()),timeout=45)
             print("Verified named worker, session-specific handshake and decoded remote audio")
         finally:
             await room.disconnect()

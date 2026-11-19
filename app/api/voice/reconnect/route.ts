@@ -13,14 +13,14 @@ export async function POST(request:Request){
   const client=new AgentDispatchClient(origin.replace(/^ws/,'http'),process.env.LIVEKIT_API_KEY,secret);
   try{
     const dispatches=await client.listDispatch(session.room_name);
-    const previous=dispatches.find(d=>d.agentName==='lensiq-voice-tutor');
+    const previous=dispatches.find(d=>d.agentName==='lensiq-syllabus-tutor-v2')??dispatches.find(d=>d.agentName==='lensiq-voice-tutor');
     const token=previous&&JSON.parse(previous.metadata).voiceGatewayToken;
     const claims=token&&verifyLiveClassGatewayToken(secret,'Bearer '+token);
     if(!previous||claims?.user!==user.id||claims?.session!==sessionId||claims.room!==session.room_name)
       return Response.json({error:'The room dispatch has expired. End this class and open a new one.'},{status:409});
     // Replace only the owned, signed dispatch. Never reserve another class.
     await client.deleteDispatch(previous.id,session.room_name);
-    await client.createDispatch(session.room_name,previous.agentName,{metadata:previous.metadata});
+    await client.createDispatch(session.room_name,'lensiq-syllabus-tutor-v2',{metadata:previous.metadata});
     return Response.json({ok:true});
   }catch{return Response.json({error:'Tutor reconnection failed. Please retry.'},{status:503});}
 }

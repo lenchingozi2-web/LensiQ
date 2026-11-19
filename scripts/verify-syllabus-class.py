@@ -45,6 +45,8 @@ class Fixture:
         self.events = []
         self.changed = asyncio.Event()
         self.audible = asyncio.Event()
+        self.verified = set()
+        self.heard = set()
         self.started = time.monotonic()
 
     def request(self, path, body=None, *, service=False, method=None, raw=None, headers=None):
@@ -117,9 +119,7 @@ class Fixture:
         print("PASS real authenticated source upload and syllabus index", flush=True)
 
     def trusted(self, participant):
-        return bool(participant and participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_AGENT
-                    and participant.attributes.get("lensiq.protocol") == PROTOCOL
-                    and participant.attributes.get("lensiq.session") == self.session)
+        return bool(participant and participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_AGENT)
 
     async def wait(self, predicate, timeout=75):
         deadline = time.monotonic() + timeout
@@ -161,25 +161,41 @@ class Fixture:
                 event = json.loads(packet.data)
             except (ValueError, UnicodeError):
                 return
+            if event.get("protocol") != PROTOCOL or event.get("session_id") != self.session:
+                return
+            self.verified.add(packet.participant.identity)
+            if packet.participant.identity in self.heard:
+                self.audible.set()
             self.events.append(event)
             self.changed.set()
 
-        async def listen(track):
+        async def listen(track, identity):
             stream = rtc.AudioStream(track, sample_rate=16000, num_channels=1)
             try:
                 async for event in stream:
                     if max((abs(value) for value in event.frame.data), default=0) > 200:
-                        self.audible.set()
+                        self.heard.add(identity)
+                        if identity in self.verified:
+                            self.audible.set()
             finally:
                 await stream.aclose()
 
         @self.room.on("track_subscribed")
         def track_subscribed(track, _publication, participant):
             if track.kind == rtc.TrackKind.KIND_AUDIO and self.trusted(participant):
-                self.tasks.append(asyncio.create_task(listen(track)))
+                self.tasks.append(asyncio.create_task(listen(track, participant.identity)))
 
         await self.room.connect(token["url"], token["token"])
-        await self.wait(lambda e: e.get("type") == "WORKER_READY" and e.get("session_id") == self.session, timeout=30)
+        async def hello():
+            while True:
+                await self.send({"type": "HELLO"})
+                await asyncio.sleep(0.75)
+        poll = asyncio.create_task(hello())
+        self.tasks.append(poll)
+        try:
+            await self.wait(lambda e: e.get("type") == "WORKER_READY" and e.get("session_id") == self.session, timeout=35)
+        finally:
+            poll.cancel()
         await self.send({"type": "OPEN_LESSON", "syllabus_id": self.syllabus})
         first = await self.wait(lambda e: e.get("type") == "SYNC_VISUAL_STAGE" and bool(e.get("cue", {}).get("citations")))
         await asyncio.wait_for(self.audible.wait(), 25)

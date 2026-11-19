@@ -246,13 +246,14 @@ export async function POST(req: Request) {
   // Dispatch itself authenticates the Cloud project. A separate listRooms()
   // probe duplicated that network round trip on every classroom start.
   let livekitUrl: string | null = null;
-  const agentName = 'lensiq-voice-tutor';
+  const agentName = 'lensiq-syllabus-tutor-v2';
   for (const candidateUrl of livekitUrls) {
     const dispatchHost = candidateUrl.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:');
     try {
       const dispatchClient = new AgentDispatchClient(dispatchHost, apiKey, apiSecret);
       await dispatchClient.createDispatch(roomName, agentName, { metadata: dispatchMetadata });
       livekitUrl = candidateUrl;
+      console.info('Live Class syllabus tutor dispatched', {host:new URL(dispatchHost).host,agentName});
       break;
     } catch (error) {
       const failure = error as { status?: number; code?: string };

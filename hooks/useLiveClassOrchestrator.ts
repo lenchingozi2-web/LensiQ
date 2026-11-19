@@ -1,6 +1,6 @@
 'use client';
 
-import { isSyllabusTutor } from '@/lib/live-class/tutor-identity';
+import { acceptTutorPacket } from '@/lib/live-class/tutor-identity';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RoomEvent, type Room, type RemoteParticipant } from 'livekit-client';
@@ -23,10 +23,10 @@ async function waitForTutorWorker(room:Room,sessionId:string):Promise<void>{
   return new Promise<void>((resolve,reject)=>{
     let finished=false;
     const ack=(payload:Uint8Array,participant:RemoteParticipant|undefined,_kind:unknown,topic?:string)=>{
-      if(!isSyllabusTutor(participant,sessionId)||topic!=='lk-lesson-state'||payload.byteLength>3000)return;
+      if(!participant?.isAgent||topic!=='lk-lesson-state'||payload.byteLength>3000)return;
       try{
         const message=JSON.parse(new TextDecoder().decode(payload)) as {type?:string;session_id?:string};
-        if(message.type==='WORKER_READY'&&message.session_id===sessionId)finish();
+        if(message.type==='WORKER_READY'&&acceptTutorPacket(participant,sessionId,topic,message))finish();
       }catch{return;}
     };
     const hello=()=>{void room.localParticipant.publishData(
