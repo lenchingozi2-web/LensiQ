@@ -17,15 +17,16 @@ async function extractOfficeXml(buffer:Buffer,extension:string,strict:boolean){
   const presentation=await read('ppt/presentation.xml');const rels=relationships(await read('ppt/_rels/presentation.xml.rels'),'ppt/presentation.xml');
   const ordered=[...presentation.matchAll(/<p:sldId\b[^>]*\br:id=["']([^"']+)["']/g)].map(match=>rels.get(match[1])).filter((path):path is string=>Boolean(path));
   const names=ordered.length?ordered:Object.keys(zip.files).filter(path=>/^ppt\/slides\/slide\d+\.xml$/.test(path)).sort((a,b)=>Number(a.match(/slide(\d+)/)?.[1])-Number(b.match(/slide(\d+)/)?.[1]));
-  const unreadable:number[]=[];
+  const unreadable:number[]=[];let hasReadableText=false;
   for(let i=0;i<names.length;i++){
    const path=names[i];const text=decodeXml(await read(path));
    const slideLinks=relationships(await read(posix.join(posix.dirname(path),'_rels',posix.basename(path)+'.rels')),path);
    const notesPath=[...slideLinks.values()].find(target=>/^ppt\/notesSlides\/notesSlide\d+\.xml$/.test(target));const notes=notesPath?decodeXml(await read(notesPath)):'';
-   if(!text&&!notes)unreadable.push(i+1);
-   parts.push(`[Slide ${i+1}]\n${text}${notes?'\n[Speaker notes]\n'+notes:''}`);
+   const readable=Boolean(text.trim()||notes.trim());
+   if(!readable)unreadable.push(i+1);else hasReadableText=true;
+   parts.push(readable?`[Slide ${i+1}]\n${text}${notes?'\n[Speaker notes]\n'+notes:''}`:`[Slide ${i+1}: Image-only visual slide]`);
   }
-  if(strict&&unreadable.length)throw new Error('Lecture contains image-only slides without readable text or speaker notes: '+unreadable.join(', ')+'. Add text/OCR before using this as the complete lecture source.');
+  if(strict&&!hasReadableText)throw new Error('Lecture contains no readable text or speaker notes across its slides: '+unreadable.join(', ')+'. Add text/OCR before using this as the complete lecture source.');
  }
  return clampText(parts.join('\n\n'));
 }
