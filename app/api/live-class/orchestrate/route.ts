@@ -137,12 +137,16 @@ export async function POST(request:Request){
       .eq('state_version',current.state_version).select('session_id').maybeSingle();
     if(writeError)throw writeError;
     if(!changed)return NextResponse.json({error:'Concurrent state change; refresh lesson state'},{status:409});
-    const packet=await packetFor(next);
+    const upcoming=next.phase==='TEACHING_NODE'?next.nodes[next.cursor+1]:null;
+    const [packet,following]=await Promise.all([packetFor(next),upcoming?
+      admin.from('syllabus_concept_nodes').select('id,title').eq('id',upcoming).eq('syllabus_id',record.syllabus_id)
+        .eq('user_id',user.id).maybeSingle():null]);
+    const lookahead=following?.data?{conceptNodeId:following.data.id,title:following.data.title}:null;
     let purge=null;
     if(action==='end'){
       purge=await purgeSessionMaterialsOnEnd(admin,user.id,sessionId);
     }
-    return NextResponse.json({ok:true,state:next,packet,restoredVisual:restored,purge});
+    return NextResponse.json({ok:true,state:next,packet,lookahead,restoredVisual:restored,purge});
   }catch(error){
     console.error('Live Class orchestration failed',error instanceof Error?error.message:'unknown');
     return NextResponse.json({error:'Unable to complete lesson transition; no classroom state was fabricated'},{status:503});

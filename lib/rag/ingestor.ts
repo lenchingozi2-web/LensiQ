@@ -70,7 +70,20 @@ export function chunkFacts(facts: CitedAtomicFact[], maxCharacters = 1500): Atom
   let pending: AtomicChunk | null = null;
   const flush = () => { if (pending) chunks.push(pending); pending = null; };
   for (const fact of facts) {
-    const segments = fact.text.match(new RegExp('[\\s\\S]{1,' + maxCharacters + '}', 'g')) || [];
+    const segments:string[]=[];
+    let remaining=fact.text;
+    while(remaining.length>maxCharacters){
+      const window=remaining.slice(0,maxCharacters);
+      // Prefer a complete sentence. Never sever a decimal or an adjacent unit if a word boundary exists.
+      const endings=[...window.matchAll(/[.!?](?=\s)/gu)];
+      const boundary=endings.at(-1)?.index;
+      const word=window.search(/\s+\S*$/u);
+      let cut=boundary!==undefined&&boundary>=maxCharacters/3?boundary+1:word>0?word:maxCharacters;
+      if(/[\uD800-\uDBFF]/.test(remaining[cut-1]))cut--;
+      segments.push(remaining.slice(0,cut));
+      remaining=remaining.slice(cut).trimStart();
+    }
+    if(remaining)segments.push(remaining);
     for (const text of segments) {
       if (pending && (pending.documentId !== fact.documentId || pending.pageNumber !== fact.pageNumber || pending.text.length + text.length + 1 > maxCharacters)) flush();
       if (!pending) pending = { text, sourceFile: fact.sourceFile, pageNumber: fact.pageNumber, documentId: fact.documentId };

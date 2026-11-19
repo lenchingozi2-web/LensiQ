@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { RoomEvent, type Room, type RemoteParticipant } from 'livekit-client';
-import { parseVisualCue, type VisualCue, type Citation } from '@/lib/live-class/visual-protocol';
+import { parseTeachingPacket, parseVisualCue, type VisualCue, type Citation } from '@/lib/live-class/visual-protocol';
 
 type VisualSnapshot={active_mode:string;concept_node_id:string;cue_index:number;whiteboard_snapshot:string[];active_cue:VisualCue};
 export function useVisualSyncEngine(room:Room|null){
@@ -23,7 +23,16 @@ export function useVisualSyncEngine(room:Room|null){
       try{data=JSON.parse(new TextDecoder().decode(payload)) as Record<string,unknown>;}catch{return;}
       const version=Number(data.state_version);
       if(!Number.isSafeInteger(version)||version<versionRef.current)return;
-      if(data.type==='SYNC_VISUAL_STAGE'){
+      if(data.type==='LESSON_OPENED'){
+        try{
+          const packet=parseTeachingPacket(data.packet);
+          const initial=packet.visual_cues[0];
+          const top=Array.isArray(data.visual_stack)?data.visual_stack[0]:null;
+          if(!top||top.concept_node_id!==packet.concept_node_id||top.cue_index!==0||top.active_mode!==initial.mode)return;
+          versionRef.current=version;lastConceptRef.current=packet.concept_node_id;
+          setConceptId(packet.concept_node_id);setCueIndex(0);setCue(initial);setCitations(initial.citations);setSteps(initial.steps);
+        }catch{return;}
+      }else if(data.type==='SYNC_VISUAL_STAGE'){
         try{
           const nextCue=parseVisualCue(data.cue);
           const nextConcept=typeof data.concept_node_id==='string'?data.concept_node_id:'';

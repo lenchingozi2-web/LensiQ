@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   const offset = body?.offset ?? 0;
   if (!['prepare','parse','publish','node'].includes(action) ||
       (['parse','node'].includes(action) && (typeof itemId !== 'string' || !UUID.test(itemId))) ||
-      !Number.isSafeInteger(offset) || offset < 0 || offset % 32 !== 0) {
+      !Number.isSafeInteger(offset) || offset < 0 || (offset !== 0 && (offset - 2) % 32 !== 0)) {
     return Response.json({error:'Invalid compilation checkpoint'},{status:400});
   }
   try {

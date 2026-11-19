@@ -65,7 +65,7 @@ export function parseVisualCue(raw: unknown): VisualCue {
   }
   const c=v.camera && typeof v.camera==='object' ? v.camera as Record<string,unknown>:null;
   return { id,mode:v.mode as VisualMode,title,spoken_text:spoken,
-    steps:safeStringArray(v.steps,30,600),
+    steps:safeStringArray(v.steps,30,1500),
     comparison_table,
     mechanism_flow_arrows:safeStringArray(v.mechanism_flow_arrows,30,240),
     high_yield_pearl:safeText(v.high_yield_pearl,500)||undefined,

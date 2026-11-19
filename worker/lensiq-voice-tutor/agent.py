@@ -107,6 +107,15 @@ class SyllabusVoiceTutor:
                     "cue": cue,
                 }
                 if index == begin:
+                    # Keep the wire checkpoint bounded even for a legacy node with many cues.
+                    # The worker retains the whole teaching packet and publishes each later beat.
+                    if not self.started:
+                        await self.publish({
+                            "type": "LESSON_OPENED", "state_version": self.state_version,
+                            "packet": {**packet, "visual_cues": [cue]},
+                            "visual_stack": [{"active_mode": cue["mode"], "cue_index": 0,
+                                              "concept_node_id": packet["concept_node_id"]}],
+                        })
                     await self.publish(self.pending_visual)
                     self.pending_visual = None
                 prompt = ("Teach only the supplied evidence. Preserve qualifications, numerical values and exceptions. "
@@ -199,16 +208,24 @@ class SyllabusVoiceTutor:
         try:
             data = await self.api("/api/live-class/interrupt-rag", {"query": question})
             matches = data.get("matches", [])[:5]
-            references = [{"text": item["text"][:650], "citation": item["citation"]} for item in matches]
+            references = []
+            budget = 1900
+            for item in matches:
+                passage = {"text": item["text"], "citation": item["citation"]}
+                size = len(json.dumps(passage, ensure_ascii=False))
+                if size <= budget:
+                    references.append(passage)
+                    budget -= size
             await self.publish({
                 "type": "SCRATCHPAD_EVIDENCE", "state_version": self.state_version,
-                "question": question, "citations": [item["citation"] for item in matches],
+                "question": question, "citations": [item["citation"] for item in references],
             })
             prompt = ("Answer this medical student's specific question clearly and naturally. "
                       "Ground medical claims in these exact retrieved sources; if none were found, "
                       "say the provided files do not address it. Do not invent a citation. "
                       + json.dumps({"question": question, "sources": references}, ensure_ascii=False))
-            handle = self.session.say(self.text_stream(prompt, "barge_in"), allow_interruptions=True)
+            speech = self.text_stream(prompt, "barge_in") if references else "I couldn't find that answer in the material indexed for this class."
+            handle = self.session.say(speech, allow_interruptions=True)
             await handle.wait_for_playout()
             if handle.interrupted:
                 return
@@ -277,17 +294,24 @@ class SyllabusVoiceTutor:
             return
         question = " ".join(self.turn_words)[:900]
         self.turn_id = None
-        async with self._commands:
-            if question and not cancelled:
-                await self.answer(question)
-            elif self.interrupting and self.packet:
-                result = await self.api("/api/live-class/orchestrate", {
-                    "action": "interrupt_done", "stateVersion": self.state_version,
-                })
-                self.interrupting = False
-                if result.get("packet"):
-                    self.speech_task = asyncio.create_task(self.play_packet(result["packet"], self.cue_index))
-        await self.publish({"type":"live_class_ptt_state","turnId":turn_id,"phase":"released" if question else "empty"})
+        try:
+            # Unlock hold-to-talk as soon as the transcript is accepted. Another
+            # press can interrupt the spoken answer and reuse the saved checkpoint.
+            await self.publish({"type":"live_class_ptt_state","turnId":turn_id,
+                                "phase":"released" if question and not cancelled else "empty"})
+            async with self._commands:
+                if question and not cancelled:
+                    await self.answer(question)
+                elif self.interrupting and self.packet:
+                    result = await self.api("/api/live-class/orchestrate", {
+                        "action": "interrupt_done", "stateVersion": self.state_version,
+                    })
+                    self.interrupting = False
+                    if result.get("packet"):
+                        self.speech_task = asyncio.create_task(self.play_packet(result["packet"], self.cue_index))
+        except Exception:
+            log.exception("Could not finish the learner turn")
+            await self.publish({"type":"TUTOR_RECOVERY_REQUIRED","state_version":self.state_version})
 
     async def receive_packet(self, packet: dict[str, Any]) -> None:
         if not self.media_ready:
@@ -309,6 +333,10 @@ class SyllabusVoiceTutor:
             elif kind == "ptt_mode":
                 self.ptt = bool(packet.get("enabled"))
             elif kind == "ptt_start":
+                if self.release_task and not self.release_task.done():
+                    self.release_task.cancel()
+                    await asyncio.gather(self.release_task, return_exceptions=True)
+                    await self.session.interrupt(force=True)
                 self.turn_id = packet.get("turnId")
                 self.turn_words = []
                 async with self._commands:

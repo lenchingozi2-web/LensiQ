@@ -28,12 +28,11 @@ export function makeTeachingPacket(sessionId:string,syllabusId:string,version:nu
     steps=[];citations=[];
   }
   for(const fact of lines){
-    for(const part of fact.text!.match(/[\s\S]{1,550}/gu)||[]){
+    const part=fact.text!;
       if(steps.length>=3 || steps.join(' ').length+part.length>620)flush();
       steps.push(part);
       if(fact.sourceFile&&!citations.some(c=>c.file_name===fact.sourceFile&&c.page_number===(fact.pageNumber??null)))
         citations.push({file_name:fact.sourceFile,page_number:fact.pageNumber??null});
-    }
   }
   flush();
   return parseTeachingPacket({type:'TEACHING_PACKET',session_id:sessionId,syllabus_id:syllabusId,state_version:version,

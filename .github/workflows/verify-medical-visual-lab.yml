@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/verify-medical-visual-lab.yml'
       - 'scripts/visual_lab_e2e.mjs'
+      - 'scripts/verify-progressive-class.mjs'
+      - 'hooks/useHybridStudyRAG.ts'
       - 'app/visual-lab/page.tsx'
       - 'components/voice/DynamicWhiteboardStage.tsx'
   workflow_dispatch:
@@ -30,6 +32,10 @@ jobs:
         env:
           SCREENSHOT_DIR: ${{ runner.temp }}/visual-evidence
         run: node "$RUNNER_TEMP/visual-e2e/test.mjs"
+      - name: Exercise mobile classroom startup with an isolated 42-concept fixture
+        run: |
+          cp scripts/verify-progressive-class.mjs "$RUNNER_TEMP/visual-e2e/progressive.mjs"
+          node "$RUNNER_TEMP/visual-e2e/progressive.mjs"
       - if: always()
         uses: actions/upload-artifact@v4
         with:
