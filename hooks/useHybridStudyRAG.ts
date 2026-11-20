@@ -43,11 +43,6 @@ export function useHybridStudyRAG(){
     sessionStorage.removeItem('lensiq.pending-syllabus');setResumeId(null);setReady(false);setProgress(null);
     if(old)void postJson('/api/rag/cleanup',{action:'purge-syllabus',syllabusId:old}).catch(()=>undefined);
   },[]);
-  useEffect(()=>{
-    const id=sessionStorage.getItem('lensiq.pending-syllabus');
-    if(id){checkpoint.current=id;queueMicrotask(()=>setResumeId(id));}
-    return ()=>jobRef.current?.abort();
-  },[]);
   const addFiles=useCallback((incoming:File[])=>{
     const seen=new Set(files.map(file=>[file.name,file.size,file.lastModified].join(':')));
     const next=[...files];
@@ -74,7 +69,7 @@ export function useHybridStudyRAG(){
     const client=createClient();
     const {data,error}=await client.from('study_syllabi').select('status,expires_at,session_id').eq('id',id).maybeSingle();
     if(error)throw new Error('Unable to check your prepared class. Please retry.');
-    let usable=Boolean(data&&['compiling','ready'].includes(data.status)&&Date.parse(data.expires_at)>Date.now());
+    let usable=Boolean(data&&['draft','failed','compiling','ready'].includes(data.status)&&Date.parse(data.expires_at)>Date.now());
     if(usable&&data?.session_id){
       const session=await client.from('live_class_sessions').select('status').eq('id',data.session_id).maybeSingle();
       if(session.error)throw new Error('Unable to check your previous class. Please retry.');
@@ -83,6 +78,15 @@ export function useHybridStudyRAG(){
     if(!usable){clear();return false;}
     return true;
   },[clear]);
+  useEffect(()=>{
+    const id=sessionStorage.getItem('lensiq.pending-syllabus');
+    if(id){
+      checkpoint.current=id;
+      queueMicrotask(()=>setResumeId(id));
+      void validate().catch(()=>undefined);
+    }
+    return ()=>jobRef.current?.abort();
+  },[validate]);
   const loadTree=useCallback(async(id:string):Promise<SyllabusTreeNode[]>=>{
     const client=createClient();
     const {data:syllabus,error}=await client.from('study_syllabi').select('active_generation,staging_generation,status,expires_at').eq('id',id).maybeSingle();
@@ -178,10 +182,11 @@ export function useHybridStudyRAG(){
       setProgress({stage:'Source index ready',current:total,total});
     }catch(caught){
       if(signal.aborted)return;
+      if(caught instanceof Error&&/expired|no longer available/.test(caught.message))clear();
       setError(caught instanceof Error?caught.message:'Unable to prepare study material');setStatus('error');
       throw caught;
     }finally{if(jobRef.current===job)busyRef.current=false;}
-  },[files,loadTree]);
+  },[files,loadTree,clear]);
   const search=useCallback(async(query:string,semantic=false):Promise<SearchHit[]>=>{
     if(!syllabusId)return[];
     const response=await postJson('/api/rag/retrieve-hybrid',{syllabusId,query,searchMode:semantic?'semantic':'instant'});
