@@ -1,0 +1,54 @@
+name: Prepare encrypted LiveKit configuration transfer
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/sync-livekit-configuration.yml']
+permissions:
+  contents: read
+jobs:
+  transfer:
+    environment: production-voice-worker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Encrypt the existing worker project configuration
+        env:
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+          LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+        run: |
+          set -euo pipefail
+          umask 077
+          cat > transfer-public.pem <<'PUBLIC_KEY'
+          -----BEGIN PUBLIC KEY-----
+          MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAz13k/ZxMyyVQGwlTw2lt
+          t8+acaEVTaSEQNfG8pPh41MxzepwBBG3vegSgcDKkVNbBksmD7CC5GVgA84YXquX
+          MjJarNnzbK0Nn+XD43krJvOVaVAqWLmvAZmLSCdn8wM5FFMAvkfgtqaehnLhFQyN
+          z88O/6bDnLs5btnMCa9m9+3L1jYJ84gu9xcxATtHKN/NLjxRD/3fw22bJ0NMeY34
+          jhUKTCdOnUcEmnxs/cDHVkmiz94FqRzvqnzWuEeY9q8F1rCf4IHoSYZBYtztz+tG
+          /xS6P7zJMwnCwbTrRRUz2AO80rqFBEECHYcJJt1F7mwJXcjqVSDb7Zymv0BfgvE1
+          xPEQc3mPOWaCOs4dLBrD/qp0T5QNg7429T6nR3920r1sxsm546519u30YqK3D8nI
+          /iY2HtTM+8NhIm/dnyv+ivhBM98wj70/kAk0/5AROI5YuriEUdujlesdt21rxFrk
+          CPj6m3QRn7k3wmBzPbq1gNBWJH3K0Rpjl/BjjFq8q+H6p6tn4JUk1JDl4AxfuINB
+          qOhqUyioDkxjUXDiMxRm865j6O3RRt84Ogv/H0GuFAKql/8YXjyyjNHxvbHgoZKk
+          KNnyP03rBbe1RXu5cTb5vdzICMJT2N5547XaiFMA9yf8Yp6xqG8QgelohSeM6Err
+          AiSkwePrrdAshzkX/EIYsGcCAwEAAQ==
+          -----END PUBLIC KEY-----
+          PUBLIC_KEY
+          python3 - <<'PYDATA' | openssl pkeyutl -encrypt -pubin -inkey transfer-public.pem -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -out livekit-config.enc
+          import json,os,sys
+          keys=('LIVEKIT_URL','LIVEKIT_API_KEY','LIVEKIT_API_SECRET')
+          values={key:os.environ[key] for key in keys}
+          if any(not value for value in values.values()):
+              raise SystemExit('Required worker project configuration missing')
+          payload=json.dumps(values,separators=(',',':')).encode()
+          if len(payload)>446:
+              raise SystemExit('Configuration exceeds encrypted envelope capacity')
+          sys.stdout.buffer.write(payload)
+          PYDATA
+          test "$(wc -c < livekit-config.enc)" -eq 512
+          echo 'Encrypted configuration envelope prepared; no plaintext credential files created.'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-livekit-configuration
+          path: livekit-config.enc
+          retention-days: 1
