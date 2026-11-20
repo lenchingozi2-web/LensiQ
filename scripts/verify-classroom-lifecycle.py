@@ -62,7 +62,19 @@ class ClassroomProbe(StudentValidation):
                 self.tasks.append(asyncio.create_task(listen(track)))
         await self.room.connect(token['url'],token['token'])
         self.tasks.append(asyncio.create_task(self.heartbeat()))
-        await self.wait(lambda d:d.get('type')=='WORKER_READY',timeout=60)
+        # Dispatch precedes browser connection. The initial readiness broadcast
+        # may already have happened; use the same repeatable HELLO as /voice.
+        async def hello():
+            while True:
+                await self.room.local_participant.publish_data(json.dumps({'type':'HELLO','session_id':self.session}).encode(),reliable=True,topic='lk-lesson-state')
+                await asyncio.sleep(.75)
+        poll=asyncio.create_task(hello())
+        try:
+            await self.wait(lambda d:d.get('type')=='WORKER_READY',after=self.started,timeout=60)
+        finally:
+            poll.cancel()
+            await asyncio.gather(poll,return_exceptions=True)
+        self.check('SESSION_SCOPED_WORKER_HANDSHAKE')
         await self.send_control({'type':'ptt_mode','enabled':True})
 
     async def start(self):
@@ -121,7 +133,9 @@ async def main():
         # Parent cleanup deletes only this generated account and its objects.
         try:await probe.cleanup()
         except Exception as exc:failure=failure or type(exc).__name__
-        report={'checks':probe.report['checks'],'timingsSeconds':probe.report['timingsSeconds'],'error':failure}
+        from collections import Counter
+        report={'checks':probe.report['checks'],'timingsSeconds':probe.report['timingsSeconds'],
+                'events':dict(Counter(e['data'].get('type','unknown') for e in probe.events)),'error':failure}
         Path('classroom-lifecycle-validation.json').write_text(json.dumps(report,indent=2))
         print(json.dumps(report),flush=True)
     if failure:raise RuntimeError(failure)
