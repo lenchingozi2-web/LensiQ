@@ -1,0 +1,72 @@
+name: Verify production classroom without redeploying
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/verify-classroom-production.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: classroom-production-verification
+  cancel-in-progress: false
+jobs:
+  verify:
+    environment: production-voice-worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+      LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+      LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+      SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test client
+        run: |
+          python -m pip install --disable-pip-version-check 'livekit-api==1.2.3' 'livekit==1.2.1'
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq espeak-ng
+      - name: Check production project, source lesson and question lifecycle
+        run: |
+          python - <<'PY'
+          import asyncio, os, runpy, sys
+          from urllib.parse import urlsplit
+          from livekit import api
+          sys.path.insert(0, 'scripts')
+          module=runpy.run_path('scripts/verify-classroom-lifecycle.py')
+          probe=module['ClassroomProbe']
+          original=probe.connect
+          async def checked_connect(self, token):
+              expected=urlsplit(os.environ['LIVEKIT_URL']).hostname
+              actual=urlsplit(token['url']).hostname
+              print('Canonical worker hostname: '+str(expected), flush=True)
+              print('Class token hostname: '+str(actual), flush=True)
+              if actual!=expected:
+                  raise RuntimeError('Website class token and deployed worker use different LiveKit projects')
+              try:
+                  await original(self, token)
+              except Exception:
+                  async with api.LiveKitAPI() as cloud:
+                      people=await cloud.room.list_participants(api.ListParticipantsRequest(room=token['roomName']))
+                      print('Room participant kinds: '+str([p.kind for p in people.participants]), flush=True)
+                      dispatches=await cloud.agent_dispatch.list_dispatch(api.ListAgentDispatchRequest(room=token['roomName']))
+                      print('Dispatch agent names: '+str([d.agent_name for d in dispatches.agent_dispatches]), flush=True)
+                  raise
+          probe.connect=checked_connect
+          asyncio.run(module['main']())
+          PY
+      - name: Verify independent source progression and purge
+        if: ${{ !cancelled() }}
+        run: python scripts/verify-syllabus-class.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: standalone-classroom-verification
+          path: classroom-lifecycle-validation.json
+          if-no-files-found: ignore
+          retention-days: 7
