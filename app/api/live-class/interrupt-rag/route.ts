@@ -18,7 +18,7 @@ export async function POST(request:Request){
   const {data:session}=await admin.from('live_class_sessions').select('id,room_name')
     .eq('id',sessionId).eq('user_id',user.id).eq('status','active').maybeSingle();
   if(!session||(gateway&&gateway.room!==session.room_name))return NextResponse.json({error:'Active class required'},{status:403});
-  const {data:lesson}=await admin.from('live_class_lessons').select('syllabus_id')
+  const {data:lesson}=await admin.from('live_class_lessons').select('syllabus_id,current_node_id')
     .eq('session_id',sessionId).eq('user_id',user.id).maybeSingle();
   if(!lesson)return NextResponse.json({error:'Lesson syllabus unavailable'},{status:409});
   // The gateway has a server-verified per-session bearer. This RPC is service-role-only,
@@ -33,7 +33,16 @@ export async function POST(request:Request){
     ?await admin.rpc('search_study_chunks_worker',{p_syllabus_id:lesson.syllabus_id,p_query:query,p_user_id:user.id,p_limit:10})
     :await (await createClient()).rpc('match_study_concepts_hybrid',{p_syllabus_id:lesson.syllabus_id,p_query:query,p_embedding:null,p_limit:10});
   if(error)return NextResponse.json({error:'Cited class retrieval temporarily unavailable'},{status:503});
-  const matches=(data||[]).map((row:{id:string;concept_node_id:string;chunk_text:string;source_file:string;page_number:number|null;score:number})=>({
+  // Pronouns and short follow-ups often have no lexical match. Include the
+  // current cited passage so "why?" and pointing questions still have context.
+  let rows=data||[];
+  if(!rows.length&&lesson.current_node_id){
+    const current=await admin.from('document_atomic_chunks').select('id,concept_node_id,chunk_text,source_file,page_number')
+      .eq('syllabus_id',lesson.syllabus_id).eq('user_id',user.id).eq('concept_node_id',lesson.current_node_id).limit(3);
+    if(current.error)return NextResponse.json({error:'Current passage unavailable'},{status:503});
+    rows=current.data||[];
+  }
+  const matches=rows.map((row:{id:string;concept_node_id:string;chunk_text:string;source_file:string;page_number:number|null;score?:number})=>({
     id:row.id,conceptNodeId:row.concept_node_id,text:row.chunk_text,
     citation:{file_name:row.source_file,page_number:row.page_number},score:row.score,
   }));

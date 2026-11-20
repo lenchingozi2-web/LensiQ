@@ -47,6 +47,9 @@ class SyllabusVoiceTutor:
         self.release_task: asyncio.Task | None = None
         self.last_visual = None
         self.media_ready = False
+        self.away_task: asyncio.Task | None = None
+        self.selection: dict[str, Any] = {}
+        self.previous_title = ""
 
     async def publish(self, data: dict[str, Any]) -> None:
         if data.get("type") == "SYNC_VISUAL_STAGE":
@@ -134,28 +137,34 @@ class SyllabusVoiceTutor:
                             "visual_stack": [{"active_mode": cue["mode"], "cue_index": 0,
                                               "concept_node_id": packet["concept_node_id"]}],
                         })
-                    await self.publish(self.pending_visual)
-                    self.pending_visual = None
                 prompt = ("Teach only the supplied evidence. Preserve qualifications, numerical values and exceptions. "
                           "If the notes do not explain something, acknowledge the gap. "
                           "You are a patient, warm clinical lecturer. Explain one idea at a time in simple English. "
                           "Define medical terms, explain the causal link, then relate it to a clinical example only if supported. "
                           "Use short complete sentences, natural punctuation and deliberate pauses; never rush or recite raw bullets. "
+                          "Connect this checkpoint to the previous idea in one short transition. "
+                          "Teach meaning first, then how and why, then its clinical significance when supported by the evidence. "
+                          "Use a brief recap before moving on; do not repeatedly greet or ask permission to continue. "
                           "Keep all source qualifications. Do not read JSON or citations. Accurate source evidence follows:\n"
-                          + json.dumps({"title": packet.get("title"), "evidence": cue["spoken_text"], "focus": self.focus[:240]}, ensure_ascii=False))
+                          + json.dumps({"title": packet.get("title"), "previous_topic": self.previous_title,
+                                        "evidence": cue["spoken_text"], "focus": self.focus[:240]}, ensure_ascii=False))
                 # Publish every checkpoint even when LiveKit coalesces speaking
                 # state transitions across consecutive speech handles.
-                if self.pending_visual:
-                    await self.publish(self.pending_visual)
-                    self.pending_visual = None
                 speech = self.grounded_speech(prompt, "teach", cue["spoken_text"])
                 self.started = True
                 handle = self.session.say(speech, allow_interruptions=True)
+                # Consecutive handles can share a speaking state. In that case
+                # stage this checkpoint now; otherwise on_audio_state stages it
+                # when synthesized audio actually begins.
+                if self.speaking and self.pending_visual:
+                    await self.publish(self.pending_visual)
+                    self.pending_visual = None
                 await handle.wait_for_playout()
                 if self.interrupting or handle.interrupted:
                     return
                 await asyncio.sleep(0.45)
             if not self.interrupting:
+                self.previous_title = str(packet.get("title", ""))[:200]
                 while True:
                     result = await self.api("/api/live-class/orchestrate", {
                         "action": "node_complete", "stateVersion": self.state_version,
@@ -233,7 +242,7 @@ class SyllabusVoiceTutor:
             data = await self.api("/api/live-class/interrupt-rag", {"query": question})
             matches = data.get("matches", [])[:5]
             references = []
-            budget = 1900
+            budget = 1500
             for item in matches:
                 passage = {"text": item["text"], "citation": item["citation"]}
                 size = len(json.dumps(passage, ensure_ascii=False))
@@ -244,11 +253,13 @@ class SyllabusVoiceTutor:
                 "type": "SCRATCHPAD_EVIDENCE", "state_version": self.state_version,
                 "question": question, "citations": [item["citation"] for item in references],
             })
+            await self.publish({"type":"live_class_user_transcript","content":question})
             prompt = ("Answer this medical student's specific question clearly and naturally. "
                       "Ground medical claims in these exact retrieved sources; if none were found, "
                       "say the provided files do not address it. Do not invent a citation. "
-                      + json.dumps({"question": question, "sources": references}, ensure_ascii=False))
-            speech = self.text_stream(prompt, "barge_in") if references else "I couldn't find that answer in the material indexed for this class."
+                      "The selected structure is student interaction context, not evidence of disease. "
+                      + json.dumps({"question": question[:600], "sources": references, "selection": self.selection}, ensure_ascii=False))
+            speech = self.grounded_speech(prompt, "barge_in", references[0]["text"]) if references else "I couldn't find that answer in the material indexed for this class."
             handle = self.session.say(speech, allow_interruptions=True)
             await handle.wait_for_playout()
             if handle.interrupted:
@@ -261,6 +272,7 @@ class SyllabusVoiceTutor:
                                 "state_version": result["state"]["state_version"],
                                 "snapshot": restored})
             self.interrupting = False
+            self.state_version = int(result["state"]["state_version"])
             if result.get("packet"):
                 self.speech_task = asyncio.create_task(
                     self.play_packet(result["packet"], int(restored.get("cue_index", 0)) if restored else 0)
@@ -318,6 +330,8 @@ class SyllabusVoiceTutor:
                 question = ""
             else:
                 await self.publish({"type":"live_class_ptt_state","turnId":turn_id,"phase":"processing"})
+                # Reliable data may arrive before the final RTP audio packets.
+                await asyncio.sleep(0.25)
                 transcript = await self.session.commit_user_turn(skip_reply=True, transcript_timeout=3.0, stt_flush_duration=0.8)
                 question = (transcript or " ".join(self.turn_words)).strip()[:900]
             if self.turn_id != turn_id:
@@ -339,8 +353,21 @@ class SyllabusVoiceTutor:
                         self.speech_task = asyncio.create_task(self.play_packet(result["packet"], self.cue_index))
         except Exception:
             log.exception("Could not finish the learner turn")
-            self.turn_id = None
+            if self.turn_id == turn_id:
+                self.turn_id = None
+                await self.publish({"type":"live_class_ptt_state","turnId":turn_id,"phase":"empty"})
             await self.publish({"type":"TUTOR_RECOVERY_REQUIRED","state_version":self.state_version})
+
+    async def expire_away(self) -> None:
+        await asyncio.sleep(120)
+        await self.stop_speech()
+        if self.release_task:
+            self.release_task.cancel()
+        if self.answer_task:
+            self.answer_task.cancel()
+        response = await self.http.post(self.base + "/api/voice/worker-disconnect",
+            json={"reason":"browser_away"}, headers={"Authorization":"Bearer " + self.token})
+        response.raise_for_status()
 
     async def receive_packet(self, packet: dict[str, Any]) -> None:
         if not self.media_ready:
@@ -361,6 +388,21 @@ class SyllabusVoiceTutor:
                 await self.stop_speech()
             elif kind == "ptt_mode":
                 self.ptt = bool(packet.get("enabled"))
+            elif kind == "browser_presence":
+                if self.away_task:
+                    self.away_task.cancel()
+                if packet.get("hidden"):
+                    self.away_task = asyncio.create_task(self.expire_away())
+            elif kind in ("structure_selected", "media_selected", "simulation_state"):
+                self.selection = {k:packet[k] for k in ("type","structureId","preset","variables","result","x","y") if k in packet}
+                if kind != "simulation_state":
+                    await self.publish({"type":"live_class_interaction_ack","awaitingQuestion":True})
+            elif kind in ("concept_selected", "simulation_result"):
+                self.selection = {k:packet[k] for k in ("type","concept","preset","variables","result") if k in packet}
+                await self.publish({"type":"live_class_interaction_ack"})
+                question = str(packet.get("concept") or ("Explain this simulation result: " + json.dumps(self.selection)))[:900]
+                async with self._commands:
+                    await self.answer(question)
             elif kind == "ptt_start":
                 if self.release_task and not self.release_task.done():
                     self.release_task.cancel()
@@ -385,6 +427,8 @@ class SyllabusVoiceTutor:
             await self.publish({"type":"TUTOR_RECOVERY_REQUIRED","state_version":self.state_version})
 
     async def close(self) -> None:
+        if self.away_task:
+            self.away_task.cancel()
         if self.speech_task:
             self.speech_task.cancel()
         if self.answer_task:
@@ -412,7 +456,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     @ctx.room.on("data_received")
     def on_data(packet: Any) -> None:
-        if packet.topic not in (CHANNEL, "lensiq.live_class.lesson_control") or not packet.participant or packet.participant.identity != tutor.user_id:
+        if packet.topic not in (CHANNEL, "lensiq.live_class.lesson_control", "lensiq.live_class.visual_feedback") or not packet.participant or packet.participant.identity != tutor.user_id:
             return
         try:
             payload = json.loads(packet.data.decode("utf-8"))

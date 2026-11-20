@@ -63,6 +63,8 @@ export function useVisualSyncEngine(room:Room|null,sessionId:string|null){
         }catch{return;}
       }else if(data.type==='SCRATCHPAD_EVIDENCE'){
         const refs=Array.isArray(data.citations)?data.citations:[];
+        const question=typeof data.question==='string'?data.question.slice(0,900):'';
+        if(question)setCue(current=>current?.mode==='whiteboard_scratchpad'?{...current,steps:[question]}:current);
         setCitations(refs.filter((r):r is Citation=>Boolean(r&&typeof r==='object'&&typeof(r as Citation).file_name==='string')).slice(0,15));
       }else if(data.type==='LESSON_COMPLETED'){
         setComplete(true);versionRef.current=version;

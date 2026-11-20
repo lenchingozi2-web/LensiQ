@@ -1,6 +1,7 @@
 import { issueLiveClassGatewayToken } from '@/lib/voice/live-class-gateway-auth';
-import { NextResponse } from 'next/server';
-import { AccessToken, AgentDispatchClient } from 'livekit-server-sdk';
+import { after, NextResponse } from 'next/server';
+import { AccessToken, AgentDispatchClient, RoomServiceClient } from 'livekit-server-sdk';
+import { purgeSessionMaterialsOnEnd } from '@/lib/rag/ephemeral-cleanup';
 import { createClient } from '../../../../lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAuthRequestRejection } from '../../../../lib/auth/request-diagnostics';
@@ -124,6 +125,8 @@ export async function POST(req: Request) {
     sources: Array.isArray(rawMaterialContext.sources) ? rawMaterialContext.sources.filter((value): value is string => typeof value === 'string').slice(0, 6).map((value) => value.slice(0, 120)) : [],
   } : null;
   const roomName = `lensiq-voice-${user.id.slice(0, 8)}-${crypto.randomUUID()}`;
+  const previous=await admin.from('live_class_sessions').select('id,room_name')
+    .eq('user_id',user.id).order('started_at',{ascending:false}).limit(10);
 
   const reserveSession = () => supabase.rpc('reserve_live_class_session', {
     p_room_name: roomName,
@@ -180,6 +183,18 @@ export async function POST(req: Request) {
     if (error) console.error('Unable to release failed Live Class start', error.code || 'unknown');
   };
 
+  // The reservation RPC supersedes old rooms; also remove their external
+  // resources when a mobile browser never delivered its closing beacon.
+  after(async()=>{
+    const service=new RoomServiceClient(livekitUrls[0].replace(/^ws/,'http'),apiKey,apiSecret);
+    for(const old of previous.data||[]){
+      const {data:ended}=await admin.from('live_class_sessions').select('status').eq('id',old.id).eq('user_id',user.id).maybeSingle();
+      if(!ended||ended.status==='active')continue;
+      try{await service.deleteRoom(old.room_name);}catch{/* Room may already be gone. */}
+      try{await purgeSessionMaterialsOnEnd(admin,user.id,old.id);}catch{console.warn('Previous class purge pending retry');}
+    }
+  });
+
   const isUnlimited = Boolean(quota.is_unlimited);
   const maxDurationSeconds = Math.min(90 * 60, Math.max(60, Number(quota.max_duration_seconds ?? 90 * 60)));
   // A reservation's billing expiry may be days away. The voice worker and
@@ -202,7 +217,8 @@ export async function POST(req: Request) {
       .update({session_id:quota.session_id,expires_at:sessionExpiresAt})
       .eq('user_id',user.id).eq('id',syllabusId).is('session_id',null)
       .in('status',['compiling','ready']).gt('expires_at',new Date().toISOString()).select('id').maybeSingle();
-    if(error||!linked){await releaseFailedStart();return NextResponse.json({error:'This syllabus expired or is already in use.'},{status:409});}
+    if(error||!linked){await releaseFailedStart();return NextResponse.json({error:'syllabus_unavailable',resetSyllabus:true,
+      message:'Your previous class has ended or its temporary notes expired. Select your files again, or enter using the course bank.'},{status:409});}
   }
   const dispatchMetadata = JSON.stringify({
     syllabusId,

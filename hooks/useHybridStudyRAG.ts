@@ -37,10 +37,11 @@ export function useHybridStudyRAG(){
   const jobRef=useRef<AbortController|null>(null);
   const checkpoint=useRef<string|null>(null);
   const [resumeId,setResumeId]=useState<string|null>(null);
-  useEffect(()=>{
-    const id=sessionStorage.getItem('lensiq.pending-syllabus');
-    if(id){checkpoint.current=id;queueMicrotask(()=>setResumeId(id));}
-    return ()=>jobRef.current?.abort();
+  const invalidate=useCallback(()=>{
+    const old=checkpoint.current;
+    jobRef.current?.abort();jobRef.current=null;busyRef.current=false;checkpoint.current=null;
+    sessionStorage.removeItem('lensiq.pending-syllabus');setResumeId(null);setReady(false);setProgress(null);
+    if(old)void postJson('/api/rag/cleanup',{action:'purge-syllabus',syllabusId:old}).catch(()=>undefined);
   },[]);
   const addFiles=useCallback((incoming:File[])=>{
     const seen=new Set(files.map(file=>[file.name,file.size,file.lastModified].join(':')));
@@ -53,19 +54,43 @@ export function useHybridStudyRAG(){
     if(next.length>STUDY_RAG_MAX_FILES||next.reduce((sum,file)=>sum+file.size,0)>STUDY_RAG_MAX_BYTES){
       setError('Up to 25 documents, combined maximum 70 MiB. Remove some files before uploading.');return;
     }
-    setFiles(next);setStatus('idle');setError('');setSyllabusId(null);setTree([]);
-  },[files]);
-  const removeFile=useCallback((index:number)=>{setFiles(current=>current.filter((_,i)=>i!==index));setStatus('idle');setSyllabusId(null);setTree([]);},[]);
+    invalidate();setFiles(next);setStatus('idle');setError('');setSyllabusId(null);setTree([]);
+  },[files,invalidate]);
+  const removeFile=useCallback((index:number)=>{invalidate();setFiles(current=>current.filter((_,i)=>i!==index));setStatus('idle');setSyllabusId(null);setTree([]);},[invalidate]);
   const clear=useCallback(()=>{jobRef.current?.abort();jobRef.current=null;busyRef.current=false;
     checkpoint.current=null;sessionStorage.removeItem('lensiq.pending-syllabus');setResumeId(null);setFlagged([]);setReady(false);setFiles([]);setSyllabusId(null);setTree([]);setStatus('idle');setProgress(null);setError('');},[]);
   const discard=useCallback(()=>{
     const id=checkpoint.current;clear();
     if(id)void postJson('/api/rag/cleanup',{action:'purge-syllabus',syllabusId:id}).catch(()=>undefined);
   },[clear]);
+  const validate=useCallback(async()=>{
+    const id=checkpoint.current;
+    if(!id)return true;
+    const client=createClient();
+    const {data,error}=await client.from('study_syllabi').select('status,expires_at,session_id').eq('id',id).maybeSingle();
+    if(error)throw new Error('Unable to check your prepared class. Please retry.');
+    let usable=Boolean(data&&['draft','failed','compiling','ready'].includes(data.status)&&Date.parse(data.expires_at)>Date.now());
+    if(usable&&data?.session_id){
+      const session=await client.from('live_class_sessions').select('status').eq('id',data.session_id).maybeSingle();
+      if(session.error)throw new Error('Unable to check your previous class. Please retry.');
+      usable=session.data?.status==='active';
+    }
+    if(!usable){clear();return false;}
+    return true;
+  },[clear]);
+  useEffect(()=>{
+    const id=sessionStorage.getItem('lensiq.pending-syllabus');
+    if(id){
+      checkpoint.current=id;
+      queueMicrotask(()=>setResumeId(id));
+      void validate().catch(()=>undefined);
+    }
+    return ()=>jobRef.current?.abort();
+  },[validate]);
   const loadTree=useCallback(async(id:string):Promise<SyllabusTreeNode[]>=>{
     const client=createClient();
-    const {data:syllabus,error}=await client.from('study_syllabi').select('active_generation,staging_generation,status').eq('id',id).maybeSingle();
-    if(error||!syllabus||!['compiling','ready'].includes(syllabus.status))throw new Error('Syllabus is no longer available');
+    const {data:syllabus,error}=await client.from('study_syllabi').select('active_generation,staging_generation,status,expires_at').eq('id',id).maybeSingle();
+    if(error||!syllabus||!['compiling','ready'].includes(syllabus.status)||Date.parse(syllabus.expires_at)<=Date.now())throw new Error('Syllabus is no longer available');
     const results:SyllabusTreeNode[]=[];
     for(let from=0;;from+=500){
       const page=await client.from('syllabus_concept_nodes').select('id,title,parent_id,node_type,sort_order,source_citations_json')
@@ -157,10 +182,11 @@ export function useHybridStudyRAG(){
       setProgress({stage:'Source index ready',current:total,total});
     }catch(caught){
       if(signal.aborted)return;
+      if(caught instanceof Error&&/expired|no longer available/.test(caught.message))clear();
       setError(caught instanceof Error?caught.message:'Unable to prepare study material');setStatus('error');
       throw caught;
     }finally{if(jobRef.current===job)busyRef.current=false;}
-  },[files,loadTree]);
+  },[files,loadTree,clear]);
   const search=useCallback(async(query:string,semantic=false):Promise<SearchHit[]>=>{
     if(!syllabusId)return[];
     const response=await postJson('/api/rag/retrieve-hybrid',{syllabusId,query,searchMode:semantic?'semantic':'instant'});
@@ -171,5 +197,5 @@ export function useHybridStudyRAG(){
   const sweepStale=useCallback(async()=>{
     return postJson('/api/rag/cleanup',{action:'sweep'});
   },[]);
-  return {interactive,files,addFiles,removeFile,clear,discard,syllabusId,tree,status,ready,progress,error,flagged,resumeId,lastSearch,uploadAndCompile,loadTree,search,sweepStale};
+  return {interactive,files,addFiles,removeFile,clear,discard,validate,syllabusId,tree,status,ready,progress,error,flagged,resumeId,lastSearch,uploadAndCompile,loadTree,search,sweepStale};
 }

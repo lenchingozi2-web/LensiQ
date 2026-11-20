@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { purgeSessionMaterialsOnEnd } from '@/lib/rag/ephemeral-cleanup';
 import { createClient } from '../../../../lib/supabase/server';
 import { logAuthRequestRejection } from '../../../../lib/auth/request-diagnostics';
+import { RoomServiceClient } from 'livekit-server-sdk';
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -66,6 +67,11 @@ export async function POST(req: Request) {
         cleanupPending = true;
         console.error('Live Class material purge is pending retry', error instanceof Error ? error.message : 'unknown');
       }
+      try{
+        const {data:room}=await admin.from('live_class_sessions').select('room_name').eq('id',sessionId).eq('user_id',user.id).maybeSingle();
+        const host=(process.env.LIVEKIT_URL||process.env.LIVEKIT_PUBLIC_URL||'').replace(/^ws/,'http');
+        if(room&&host)await new RoomServiceClient(host,process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET).deleteRoom(room.room_name);
+      }catch{/* The room may already be disconnected. */}
     }
   }
   return NextResponse.json({

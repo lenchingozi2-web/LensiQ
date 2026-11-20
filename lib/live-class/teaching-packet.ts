@@ -19,7 +19,8 @@ export function makeTeachingPacket(sessionId:string,syllabusId:string,version:nu
     const rows=text.split('\n').map(line=>line.split('\t'));
     const flow=/→|⟶|->/.test(text)?text.split(/\s*(?:→|⟶|->)\s*/):spec.layout==='flow'?steps:[];
     const table=rows.length>=2&&rows[0].length>=2&&rows.every(r=>r.length===rows[0].length);
-    const showModel=cues.length===1&&['anatomy_3d','molecule_3d','physiology_sim','source_diagram'].includes(String(spec.mode));
+    // Even a short source passage gets its relevant interactive visual.
+    const showModel=cues.length===0&&['anatomy_3d','molecule_3d','physiology_sim','source_diagram'].includes(String(spec.mode));
     cues.push(parseVisualCue({id:record.id+'-'+cues.length,title:record.title,spoken_text:text,steps,
       mode:showModel?spec.mode:'whiteboard',asset_url:showModel?spec.asset_url:undefined,structure_id:showModel?spec.structure_id:undefined,
       comparison_table:table?{columns:rows[0],rows:rows.slice(1)}:undefined,
