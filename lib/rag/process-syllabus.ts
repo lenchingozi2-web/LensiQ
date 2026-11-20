@@ -14,7 +14,9 @@ export function processSyllabus(documents: ParsedDocument[]) {
       const lines = chunk.text.split('\n').filter(Boolean).map(text => ({
         text, sourceFile: chunk.sourceFile, pageNumber: chunk.pageNumber, documentId: chunk.documentId,
       }));
-      const title = section.heading + (chunks.length > 1 ? ' · ' + (index + 1) : '');
+      // Generic headings such as "Mechanism" retain the named disease or drug
+      // immediately above them, rather than becoming disconnected lessons.
+      const title = topic + (chunks.length > 1 ? ' · ' + (index + 1) : '');
       return { ...compileCanonicalConcept(title, lines), module: document.source, topic, chunk };
     });
     });

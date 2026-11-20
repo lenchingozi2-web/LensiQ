@@ -12,7 +12,7 @@ type Props=Existing&{cue:VisualCue|null;steps:string[];citations:Citation[]};
 export default function DynamicWhiteboardStage({cue,steps,citations,...original}:Props){
   if(!cue)return <LiveClassVisualStage {...original}/>;
   if(cue.mode==='anatomy_3d'&&cue.asset_url&&getLiveClassModelCatalogEntry(cue.asset_url)){
-    const context:VisualContext={type:'model',modelUrl:cue.asset_url,title:cue.title,structureId:cue.structure_id};
+    const context:VisualContext={type:'model',modelUrl:cue.asset_url,title:cue.title,structureId:original.selectedStructure||cue.structure_id};
     return <LiveClassVisualStage {...original} visualContext={context}/>;
   }
   if(cue.mode==='molecule_3d'&&cue.asset_url){
@@ -54,7 +54,7 @@ export default function DynamicWhiteboardStage({cue,steps,citations,...original}
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#E8A23D]/15 text-xs font-black text-[#ffd080]">{index+1}</span>
             <p className="text-sm leading-7 text-white/85 sm:text-lg">{step}</p>
           </div>)}
-        {steps.length===0&&<p className="text-sm text-white/60">The tutor is preparing this visual checkpoint.</p>}
+        {(cue.mode==='whiteboard_scratchpad'?cue.steps:steps).length===0&&<p className="text-sm text-white/60">{cue.mode==='whiteboard_scratchpad'?'Listening to your question…':'The tutor is preparing this visual checkpoint.'}</p>}
       </div>
       {cue.high_yield_pearl&&<p className="mt-6 rounded-xl border border-amber-300/25 bg-amber-400/10 p-4 text-sm font-bold text-[#ffe1a0]">
         High-yield pearl · {cue.high_yield_pearl}
