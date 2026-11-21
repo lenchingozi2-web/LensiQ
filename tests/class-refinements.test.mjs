@@ -22,8 +22,8 @@ test('the actual hold handler orders start, streaming, stop, then submission exa
  let source=page.slice(start,end).replace('const setPressMicrophone','export const setPressMicrophone');
  const calls=[];const phases=[];
  const room={localParticipant:{async publishData(data){calls.push(JSON.parse(new TextDecoder().decode(data)).type);},async setMicrophoneEnabled(enabled){await new Promise(resolve=>setTimeout(resolve,3));calls.push(enabled?'streaming':'stopped');}}};
- globalThis.__hold={useCallback:fn=>fn,roomRef:{current:room},pressHeldRef:{current:false},pressTurnRef:{current:null},microphoneQueueRef:{current:Promise.resolve()},spokenCuesRef:{current:{clear(){}}},setPressPhase:phase=>phases.push(phase),setRuntimeState:()=>{},setStatus:()=>{},setMicMuted:()=>{},setError:error=>assert.fail(error)};
- const preamble='const {useCallback,roomRef,pressHeldRef,pressTurnRef,microphoneQueueRef,spokenCuesRef,setPressPhase,setRuntimeState,setStatus,setMicMuted,setError}=globalThis.__hold;\n';
+ globalThis.__hold={useCallback:fn=>fn,roomRef:{current:room},pressHeldRef:{current:false},pressTurnRef:{current:null},microphoneQueueRef:{current:Promise.resolve()},spokenCuesRef:{current:{clear(){}}},setPressPhase:phase=>phases.push(phase),setRuntimeState:()=>{},setStatus:()=>{},setMicMuted:()=>{},setInputDucked:()=>{},setError:error=>assert.fail(error)};
+ const preamble='const {useCallback,roomRef,pressHeldRef,pressTurnRef,microphoneQueueRef,spokenCuesRef,setPressPhase,setRuntimeState,setStatus,setMicMuted,setInputDucked,setError}=globalThis.__hold;\n';
  const {setPressMicrophone}=await import('data:text/javascript;base64,'+Buffer.from(preamble+stripTypeScriptTypes(source)).toString('base64'));
  setPressMicrophone(true);setPressMicrophone(true);setPressMicrophone(false);setPressMicrophone(false);
  assert.deepEqual(phases,['holding','processing']);

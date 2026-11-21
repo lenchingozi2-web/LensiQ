@@ -4,9 +4,11 @@ import { getLectureFileExtension } from '@/lib/curriculum/file-types';
 import { buildTeachingContext } from '@/lib/ai/teaching-context';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { includesLiveClass } from '@/lib/plans';
+import { buildCourseLesson } from '@/lib/live-class/course-lesson';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration=60;
 const BUCKET = 'study-documents';
 const MAX_BYTES = 70 * 1024 * 1024;
 const UUID = /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i;
@@ -26,13 +28,10 @@ export async function POST(request: Request) {
     const admin=createAdminClient();
     if(!course||!admin)return NextResponse.json({error:'Course context unavailable'},{status:503});
     const context=await buildTeachingContext(admin,course,[{role:'user',content:String(body.focus||course).slice(0,300)}]);
-    const sources=context.knowledgeSources.filter(s=>s.content?.trim()).slice(0,8).map(s=>'# '+s.title+'\n'+s.content);
-    if(!sources.length)for(const q of context.questions.filter(q=>q.question_text&&(q.model_answer||q.correct_answer)&&
-      (!q.division||q.division.toLowerCase().includes(course.toLowerCase())||course==='Pharmacology')).slice(0,12)){
-      sources.push('# '+(q.topic||course)+'\n'+q.question_text+'\n'+(q.model_answer||q.correct_answer));
-    }
-    if(!sources.length)return NextResponse.json({error:'No course-bank passages available. Choose lecture notes to start this class.'},{status:422});
-    return NextResponse.json({text:sources.join('\n\n')});
+    try{
+      const text=await buildCourseLesson(course,String(body.focus||'').slice(0,300),context);
+      return NextResponse.json({text,sourceMode:'course-knowledge-and-bank'});
+    }catch{return NextResponse.json({error:'The tutor could not prepare this course lesson. Please retry.'},{status:503});}
   }
   if (body.action === 'confirm') {
     const documentId = typeof body.documentId === 'string' ? body.documentId : '';

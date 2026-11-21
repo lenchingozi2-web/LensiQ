@@ -22,11 +22,11 @@ class ClassroomProbe(StudentValidation):
     async def send_control(self,payload):
         await self.room.local_participant.publish_data(json.dumps(payload).encode(),reliable=True,topic='lensiq.live_class.lesson_control')
 
-    async def upload_sources(self):
+    async def upload_sources(self,sources=None):
         fixtures=json.loads((Path(__file__).resolve().parents[1]/'tests/fixtures/live-class-lessons.json').read_text())
-        sources=[('\n\n'.join('# '+chapter['title']+'\n'+paragraph for paragraph in chapter['sections'])).encode() for chapter in fixtures[:2]]
+        if sources is None:sources=[('# Learning objectives\nORIENTATION\nYEAR 4 MEDICINE\n2\nDefine the response to injury.\n\n'+'\n\n'.join('# '+chapter['title']+'\n'+paragraph for paragraph in chapter['sections'])).encode() for chapter in fixtures[:2]]
         files=[{'name':f'probe-{i}.txt','size':len(data),'type':'text/plain'} for i,data in enumerate(sources)]
-        prepared=await self.http('/api/rag/ingest-batch',{'action':'prepare','files':files})
+        prepared=await self.http('/api/rag/ingest-batch',{'action':'prepare','files':files,**({'sessionId':self.session} if self.session else {})})
         self.syllabus=prepared['syllabusId']
         for upload,data in zip(prepared['uploads'],sources):
             self.paths.add(upload['path'])
@@ -86,6 +86,25 @@ class ClassroomProbe(StudentValidation):
         while not self.last_audible_at and time.monotonic()<deadline:await asyncio.sleep(.3)
         if not self.last_audible_at:raise RuntimeError('No decoded non-silent tutor audio')
         self.check('SPOKEN_LESSON_AND_SESSION_VERIFIED_VISUAL')
+        await self.verify_teaching()
+
+    async def verify_teaching(self):
+        result=await self.http('/api/live-class/orchestrate',{'action':'state','sessionId':self.session})
+        packet=result.get('packet') or {}
+        if packet.get('teaching_version')!=3:raise RuntimeError('Unverified raw-source teaching packet')
+        cues=packet.get('visual_cues') or []
+        if len(cues)<2:raise RuntimeError('No progressive explanation')
+        import re
+        for cue in cues:
+            speech=cue.get('spoken_text','');notes=cue.get('steps') or []
+            if re.search(r'learning objectives|orientation|YEAR 4 MEDICINE',speech,re.I):raise RuntimeError('Administrative content was spoken')
+            if not 1<=len(notes)<=2 or any(len(n.split())>16 for n in notes):raise RuntimeError('Whiteboard is a source list')
+        if cues[-1].get('mode')!='whiteboard':raise RuntimeError('Model does not return to board')
+        self.check('AUTHORED_EXPLANATION_PROGRESSIVE_ANCHORS_NO_ORIENTATION')
+        sent=time.monotonic()
+        await self.send_control({'type':'teaching_pace','pace':0.88})
+        await self.wait(lambda d:d.get('type')=='PACE_UPDATED' and d.get('pace')==0.88,after=sent,timeout=8)
+        self.check('REAL_NATIVE_PACE_UPDATE_ACKNOWLEDGED')
 
     async def exercise(self):
         sent=time.monotonic();turn=uuid.uuid4().hex
@@ -113,6 +132,14 @@ class ClassroomProbe(StudentValidation):
         if token['sessionId']==old:raise RuntimeError('New class reused old session')
         await self.connect(token)
         self.check('NEW_CLASS_ENTRY_AFTER_COMPLETION')
+        course=await self.http('/api/rag/ingest-batch',{'action':'course','course':'Anatomical Pathology','focus':'Acute inflammation: vascular changes and recruitment of neutrophils'})
+        if course.get('sourceMode')!='course-knowledge-and-bank' or len(course.get('text',''))<600:raise RuntimeError('No-file lesson not prepared from course knowledge')
+        await self.upload_sources([course['text'].encode()])
+        sent=time.monotonic()
+        await self.room.local_participant.publish_data(json.dumps({'type':'OPEN_LESSON','session_id':self.session,'syllabus_id':self.syllabus}).encode(),reliable=True,topic='lk-lesson-state')
+        await self.wait(lambda d:d.get('type')=='SYNC_VISUAL_STAGE',after=sent,timeout=75)
+        await self.verify_teaching()
+        self.check('NO_UPLOADED_FILES_REAL_KNOWLEDGE_AND_BANK_LESSON')
         await self.send_control({'type':'browser_presence','hidden':True})
         await asyncio.sleep(60)
         await asyncio.sleep(60)

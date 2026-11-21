@@ -6,6 +6,9 @@ on:
       - '.github/workflows/verify-medical-visual-lab.yml'
       - 'scripts/visual_lab_e2e.mjs'
       - 'scripts/verify-progressive-class.mjs'
+      - 'scripts/verify-classroom-controls.mjs'
+      - 'components/voice/HoldToAsk.tsx'
+      - 'components/voice/ClassAudioOptions.tsx'
       - 'hooks/useHybridStudyRAG.ts'
       - 'app/visual-lab/page.tsx'
       - 'components/voice/DynamicWhiteboardStage.tsx'
@@ -25,9 +28,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/visual-e2e"
-          npm install --prefix "$RUNNER_TEMP/visual-e2e" --no-audit --no-fund playwright@1.57.0
+          npm install --prefix "$RUNNER_TEMP/visual-e2e" --no-audit --no-fund playwright@1.57.0 esbuild@0.25.12
           "$RUNNER_TEMP/visual-e2e/node_modules/.bin/playwright" install --with-deps chromium
           cp scripts/visual_lab_e2e.mjs "$RUNNER_TEMP/visual-e2e/test.mjs"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install production components for isolated browser controls
+        run: npm ci --ignore-scripts
+      - name: Verify actual touch gestures and compact voice controls
+        run: |
+          cp scripts/verify-classroom-controls.mjs "$RUNNER_TEMP/visual-e2e/controls.mjs"
+          node "$RUNNER_TEMP/visual-e2e/controls.mjs"
       - name: Load deployed Supabase GLBs in real Chromium and test actions
         env:
           SCREENSHOT_DIR: ${{ runner.temp }}/visual-evidence

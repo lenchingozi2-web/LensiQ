@@ -28,5 +28,12 @@ jobs:
         run: npx tsc --noEmit
       - name: ESLint
         run: npm run lint
+      - name: Verify mobile touch controls before release
+        if: github.event_name == 'pull_request'
+        run: |
+          npm install --prefix "$RUNNER_TEMP/classroom-controls" --no-audit --no-fund playwright@1.57.0 esbuild@0.25.12
+          "$RUNNER_TEMP/classroom-controls/node_modules/.bin/playwright" install --with-deps chromium
+          cp scripts/verify-classroom-controls.mjs "$RUNNER_TEMP/classroom-controls/controls.mjs"
+          node "$RUNNER_TEMP/classroom-controls/controls.mjs"
       - name: Production build
         run: npm run build

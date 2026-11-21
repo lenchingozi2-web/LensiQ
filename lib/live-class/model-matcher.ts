@@ -17,6 +17,7 @@ const presets=[
 ];
 /** Match only verified catalogue entries; weak semantic similarity never invents a 3D structure. */
 export function matchCuratedClassVisual(heading:string):MatchedClassVisual|null{
+  if(/\b(?:colorectal|colonic polyps|colon polyps)\b/i.test(heading))return matchCuratedClassVisual('colon anatomy');
   const title=heading.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   const titleWords=tokens(title);
   for(const {phrase,preset} of presets)if(title.includes(phrase))return{mode:'physiology_sim',structure_id:preset,title:heading};

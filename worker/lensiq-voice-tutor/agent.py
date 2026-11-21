@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from typing import Any, AsyncIterator
 
 import httpx
@@ -25,7 +26,7 @@ class SyllabusVoiceTutor:
         self.session_id = str(metadata["sessionId"])
         self.base = str(metadata["orchestrateEndpoint"]).rsplit("/api/live-class/orchestrate", 1)[0]
         self.token = str(metadata["voiceGatewayToken"])
-        self.http = httpx.AsyncClient(timeout=30.0, follow_redirects=False)
+        self.http = httpx.AsyncClient(timeout=55.0, follow_redirects=False)
         self.packet: dict[str, Any] | None = None
         self.state_version = 0
         self.cue_index = 0
@@ -50,6 +51,9 @@ class SyllabusVoiceTutor:
         self.away_task: asyncio.Task | None = None
         self.selection: dict[str, Any] = {}
         self.previous_title = ""
+        self.lookahead_task: asyncio.Task | None = None
+        self.visual_focus_until = 0.0
+        self.pace = max(0.8, min(1.15, float(metadata.get("teachingPace", 0.94))))
 
     async def publish(self, data: dict[str, Any]) -> None:
         if data.get("type") == "SYNC_VISUAL_STAGE":
@@ -91,8 +95,7 @@ class SyllabusVoiceTutor:
                     raise RuntimeError("Both tutor speech model providers unavailable")
 
     async def grounded_speech(self, prompt: str, task: str, fallback: str) -> AsyncIterator[str]:
-        """If generation fails before producing speech, retain the exact cited source.
-        Never restart a partially spoken stream or invent an alternative fact."""
+        """Never restart partial speech or substitute raw lecture text for an explanation."""
         emitted = False
         try:
             async for text in self.text_stream(prompt, task):
@@ -104,16 +107,22 @@ class SyllabusVoiceTutor:
         except Exception:
             if emitted:
                 raise
-            log.warning("Tutor generation unavailable before first token; using source evidence", exc_info=True)
+            log.warning("Tutor generation unavailable before first token; using a safe spoken recovery", exc_info=True)
         if not emitted:
             yield fallback
 
     async def play_packet(self, packet: dict[str, Any], begin: int = 0) -> None:
+        if packet.get("teaching_version") != 3:
+            await self.publish({"type":"TUTOR_RECOVERY_REQUIRED","reason":"teaching_plan_required","state_version":self.state_version})
+            return
         self.packet = packet
         self.state_version = int(packet["state_version"])
         cues = packet.get("visual_cues") or []
         if not isinstance(cues, list):
             return
+        if self.lookahead_task and not self.lookahead_task.done():
+            self.lookahead_task.cancel()
+        self.lookahead_task = asyncio.create_task(self.prepare_next())
         try:
             for index in range(begin, len(cues)):
                 if self.interrupting:
@@ -137,20 +146,9 @@ class SyllabusVoiceTutor:
                             "visual_stack": [{"active_mode": cue["mode"], "cue_index": 0,
                                               "concept_node_id": packet["concept_node_id"]}],
                         })
-                prompt = ("Teach only the supplied evidence. Preserve qualifications, numerical values and exceptions. "
-                          "If the notes do not explain something, acknowledge the gap. "
-                          "You are a patient, warm clinical lecturer. Explain one idea at a time in simple English. "
-                          "Define medical terms, explain the causal link, then relate it to a clinical example only if supported. "
-                          "Use short complete sentences, natural punctuation and deliberate pauses; never rush or recite raw bullets. "
-                          "Connect this checkpoint to the previous idea in one short transition. "
-                          "Teach meaning first, then how and why, then its clinical significance when supported by the evidence. "
-                          "Use a brief recap before moving on; do not repeatedly greet or ask permission to continue. "
-                          "Keep all source qualifications. Do not read JSON or citations. Accurate source evidence follows:\n"
-                          + json.dumps({"title": packet.get("title"), "previous_topic": self.previous_title,
-                                        "evidence": cue["spoken_text"], "focus": self.focus[:240]}, ensure_ascii=False))
-                # Publish every checkpoint even when LiveKit coalesces speaking
-                # state transitions across consecutive speech handles.
-                speech = self.grounded_speech(prompt, "teach", cue["spoken_text"])
+                # The authored beat has already passed coverage and recitation checks.
+                # Synthesize it directly to preserve detail and avoid another model round trip.
+                speech = cue["spoken_text"]
                 self.started = True
                 handle = self.session.say(speech, allow_interruptions=True)
                 # Consecutive handles can share a speaking state. In that case
@@ -162,7 +160,9 @@ class SyllabusVoiceTutor:
                 await handle.wait_for_playout()
                 if self.interrupting or handle.interrupted:
                     return
-                await asyncio.sleep(0.45)
+                await asyncio.sleep(0.55 if cue["mode"] == "whiteboard" else 1.8)
+                while time.monotonic() < self.visual_focus_until and not self.interrupting:
+                    await asyncio.sleep(0.2)
             if not self.interrupting:
                 self.previous_title = str(packet.get("title", ""))[:200]
                 while True:
@@ -184,6 +184,19 @@ class SyllabusVoiceTutor:
         except Exception:
             log.exception("Could not deliver a complete syllabus cue")
             await self.publish({"type": "TUTOR_RECOVERY_REQUIRED", "state_version": self.state_version})
+
+    async def prepare_next(self) -> None:
+        # Plan the following idea during audible teaching. This request must not
+        # hold the interaction lock or delay a student's question.
+        try:
+            response = await self.http.post(self.base + "/api/live-class/orchestrate",
+                json={"sessionId":self.session_id,"action":"prepare_next"},
+                headers={"Authorization":"Bearer " + self.token}, timeout=55)
+            response.raise_for_status()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.info("Next teaching idea will be prepared on demand")
 
     def on_audio_state(self, state: str) -> None:
         if state == "speaking":
@@ -253,13 +266,13 @@ class SyllabusVoiceTutor:
                 "type": "SCRATCHPAD_EVIDENCE", "state_version": self.state_version,
                 "question": question, "citations": [item["citation"] for item in references],
             })
-            await self.publish({"type":"live_class_user_transcript","content":question})
             prompt = ("Answer this medical student's specific question clearly and naturally. "
                       "Ground medical claims in these exact retrieved sources; if none were found, "
                       "say the provided files do not address it. Do not invent a citation. "
                       "The selected structure is student interaction context, not evidence of disease. "
                       + json.dumps({"question": question[:600], "sources": references, "selection": self.selection}, ensure_ascii=False))
-            speech = self.grounded_speech(prompt, "barge_in", references[0]["text"]) if references else "I couldn't find that answer in the material indexed for this class."
+            speech = self.grounded_speech(prompt, "barge_in", "I couldn’t compose that explanation just now. Please ask that question again.") if references else "I couldn't find that answer in the material indexed for this class."
+            await self.publish({"type":"ANSWER_STARTED","state_version":self.state_version})
             handle = self.session.say(speech, allow_interruptions=True)
             await handle.wait_for_playout()
             if handle.interrupted:
@@ -332,7 +345,7 @@ class SyllabusVoiceTutor:
                 await self.publish({"type":"live_class_ptt_state","turnId":turn_id,"phase":"processing"})
                 # Reliable data may arrive before the final RTP audio packets.
                 await asyncio.sleep(0.25)
-                transcript = await self.session.commit_user_turn(skip_reply=True, transcript_timeout=3.0, stt_flush_duration=0.8)
+                transcript = await self.session.commit_user_turn(skip_reply=True, transcript_timeout=2.0, stt_flush_duration=0.5)
                 question = (transcript or " ".join(self.turn_words)).strip()[:900]
             if self.turn_id != turn_id:
                 return
@@ -343,6 +356,7 @@ class SyllabusVoiceTutor:
                                 "phase":"released" if question and not cancelled else "empty"})
             async with self._commands:
                 if question and not cancelled:
+                    await self.publish({"type":"live_class_user_transcript","content":question})
                     await self.answer(question)
                 elif self.interrupting and self.packet:
                     result = await self.api("/api/live-class/orchestrate", {
@@ -388,6 +402,15 @@ class SyllabusVoiceTutor:
                 await self.stop_speech()
             elif kind == "ptt_mode":
                 self.ptt = bool(packet.get("enabled"))
+            elif kind == "teaching_pace":
+                pace = float(packet.get("pace", 0.94))
+                if not 0.8 <= pace <= 1.15:
+                    return
+                self.pace = pace
+                self.session.tts.update_options(extra_kwargs={"speed":pace,"volume":0.88})
+                await self.publish({"type":"PACE_UPDATED","pace":pace,"state_version":self.state_version})
+            elif kind == "explore_visual":
+                self.visual_focus_until = time.monotonic() + 6
             elif kind == "browser_presence":
                 if self.away_task:
                     self.away_task.cancel()
@@ -427,6 +450,8 @@ class SyllabusVoiceTutor:
             await self.publish({"type":"TUTOR_RECOVERY_REQUIRED","state_version":self.state_version})
 
     async def close(self) -> None:
+        if self.lookahead_task:
+            self.lookahead_task.cancel()
         if self.away_task:
             self.away_task.cancel()
         if self.speech_task:
@@ -449,8 +474,11 @@ async def entrypoint(ctx: JobContext) -> None:
         turn_handling={"turn_detection": "manual", "interruption": {"enabled": False},
                        "preemptive_generation": {"enabled": False}},
         stt=inference.STT(model=os.getenv("LENXIQ_STT_MODEL", "deepgram/nova-3"), language="en"),
-        tts=inference.TTS(model=os.getenv("LENXIQ_TTS_MODEL", "deepgram/aura-2"),
-                          voice=os.getenv("LENXIQ_TTS_VOICE", "athena")),
+        tts=inference.TTS(model="cartesia/sonic-3",
+                          voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc", language="en", sample_rate=48000,
+                          extra_kwargs={"speed":max(0.8,min(1.15,float(metadata.get("teachingPace",0.94)))),
+                                        "volume":0.88,"max_buffer_delay_ms":200},
+                          disable_system_default_fallback=True),
     )
     tutor = SyllabusVoiceTutor(ctx, session, metadata)
 

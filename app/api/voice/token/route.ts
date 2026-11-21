@@ -228,6 +228,7 @@ export async function POST(req: Request) {
     topicFocus,
     focusText,
     sessionType: 'live_class',
+    teachingPace:Math.max(0.8,Math.min(1.15,Number(body.teachingPace)||0.94)),
     inputMode: body.inputMode === 'press_to_talk' ? 'press_to_talk' : 'open_mic',
     sessionId: quota.session_id,
     sessionExpiresAt,
