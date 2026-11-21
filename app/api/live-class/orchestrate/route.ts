@@ -3,7 +3,10 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyLiveClassGatewayToken } from '@/lib/voice/live-class-gateway-auth';
 import { transitionLessonState, initialLessonState, type LessonState, type LessonEvent } from '@/lib/live-class/orchestrator';
-import { makeTeachingPacket, type ConceptRecord } from '@/lib/live-class/teaching-packet';
+import type { ConceptRecord } from '@/lib/live-class/teaching-packet';
+import { authorTeachingPacket, cachedLesson } from '@/lib/live-class/lesson-author';
+import { isTeachable } from '@/lib/live-class/teaching-content';
+import { relatedBankQuestion } from '@/lib/live-class/bank-question';
 import { purgeSessionMaterialsOnEnd } from '@/lib/rag/ephemeral-cleanup';
 
 import type { VisualSnapshot } from '@/lib/live-class/visual-protocol';
@@ -16,7 +19,7 @@ function toState(row:LessonRow):LessonState{
   return {phase:row.phase,state_version:Number(row.state_version),nodes:Array.isArray(row.nodes_json)?row.nodes_json.filter((v):v is string=>typeof v==='string'):[],
     cursor:row.cursor,current_node_id:row.current_node_id,previous_phase:row.previous_phase};
 }
-const allowedActions=new Set(['bootstrap','start','next','jump','pause','resume','barge_in','interrupt_done','node_complete','end','state']);
+const allowedActions=new Set(['bootstrap','start','next','jump','pause','resume','barge_in','interrupt_done','node_complete','prepare_next','end','state']);
 export async function POST(request:Request){
   const body=await request.json().catch(()=>null);
   const action=typeof body?.action==='string'?body.action:'';
@@ -26,11 +29,11 @@ export async function POST(request:Request){
   const client=await createClient();
   const {data:{user}}=gateway?{data:{user:{id:gateway.user}}}:await client.auth.getUser();
   if(!user || (gateway&&gateway.session!==sessionId))return NextResponse.json({error:'Unauthorized'},{status:401});
-  if((action==='node_complete'||action==='interrupt_done')&&!gateway)
+  if((action==='node_complete'||action==='interrupt_done'||action==='prepare_next')&&!gateway)
     return NextResponse.json({error:'Only the verified tutor worker may acknowledge spoken delivery'},{status:403});
   const admin=createAdminClient();
   if(!admin)return NextResponse.json({error:'Lesson database unavailable'},{status:503});
-  const {data:session}=await admin.from('live_class_sessions').select('id,room_name,status')
+  const {data:session}=await admin.from('live_class_sessions').select('id,room_name,status,course_name')
     .eq('id',sessionId).eq('user_id',user.id).maybeSingle();
   if(!session || (gateway&&session.room_name!==gateway.room))
     return NextResponse.json({error:'No authorized Live Class session'},{status:403});
@@ -49,11 +52,12 @@ export async function POST(request:Request){
       const nodes:{id:string;title:string}[]=[];
       const fingerprints=new Set<string>();
       for(let from=0;;from+=500){
-        const page=await admin!.from('syllabus_concept_nodes').select('id,title,visual_spec_json->>fingerprint').eq('syllabus_id',s.id)
+        const page=await admin!.from('syllabus_concept_nodes').select('id,title,consolidated_notes,visual_spec_json->>fingerprint').eq('syllabus_id',s.id)
           .eq('user_id',user!.id).eq('generation',s.staging_generation??s.active_generation).eq('node_type','concept')
           .order('sort_order').order('id').range(from,from+499);
         if(page.error)throw page.error;
         for(const node of page.data){
+          if(!isTeachable(node.title,node.consolidated_notes))continue;
           // Keep every source chunk searchable. Speak an identical checkpoint only once.
           if(node.fingerprint && fingerprints.has(node.fingerprint)&&node.id!==body.conceptNodeId)continue;
           if(node.fingerprint)fingerprints.add(node.fingerprint);
@@ -95,7 +99,21 @@ export async function POST(request:Request){
         .select('id,title,consolidated_notes,key_details_json,source_citations_json,visual_spec_json')
         .eq('id',state.current_node_id).eq('syllabus_id',record.syllabus_id).eq('user_id',user!.id).single();
       if(error||!data)throw new Error('Concept lookup failed');
-      return makeTeachingPacket(sessionId,record.syllabus_id,state.state_version,data as ConceptRecord);
+      const concept=data as ConceptRecord;
+      const question=state.cursor%3===1?await relatedBankQuestion(admin!,session?.course_name||'',concept.title):null;
+      const packet=await authorTeachingPacket(sessionId,record.syllabus_id,state.state_version,concept,{question});
+      const spec=(concept.visual_spec_json||{}) as Record<string,unknown>;
+      if(JSON.stringify(spec.authored)!==JSON.stringify(cachedLesson(packet,concept,question))){
+        const saved=await admin!.from('syllabus_concept_nodes').update({visual_spec_json:{...spec,authored:cachedLesson(packet,concept,question)}})
+          .eq('id',concept.id).eq('syllabus_id',record.syllabus_id).eq('user_id',user!.id);
+        if(saved.error)console.warn('Teaching cache unavailable; lesson still delivered');
+      }
+      return packet;
+    }
+    if(action==='prepare_next'){
+      const id=current.nodes[current.cursor+1];
+      if(id)await packetFor({...current,phase:'TEACHING_NODE',current_node_id:id,cursor:current.cursor+1});
+      return NextResponse.json({ok:true,state:current});
     }
     if(action==='state')return NextResponse.json({ok:true,state:current,packet:await packetFor(current)});
 

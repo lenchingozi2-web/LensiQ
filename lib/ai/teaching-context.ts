@@ -10,6 +10,7 @@ type QuestionContext = {
   type: string;
   correct_answer: string | null;
   model_answer: string | null;
+  option_a?:string|null; option_b?:string|null; option_c?:string|null; option_d?:string|null; option_e?:string|null;
 };
 
 type KnowledgeChunk = {
@@ -132,7 +133,7 @@ export async function buildTeachingContext(
   if (questions.length === 0) {
     const { data: fallbackQuestions } = await supabase
       .from('questions')
-      .select('question_text,division,topic,type,correct_answer,model_answer')
+      .select('question_text,division,topic,type,correct_answer,model_answer,option_a,option_b,option_c,option_d,option_e')
       .eq('subject', subject)
       .in('type', ['mcq', 'theory', 'practical'])
       .limit(80);
@@ -155,7 +156,7 @@ export async function buildTeachingContext(
   return {
     subject,
     knowledgeSources,
-    questions,
+    questions:questions.map(q=>{const letter=String(q.correct_answer||'').trim().toLowerCase();return{...q,model_answer:q.model_answer||(/^[a-e]$/.test(letter)?q[('option_'+letter) as keyof QuestionContext] as string|null:q.correct_answer)};}),
     attachments,
   };
 }

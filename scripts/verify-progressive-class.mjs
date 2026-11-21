@@ -9,7 +9,7 @@ page.on('pageerror',e=>console.error('Classroom JS error:',e.message));
 const id='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const docs=['fixture-a','fixture-b','fixture-c'];
 const nodes=Array.from({length:42},(_,i)=>({id:'concept-'+i,title:'Cited passage '+(i+1),
-  parent_id:null,node_type:'concept',sort_order:i,source_citations_json:[{file_name:'Lecture A.txt',page_number:i+1}]}));
+  parent_id:null,node_type:'concept',sort_order:i,consolidated_notes:'Inflammatory cells migrate from blood into injured tissue, producing a protective response.',source_citations_json:[{file_name:'Lecture A.txt',page_number:i+1}]}));
 let published=false,releaseIndex,treeReads=0,active=0,peak=0;
 const attempts=new Map();
 const gate=new Promise(resolve=>{releaseIndex=resolve;});

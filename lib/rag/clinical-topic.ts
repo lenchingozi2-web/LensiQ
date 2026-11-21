@@ -17,6 +17,7 @@ export function clinicalTopicLabels(headings: readonly string[]): string[] {
   return headings.map((original) => {
     const heading = original.trim() || 'General concepts';
     const normalized = heading.replace(/^(?:\d{1,2}\.){1,3}\s+/, '').replace(/[:：]\s*$/, '').trim();
+    if(/^(?:learning objectives?|learning outcomes?|lecture objectives?|orientation|course outline|table of contents|references|bibliography|year\s*\d+\s*(?:medicine|medical).*)$/i.test(normalized))return heading;
     const category = categories.find(([, pattern]) => pattern.test(normalized))?.[0];
     if (category) return anchor ? anchor + ' · ' + category : category;
     if (/^(?:slide\s+\d+|general concepts|general|untitled)$/i.test(normalized)) return anchor ? anchor + ' · ' + heading : heading;

@@ -2,7 +2,7 @@
 import asyncio
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 from agent import SyllabusVoiceTutor
 
 class WorkerTests(IsolatedAsyncioTestCase):
@@ -17,6 +17,7 @@ class WorkerTests(IsolatedAsyncioTestCase):
         self.addAsyncCleanup(tutor.close)
         tutor.publish = AsyncMock()
         tutor.api = AsyncMock()
+        tutor.prepare_next = AsyncMock()
         tutor.media_ready = True
         return tutor
 
@@ -31,7 +32,7 @@ class WorkerTests(IsolatedAsyncioTestCase):
         tutor.answer.assert_awaited_once_with('Why does this happen?')
         self.assertIsNone(tutor.turn_id)
         phases=[call.args[0].get('phase') for call in tutor.publish.call_args_list]
-        self.assertEqual(phases,['listening','processing','released'])
+        self.assertEqual(phases,['listening','processing','released',None])
         await tutor.receive_packet({'type':'ptt_end','turnId':'first'})
         tutor.session.commit_user_turn.assert_awaited_once()
 
@@ -62,7 +63,7 @@ class WorkerTests(IsolatedAsyncioTestCase):
         async def source(*args):yield 'Source evidence.'
         tutor.grounded_speech=source;tutor.speaking=True
         tutor.api.return_value={'state':{'state_version':3}}
-        packet={'state_version':2,'concept_node_id':'concept','title':'Mechanism','visual_cues':[
+        packet={'teaching_version':3,'state_version':2,'concept_node_id':'concept','title':'Mechanism','visual_cues':[
             {'id':str(i),'mode':'whiteboard','title':'Mechanism','spoken_text':'Source evidence.','steps':['Evidence'],'citations':[]} for i in range(2)]}
         await tutor.play_packet(packet)
         messages=[c.args[0] for c in tutor.publish.call_args_list]
@@ -84,3 +85,22 @@ class WorkerTests(IsolatedAsyncioTestCase):
         with patch('agent.asyncio.sleep',new=AsyncMock()):await tutor.expire_away()
         tutor.stop_speech.assert_awaited_once()
         self.assertEqual(tutor.http.post.call_args.kwargs['json'],{'reason':'browser_away'})
+
+    async def test_raw_legacy_source_is_never_spoken(self):
+        tutor=self.tutor();tutor.session.say=Mock()
+        await tutor.play_packet({'state_version':2,'visual_cues':[{'spoken_text':'Learning objectives ORIENTATION'}]})
+        tutor.session.say.assert_not_called()
+        self.assertEqual(tutor.publish.call_args.args[0]['reason'],'teaching_plan_required')
+
+    async def test_pace_updates_native_tts_and_rejects_out_of_bounds(self):
+        tutor=self.tutor();tutor.session.tts=SimpleNamespace(update_options=Mock())
+        await tutor.receive_packet({'type':'teaching_pace','pace':0.85})
+        tutor.session.tts.update_options.assert_called_once_with(extra_kwargs={'speed':0.85,'volume':0.88})
+        await tutor.receive_packet({'type':'teaching_pace','pace':3})
+        self.assertEqual(tutor.session.tts.update_options.call_count,1)
+
+    async def test_model_exploration_extends_current_visual(self):
+        import time
+        tutor=self.tutor()
+        await tutor.receive_packet({'type':'explore_visual'})
+        self.assertGreater(tutor.visual_focus_until,time.monotonic()+5)

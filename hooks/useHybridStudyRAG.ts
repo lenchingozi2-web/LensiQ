@@ -4,13 +4,14 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import { createClient } from '@/lib/supabase/client';
 import { uploadStudyDocumentToSignedUrl } from '@/lib/rag/signed-upload';
 
+import { isTeachable } from '@/lib/live-class/teaching-content';
 import { inPool, retryStep } from '@/lib/rag/compile-pool';
 
 export const STUDY_RAG_MAX_FILES=25;
 export const STUDY_RAG_MAX_BYTES=70*1024*1024;
 export type SyllabusTreeNode={
   id:string;title:string;parent_id:string|null;node_type:'module'|'topic'|'concept';
-  sort_order:number;source_citations_json?:Array<{file_name:string;page_number:number|null}>;
+  sort_order:number;consolidated_notes?:string;source_citations_json?:Array<{file_name:string;page_number:number|null}>;
 };
 export type StudyRAGProgress={stage:string;current:number;total:number;detail?:string};
 type SearchHit={id:string;text:string;source:{fileName:string;pageOrSlide:number|null};score:number};
@@ -93,15 +94,16 @@ export function useHybridStudyRAG(){
     if(error||!syllabus||!['compiling','ready'].includes(syllabus.status)||Date.parse(syllabus.expires_at)<=Date.now())throw new Error('Syllabus is no longer available');
     const results:SyllabusTreeNode[]=[];
     for(let from=0;;from+=500){
-      const page=await client.from('syllabus_concept_nodes').select('id,title,parent_id,node_type,sort_order,source_citations_json')
+      const page=await client.from('syllabus_concept_nodes').select('id,title,parent_id,node_type,sort_order,consolidated_notes,source_citations_json')
         .eq('syllabus_id',id).eq('generation',syllabus.staging_generation??syllabus.active_generation)
         .order('sort_order').order('id').range(from,from+499);
       if(page.error)throw new Error('Unable to retrieve the syllabus tree');
       results.push(...(page.data||[]) as SyllabusTreeNode[]);
       if(!page.data||page.data.length<500)break;
     }
-    if(checkpoint.current===id)setTree(results);
-    return results;
+    const teachable=results.filter(n=>n.node_type!=='concept'||isTeachable(n.title,n.consolidated_notes||''));
+    if(checkpoint.current===id){setTree(teachable);if(teachable.some(n=>n.node_type==='concept'))setReady(true);}
+    return teachable;
   },[]);
   const uploadAndCompile=useCallback(async(overrideFiles?:File[],sessionId?:string)=>{
     if(busyRef.current)return;
@@ -150,11 +152,10 @@ export function useHybridStudyRAG(){
       }
       const firstTree=await retryStep(()=>loadTree(syllabus),signal);
       const firstNodes=firstTree.filter(n=>n.node_type==='concept');
-      if(!firstNodes.length)throw new Error('No readable concepts were indexed');
       total=firstNodes.length;
       // These nodes already contain the complete cited source and a usable visual.
       // Semantic vectors and optional Flash layout hints must never hold the classroom door.
-      signal.throwIfAborted();setReady(true);
+      signal.throwIfAborted();if(firstNodes.length)setReady(true);
       await inPool(firstNodes.slice(0,2),enrich);
       let parsed=docs.filter(d=>d.indexed).length;
       // Publish source pages in lecture order. Parallel document parsing could
@@ -166,6 +167,7 @@ export function useHybridStudyRAG(){
         let offset=i===0?firstOffset:0;
         for(;;){
           const result=await step('parse',doc.id,offset);
+          await retryStep(()=>loadTree(syllabus),signal);
           if(result.done)break;
           offset=result.next;
         }
@@ -176,6 +178,7 @@ export function useHybridStudyRAG(){
       }
       if(!plan.published)await step('publish');
       const nodes=(await retryStep(()=>loadTree(syllabus),signal)).filter(n=>n.node_type==='concept');
+      if(!nodes.length)throw new Error('The source contains no readable teaching content beyond headings or objectives.');
       total=nodes.length;
       await inPool(nodes.filter(n=>!completed.has(n.id)),enrich);
       signal.throwIfAborted();setStatus('ready');

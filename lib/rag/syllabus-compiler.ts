@@ -61,7 +61,9 @@ export async function compileStep(userId:string, syllabusId:string, action:strin
     const chunk=result.data!;
     const [vector,layout]=await Promise.all([embedStudyText(chunk.chunk_text,{taskType:'RETRIEVAL_DOCUMENT',timeoutMs:2200}),chooseBoardLayout(row.data!.title,chunk.chunk_text)]);
     if(vector.values)check((await db.from('document_atomic_chunks').update({embedding:'['+vector.values.join(',')+']'}).match(scope).eq('id',chunk.id)).error);
-    const spec={...row.data!.visual_spec_json,layout,compiled:true,lexical:!vector.values};
+    const latest=await db.from('syllabus_concept_nodes').select('visual_spec_json').match(scope).eq('id',itemId).single();
+    check(latest.error);
+    const spec={...latest.data!.visual_spec_json,layout,compiled:true,lexical:!vector.values};
     check((await db.from('syllabus_concept_nodes').update({visual_spec_json:spec}).match(scope).eq('id',itemId)).error);
     return {done:true,lexical:!vector.values};
   }
