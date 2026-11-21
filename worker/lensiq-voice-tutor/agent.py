@@ -8,6 +8,8 @@ import os
 import time
 from typing import Any, AsyncIterator
 
+from medical_speech import medical_speech, spoken_sentences
+
 import httpx
 from dotenv import load_dotenv
 from livekit.agents import Agent, AgentServer, AgentSession, JobContext, cli, inference
@@ -135,6 +137,7 @@ class SyllabusVoiceTutor:
                     "state_version": self.state_version,
                     "concept_node_id": packet["concept_node_id"],
                     "cue_index": index,
+                    "cue_count": len(cues),
                     "cue": cue,
                 }
                 if index == begin:
@@ -149,7 +152,7 @@ class SyllabusVoiceTutor:
                         })
                 # The authored beat has already passed coverage and recitation checks.
                 # Synthesize it directly to preserve detail and avoid another model round trip.
-                speech = cue["spoken_text"]
+                speech = medical_speech(cue["spoken_text"])
                 self.started = True
                 handle = self.session.say(speech, allow_interruptions=True)
                 # Consecutive handles can share a speaking state. In that case
@@ -289,7 +292,7 @@ class SyllabusVoiceTutor:
                         parts.append(text)
                         yield text
                 await self.publish({"type":"ANSWER_TEXT","content":"".join(parts)[:3000]})
-            handle = self.session.say(answer_speech(), allow_interruptions=True)
+            handle = self.session.say(spoken_sentences(answer_speech()), allow_interruptions=True)
             await handle.wait_for_playout()
             if handle.interrupted:
                 return
@@ -360,8 +363,8 @@ class SyllabusVoiceTutor:
             else:
                 await self.publish({"type":"live_class_ptt_state","turnId":turn_id,"phase":"processing"})
                 # Reliable data may arrive before the final RTP audio packets.
-                await asyncio.sleep(0.25)
-                transcript = await self.session.commit_user_turn(skip_reply=True, transcript_timeout=2.0, stt_flush_duration=0.5)
+                await asyncio.sleep(0.1)
+                transcript = await self.session.commit_user_turn(skip_reply=True, transcript_timeout=0.45 if self.turn_words else 1.25, stt_flush_duration=0.35)
                 question = (transcript or " ".join(self.turn_words)).strip()[:900]
             if self.turn_id != turn_id:
                 return
@@ -422,6 +425,8 @@ class SyllabusVoiceTutor:
                 pace = float(packet.get("pace", 0.94))
                 if not 0.8 <= pace <= 1.15:
                     return
+                if abs(pace-self.pace)<0.005:
+                    return
                 self.pace = pace
                 self.session.tts.update_options(extra_kwargs={"speed":pace,"volume":0.88})
                 await self.publish({"type":"PACE_UPDATED","pace":pace,"state_version":self.state_version})
@@ -479,6 +484,14 @@ class SyllabusVoiceTutor:
         await self.http.aclose()
 
 
+def build_tts(pace: float = 0.94):
+    return inference.TTS(model="cartesia/sonic-3.6",
+                          voice="b24f41fd-00a3-4cd8-992a-a0c9f13f3ef1", language="en", sample_rate=24000,
+                          extra_kwargs={"speed":pace,
+                                        "volume":0.88,"emotion":"calm","max_buffer_delay_ms":400},
+                          disable_system_default_fallback=True)
+
+
 @server.rtc_session(agent_name="lensiq-syllabus-tutor-v2")
 async def entrypoint(ctx: JobContext) -> None:
     metadata = json.loads(ctx.job.metadata or "{}")
@@ -489,12 +502,8 @@ async def entrypoint(ctx: JobContext) -> None:
         vad=None,
         turn_handling={"turn_detection": "manual", "interruption": {"enabled": False},
                        "preemptive_generation": {"enabled": False}},
-        stt=inference.STT(model=os.getenv("LENXIQ_STT_MODEL", "deepgram/nova-3"), language="en"),
-        tts=inference.TTS(model="cartesia/sonic-3",
-                          voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc", language="en", sample_rate=24000,
-                          extra_kwargs={"speed":max(0.8,min(1.15,float(metadata.get("teachingPace",0.94)))),
-                                        "volume":0.88,"max_buffer_delay_ms":400},
-                          disable_system_default_fallback=True),
+        stt=inference.STT(model=os.getenv("LENXIQ_STT_MODEL", "deepgram/nova-3"), language="en",extra_kwargs={"interim_results":True,"endpointing":80,"punctuate":True,"smart_format":True,"no_delay":True}),
+        tts=build_tts(max(0.8,min(1.15,float(metadata.get("teachingPace",0.94))))),
     )
     tutor = SyllabusVoiceTutor(ctx, session, metadata)
 

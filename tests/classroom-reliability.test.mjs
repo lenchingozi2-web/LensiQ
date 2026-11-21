@@ -43,3 +43,12 @@ test('compiled concepts keep the disease context and all source passages',async(
  assert.deepEqual(nodes.flatMap(n=>n.sourceFacts.map(f=>f.text)),source.flatMap(s=>s.facts.map(f=>f.text)));
  assert.deepEqual(nodes.map(n=>n.citations[0].page_number),[1,2,3,4]);
 });
+
+test('generic headings can stage relevant models using substantive lecture context',async()=>{
+ const {matchCuratedClassVisual}=await load('../lib/live-class/model-matcher.ts',{
+  LIVE_CLASS_MODEL_CATALOG:[{topics:['prostate anatomy'],modelUrl:'https://fixture.test/prostate.glb',title:'Reference prostate',source:'Verified reference anatomy'}],LIVE_CLASS_MOLECULE_CATALOG:[]
+ });
+ assert.equal(matchCuratedClassVisual('Foundations','Prostatic enlargement alters the outflow tract.').mode,'anatomy_3d');
+ assert.equal(matchCuratedClassVisual('Elimination','Renal excretion removes this drug.').structure_id,'renal_clearance');
+ assert.equal(matchCuratedClassVisual('Risk factors','Age over 50 and male predominance.'),null);
+});

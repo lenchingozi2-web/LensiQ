@@ -92,7 +92,7 @@ class StudentValidation:
                 await source.capture_frame(rtc.AudioFrame(frame,16000,1,320))
             await source.wait_for_playout()
             ended=time.monotonic()
-            for _ in range(35):await source.capture_frame(rtc.AudioFrame(bytes(640),16000,1,320))
+            for _ in range(8):await source.capture_frame(rtc.AudioFrame(bytes(640),16000,1,320))
             await source.wait_for_playout()
             return ended
         finally:

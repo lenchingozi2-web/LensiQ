@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {stripTypeScriptTypes} from 'node:module';
 import {teachingLines,isTeachable} from '../lib/live-class/teaching-content.ts';
-import {clinicalTopicLabels} from '../lib/rag/clinical-topic.ts';
+import {clinicalTopicLabels,cleanClinicalTitle,isSourceAttributionHeading} from '../lib/rag/clinical-topic.ts';
 import {parseTeachingPacket} from '../lib/live-class/visual-protocol.ts';
 const load=async(path,deps)=>{
  const source=(await readFile(new URL(path,import.meta.url),'utf8')).replace(/^import .*\n/gm,'');
@@ -12,7 +12,7 @@ const load=async(path,deps)=>{
  const mod=await import('data:text/javascript;base64,'+Buffer.from(`const {${Object.keys(deps).join(',')}}=globalThis['${key}'];\n`+stripTypeScriptTypes(source)).toString('base64'));
  delete globalThis[key];return mod;
 };
-const {validateAuthoredLesson,authorTeachingPacket,cachedLesson,generateTeachingJson,teachingSchema}=await load('../lib/live-class/lesson-author.ts',{createHash,teachingLines,parseTeachingPacket,matchCuratedClassVisual:()=>({mode:'physiology_sim',structure_id:'renal_clearance'})});
+const {validateAuthoredLesson,authorTeachingPacket,cachedLesson,generateTeachingJson,teachingSchema}=await load('../lib/live-class/lesson-author.ts',{createHash,teachingLines,parseTeachingPacket,cleanClinicalTitle,isSourceAttributionHeading,matchCuratedClassVisual:()=>({mode:'physiology_sim',structure_id:'renal_clearance'})});
 const ids=['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333'];
 const record={id:ids[2],title:'Renal elimination',consolidated_notes:'Dose is 5 mg.\nAvoid use below eGFR 15 mL/min.',key_details_json:[],visual_spec_json:{},source_citations_json:[{file_name:'Renal.pdf',page_number:9}]};
 const lesson={title:'When kidneys clear less medicine',beats:[
@@ -104,4 +104,10 @@ test('outage and rate limit select a different model with bounded tokens and a c
  assert.equal(calls[1].body.response_format.json_schema.strict,true);
  assert.equal(calls[1].body.response_format.json_schema.schema.properties.beats.maxItems,5);
  assert.equal(calls[1].body.max_completion_tokens,1900);
+});
+
+test('legacy lecturer headings are cleaned before explanation and model selection',()=>{
+ assert.equal(cleanClinicalTitle('ONWUMELU.C · Foundations'),'Foundations');
+ assert.equal(isSourceAttributionHeading('Onwumelu.C'),true);
+ assert.equal(isSourceAttributionHeading('Hepatitis B'),false);
 });

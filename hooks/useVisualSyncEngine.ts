@@ -1,5 +1,6 @@
 'use client';
 
+import {progressiveAnchors} from '@/lib/live-class/board-notes';
 import { acceptTutorPacket } from '@/lib/live-class/tutor-identity';
 
 import { useEffect, useRef, useState } from 'react';
@@ -10,6 +11,7 @@ type VisualSnapshot={active_mode:string;concept_node_id:string;cue_index:number;
 export function useVisualSyncEngine(room:Room|null,sessionId:string|null){
   const [cue,setCue]=useState<VisualCue|null>(null);
   const [cueIndex,setCueIndex]=useState(-1);
+  const [cueCount,setCueCount]=useState(0);
   const [conceptId,setConceptId]=useState<string|null>(null);
   const [steps,setSteps]=useState<string[]>([]);
   const [citations,setCitations]=useState<Citation[]>([]);
@@ -26,6 +28,7 @@ export function useVisualSyncEngine(room:Room|null,sessionId:string|null){
       try{data=JSON.parse(new TextDecoder().decode(payload)) as Record<string,unknown>;}catch{return;}
       if(!acceptTutorPacket(participant,sessionId,topic,data))return;
       const version=Number(data.state_version);
+      if(Number.isSafeInteger(data.cue_count)&&Number(data.cue_count)>0)setCueCount(Number(data.cue_count));
       if(!Number.isSafeInteger(version)||version<versionRef.current)return;
       if(data.type==='LESSON_OPENED'){
         try{
@@ -49,7 +52,7 @@ export function useVisualSyncEngine(room:Room|null,sessionId:string|null){
           if(nextConcept!==lastConceptRef.current){
             lastConceptRef.current=nextConcept;setSteps([...nextCue.steps]);
           }else if(nextCue.mode==='whiteboard'){
-            setSteps(current=>[...new Set([...current,...nextCue.steps])].slice(-32));
+            setSteps(current=>progressiveAnchors(current,nextCue.steps));
           }
         }catch{return;}
       }else if(data.type==='RESTORE_VISUAL_STATE'){
@@ -74,5 +77,5 @@ export function useVisualSyncEngine(room:Room|null,sessionId:string|null){
     return()=>{room.off(RoomEvent.DataReceived,receive);};
   },[room,sessionId]);
   const reset=()=>{setCue(null);setCueIndex(-1);setConceptId(null);setSteps([]);setCitations([]);setComplete(false);versionRef.current=0;lastConceptRef.current=null;lastIndexRef.current=-1;};
-  return {cue,cueIndex,conceptId,steps,citations,complete,reset};
+  return {cue,cueIndex,cueCount,conceptId,steps,citations,complete,reset};
 }

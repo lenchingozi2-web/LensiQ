@@ -5,6 +5,6 @@ WORKDIR /app
 RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin tutor
 COPY requirements.txt /app/requirements.txt
 RUN python -m pip install --no-cache-dir --disable-pip-version-check -r requirements.txt
-COPY agent.py /app/agent.py
+COPY agent.py medical_speech.py /app/
 USER tutor
 CMD ["python", "agent.py", "start"]

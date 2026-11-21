@@ -75,6 +75,9 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/worker-tests"
           "$RUNNER_TEMP/worker-tests/bin/pip" install --disable-pip-version-check -r worker/lensiq-voice-tutor/requirements.txt
           "$RUNNER_TEMP/worker-tests/bin/python" -m unittest discover -s worker/lensiq-voice-tutor -p 'test_*.py' -v
+      - name: Validate candidate voice before replacing the running worker
+        timeout-minutes: 2
+        run: '"$RUNNER_TEMP/worker-tests/bin/python" scripts/verify-voice-candidate.py'
       - name: Deploy existing agent with rolling health checks
         uses: livekit/deploy-action@v2.12.2
         env:

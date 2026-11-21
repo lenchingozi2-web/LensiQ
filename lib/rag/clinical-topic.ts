@@ -12,12 +12,21 @@ const categories: Array<[string, RegExp]> = [
   ['Management', /^(?:management|treatment|therapy|therapeutics|prevention|drug treatment|pharmacological management)$/i],
   ['Complications and prognosis', /^(?:complications|prognosis|outcomes|follow.up|sequelae)$/i],
 ];
+/** Credits are retained in the source, but must never become clinical anchors. */
+export function isSourceAttributionHeading(value:string):boolean{
+  if(/^(?:hepatitis|vitamin|type|class|stage|grade|factor|protein)\b/i.test(value))return false;
+  return /^[A-Z][A-Za-z'’-]{2,}\s*[.,]\s*(?:[A-Z]\.?[,\s]*){1,4}$/.test(value.trim())||/^(?:dr\.?|prof(?:essor)?\.?|lecturer|presented by|prepared by|department of|faculty of)\s/i.test(value)||/^[A-Z][A-Z'’-]{2,}[.,\s]+(?:[A-Z]\.?[.,\s]*){1,4}$/.test(value.trim());
+}
+export function cleanClinicalTitle(value:string):string{
+  return value.split(/\s*[·|]\s*/).filter(part=>!isSourceAttributionHeading(part)).join(' · ').trim()||'Clinical concept';
+}
 export function clinicalTopicLabels(headings: readonly string[]): string[] {
   let anchor = '';
   return headings.map((original) => {
     const heading = original.trim() || 'General concepts';
     const normalized = heading.replace(/^(?:\d{1,2}\.){1,3}\s+/, '').replace(/[:：]\s*$/, '').trim();
     if(/^(?:learning objectives?|learning outcomes?|lecture objectives?|orientation|course outline|table of contents|references|bibliography|year\s*\d+\s*(?:medicine|medical).*)$/i.test(normalized))return heading;
+    if(isSourceAttributionHeading(normalized))return anchor?anchor+' · Source attribution':'Source attribution';
     const category = categories.find(([, pattern]) => pattern.test(normalized))?.[0];
     if (category) return anchor ? anchor + ' · ' + category : category;
     if (/^(?:slide\s+\d+|general concepts|general|untitled)$/i.test(normalized)) return anchor ? anchor + ' · ' + heading : heading;

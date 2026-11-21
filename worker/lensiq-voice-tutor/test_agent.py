@@ -96,6 +96,7 @@ class WorkerTests(IsolatedAsyncioTestCase):
         tutor=self.tutor();tutor.session.tts=SimpleNamespace(update_options=Mock())
         await tutor.receive_packet({'type':'teaching_pace','pace':0.85})
         tutor.session.tts.update_options.assert_called_once_with(extra_kwargs={'speed':0.85,'volume':0.88})
+        await tutor.receive_packet({'type':'teaching_pace','pace':0.85})
         await tutor.receive_packet({'type':'teaching_pace','pace':3})
         self.assertEqual(tutor.session.tts.update_options.call_count,1)
 

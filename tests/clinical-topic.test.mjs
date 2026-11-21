@@ -23,3 +23,8 @@ test('qualified headings are kept exactly, and each document has independent con
     'Management', 'Investigations', 'Complications and prognosis',
   ]);
 });
+
+test('lecturer initials never replace the clinical topic inherited by later sections',()=>{
+ assert.deepEqual(clinicalTopicLabels(['Prostate cancer','ONWUMELU.C','Epidemiology','Morphology']),['Prostate cancer','Prostate cancer · Source attribution','Prostate cancer · Foundations','Prostate cancer · Morphology']);
+ assert.deepEqual(clinicalTopicLabels(['ONWUMELU.C','Definition']),['Source attribution','Foundations']);
+});

@@ -106,3 +106,19 @@ body:has([data-live-class="true"]) > main { min-height: 100dvh !important; }
 @media (prefers-reduced-motion: reduce) {
   [class*='lab-reveal'], [class*='lab-badge-in'], .live-class-slide { animation: none !important; }
 }
+
+.classroom-dock {
+  position: absolute; left: 0.5rem; right: 0.5rem;
+  bottom: max(1rem, env(safe-area-inset-bottom)); z-index: 30;
+  margin-inline: auto; max-width: 56rem; display: grid; gap: 0.4rem;
+  border: 1px solid rgb(255 255 255 / 0.15); border-radius: 1rem;
+  background: rgb(13 23 38 / 0.96); color: white; padding: 0.55rem 0.65rem;
+  box-shadow: 0 12px 44px #0007; backdrop-filter: blur(16px);
+}
+.classroom-dock [data-testid="hold-to-ask"] { order: -1; min-height: 3rem; }
+@media (min-width: 640px) {
+ .classroom-dock { grid-template-columns: minmax(0,1fr) auto; bottom: max(1.25rem,env(safe-area-inset-bottom)); padding: 0.65rem 1rem; }
+ .classroom-dock [data-testid="hold-to-ask"] { order: initial; }
+}
+@keyframes board-anchor { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) { .board-anchor { animation: board-anchor 220ms ease-out; } }
