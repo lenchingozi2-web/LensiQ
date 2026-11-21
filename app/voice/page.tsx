@@ -178,19 +178,21 @@ function VoiceTutorContent() {
   }, [connected, sessionId, currentLiveRoom, rag.ready, rag.syllabusId, beginSyllabusLesson]);
   useEffect(()=>{
     if(!connected||!rag.ready||!boardPending||tutorFailure)return;
-    const timer=window.setTimeout(()=>setTutorFailure('The tutor has not delivered the opening board. Reconnect to resume this class.'),45000);
+    const timer=window.setTimeout(()=>setTutorFailure('The lesson has not started yet.'),45000);
     return ()=>window.clearTimeout(timer);
   },[connected,rag.ready,boardPending,tutorFailure]);
   useEffect(()=>{
     if(!connected||liveStarted||tutorMuted||audioState==='blocked'||tutorFailure||reconnectingTutor)return;
-    const timer=window.setTimeout(()=>setTutorFailure('No tutor audio has been detected. Reconnect Tutor to retry the voice stream.'),30000);
+    const timer=window.setTimeout(()=>setTutorFailure('The tutor audio has not started yet.'),30000);
     return ()=>window.clearTimeout(timer);
   },[connected,liveStarted,tutorMuted,audioState,tutorFailure,reconnectingTutor]);
-  const reconnectTutor=async()=>{
+  const recoveryAttemptsRef=useRef(0);
+  const [recoveryAttempts,setRecoveryAttempts]=useState(0);
+  const reconnectTutor=useCallback(async()=>{
     if(!sessionId||!currentLiveRoom||reconnectingTutor)return;
     setReconnectingTutor(true);
     try{
-      setTutorFailure('');setBoardPending(true);
+      setTutorFailure('');setBoardPending(!visualSync.cue);
       try{await beginSyllabusLesson(sessionId,rag.ready?rag.syllabusId:null,currentLiveRoom,true);}
       catch{
         const response=await fetch('/api/voice/reconnect',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sessionId})});
@@ -199,7 +201,14 @@ function VoiceTutorContent() {
       }
     }catch(e){setTutorFailure(e instanceof Error?e.message:'Unable to reconnect tutor');}
     finally{setReconnectingTutor(false);}
-  };
+  },[sessionId,currentLiveRoom,reconnectingTutor,beginSyllabusLesson,rag.ready,rag.syllabusId,visualSync.cue]);
+  useEffect(()=>{
+    if(!connected){recoveryAttemptsRef.current=0;queueMicrotask(()=>setRecoveryAttempts(0));return;}
+    if(!tutorFailure||reconnectingTutor||recoveryAttemptsRef.current>=2)return;
+    const timer=window.setTimeout(()=>{recoveryAttemptsRef.current++;setRecoveryAttempts(recoveryAttemptsRef.current);void reconnectTutor();},recoveryAttemptsRef.current?4000:1000);
+    return()=>window.clearTimeout(timer);
+  },[connected,tutorFailure,reconnectingTutor,reconnectTutor]);
+  useEffect(()=>{if(connected&&voiceActive){recoveryAttemptsRef.current=0;queueMicrotask(()=>setRecoveryAttempts(0));}},[connected,voiceActive]);
   const conversationIdRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const modelDiscoveryAbortRef = useRef<AbortController | null>(null);
@@ -1154,7 +1163,7 @@ function VoiceTutorContent() {
             if(_participant)subscribeTutor(_participant);
             if(data.type==='ANSWER_UNAVAILABLE'){setInputDucked(false);setPressPhase('empty');setStatus('Your question could not be answered. Please retry.');}
             if(data.type==='ANSWER_STARTED'){setInputDucked(false);setPressPhase('idle');}
-            if(data.type==='TUTOR_RECOVERY_REQUIRED'){setInputDucked(false);setBoardPending(false);setTutorFailure('The lesson could not continue. Your source is saved. Retry this lesson.');setPressPhase('idle');return;}
+            if(data.type==='TUTOR_RECOVERY_REQUIRED'){setInputDucked(false);setBoardPending(false);setTutorFailure('The tutor is temporarily unavailable. Your class is paused and your lecture is saved.');setPressPhase('idle');return;}
             if(data.type==='SYNC_VISUAL_STAGE'){setBoardPending(false);setStudioOpen(true);setTutorFailure('');workerContinuationRef.current=true;}
             if(data.type==='WORKER_READY'){void room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({type:'teaching_pace',pace:teachingPaceRef.current})),{reliable:true,topic:'lensiq.live_class.lesson_control'}).catch(()=>undefined);workerContinuationRef.current=true;setTutorFailure(previous=>previous.includes('acknowledge')?'':previous);}
             if(data.type==='TUTOR_JOINED'){setStudioOpen(true);updateVisualContext({type:'whiteboard',topic:courseName,
@@ -1592,8 +1601,8 @@ function VoiceTutorContent() {
       <ClassroomControls microphoneActive={!micMuted} vadDetected={micHearing} purgeStatus={syllabusLessonStatus} onEnd={() => void endSession()} />
     </header>}
 
-    {connected && (tutorFailure||audioState==='blocked')&&<aside role="alert" className="absolute inset-x-3 top-28 z-50 mx-auto max-w-lg rounded-xl border border-amber-300/40 bg-slate-950 p-3 text-sm text-amber-100">
-      {tutorFailure&&<><p>{tutorFailure}</p><button disabled={reconnectingTutor} className="mt-2 rounded-lg bg-amber-300 px-3 py-2 font-bold text-slate-950" onClick={()=>void reconnectTutor()}>{reconnectingTutor?'Retrying lesson…':'Retry lesson'}</button></>}
+    {connected && ((tutorFailure&&recoveryAttempts>=2)||audioState==='blocked')&&<aside role="alert" className="absolute inset-x-3 top-28 z-50 mx-auto max-w-lg rounded-xl border border-amber-300/40 bg-slate-950 p-3 text-sm text-amber-100">
+      {tutorFailure&&recoveryAttempts>=2&&<p>The tutor is temporarily unavailable. Your class is paused and your lecture is saved.</p>}
       {audioState==='blocked'&&<button className="ml-2 rounded-lg bg-white px-3 py-2 font-bold text-slate-950" onClick={()=>void toggleTutorAudio()}>Tap to enable audio</button>}
     </aside>}
     {connected && rag.ready && <SyllabusNavigatorRail nodes={rag.tree}
@@ -1635,7 +1644,7 @@ function VoiceTutorContent() {
           <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${!liveStarted ? 'animate-pulse bg-[#e8a23d]' : voiceActive ? 'animate-pulse bg-[#e8a23d]' : micMuted ? 'bg-rose-400' : micHearing ? 'bg-emerald-300' : 'bg-emerald-500/70'}`} />
           <Waveform active={micHearing} level={micMuted ? 0 : micLevel} compact />
           <div className="min-w-0" aria-live="polite">
-            <p className="truncate text-[11px] font-bold sm:text-xs">{tutorFailure?'Lesson paused — retry available':pressToTalk && (pressPhase === 'holding' || pressPhase === 'listening') ? (micHearing?'Hearing you — release when finished':'Listening — speak, then release') : pressToTalk && pressPhase === 'processing' ? (lastHeard?'Preparing your answer':'Transcribing your question') : !autoLesson?'Paused':boardPending&&rag.ready?'Preparing your first explanation':voiceActive?'Tutor speaking': pressToTalk && !voiceActive ? 'Hold to ask your tutor' : classroomStatus({started:liveStarted,blocked:audioState==='blocked',muted:micMuted,hearing:micHearing,speaking:voiceActive,paused:!autoLesson,state:runtimeState})}</p>
+            <p className="truncate text-[11px] font-bold sm:text-xs">{reconnectingTutor?'Continuing your lesson…':tutorFailure?(recoveryAttempts<2?'Continuing your lesson…':'Class paused · tutor unavailable'):pressToTalk && (pressPhase === 'holding' || pressPhase === 'listening') ? (micHearing?'Hearing you — release when finished':'Listening — speak, then release') : pressToTalk && pressPhase === 'processing' ? (lastHeard?'Preparing your answer':'Transcribing your question') : !autoLesson?'Paused':boardPending&&rag.ready?'Preparing your first explanation':voiceActive?'Tutor speaking': pressToTalk && !voiceActive ? 'Hold to ask your tutor' : classroomStatus({started:liveStarted,blocked:audioState==='blocked',muted:micMuted,hearing:micHearing,speaking:voiceActive,paused:!autoLesson,state:runtimeState})}</p>
             <p className="hidden truncate text-[10px] text-white/55 sm:block">{pressToTalk ? 'Hold → speak → release for an answer' : micMuted ? 'Tap mic to unmute' : micHearing ? 'Your voice is reaching the class' : lastHeard ? `Heard: ${lastHeard}` : 'Speak anytime · interrupt naturally'}</p>
           </div>
         </div>
