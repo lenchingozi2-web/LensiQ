@@ -30,6 +30,8 @@ test('authored explanations protect source coverage, dosage, units, and qualific
  assert.throws(()=>validateAuthoredLesson(missing,record),/detail/);
  const dose=structuredClone(lesson);dose.beats[0].speech=dose.beats[0].speech.replace('5 mg','a low amount');
  assert.throws(()=>validateAuthoredLesson(dose,record),/number/);
+ const unit=structuredClone(lesson);unit.beats[0].speech=unit.beats[0].speech.replace('5 mg','5 g');
+ assert.throws(()=>validateAuthoredLesson(unit,record),/quantity or unit/);
  const neg=structuredClone(lesson);neg.beats[1].speech='Use this medicine when eGFR falls below 15 mL/min. This threshold guides the decision about renal clearance and safety.';
  assert.throws(()=>validateAuthoredLesson(neg,record),/qualification/);
 });

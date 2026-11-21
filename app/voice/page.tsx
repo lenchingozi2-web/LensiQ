@@ -1471,7 +1471,7 @@ function VoiceTutorContent() {
     tutorMutedRef.current = nextMuted;
     setTutorMuted(nextMuted);
     const elements = Array.from(audioContainerRef.current?.querySelectorAll('audio') ?? []);
-    elements.forEach((element) => { element.muted = nextMuted; element.volume = nextMuted ? 0 : 1; });
+    elements.forEach((element) => { element.muted = nextMuted || inputDuckedRef.current; element.volume = nextMuted ? 0 : 1; });
     roomRef.current?.remoteParticipants.forEach((participant) => participant.audioTrackPublications.forEach((publication) => {
       if (publication.track && 'setVolume' in publication.track && typeof publication.track.setVolume === 'function') publication.track.setVolume(nextMuted ? 0 : 1);
     }));
@@ -1506,7 +1506,7 @@ function VoiceTutorContent() {
     setPressPhase(enabled ? 'holding' : cancel ? 'idle' : 'processing');
     if(enabled)setInputDucked(true);
     else if(cancel)setInputDucked(false);
-    if (enabled) { spokenCuesRef.current?.clear(); setRuntimeState('LISTENING'); setStatus('Holding — your tutor is listening. Release to send your question.'); }
+    if (enabled) { setLastHeard(''); spokenCuesRef.current?.clear(); setRuntimeState('LISTENING'); setStatus('Holding — your tutor is listening. Release to send your question.'); }
     else setStatus(cancel ? 'Question cancelled.' : 'Released — preparing your answer.');
     microphoneQueueRef.current = microphoneQueueRef.current.catch(() => undefined).then(async () => {
       if (roomRef.current !== room) return;

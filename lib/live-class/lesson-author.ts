@@ -63,6 +63,9 @@ export function validateAuthoredLesson(raw:unknown,record:ConceptRecord,question
   const speech=beats.map(b=>b.speech).join(' ');
   const numbers=[...new Set((facts.join(' ').match(/\d+(?:\.\d+)?/g)||[]))];
   if(numbers.some(n=>!new RegExp('(^|[^\\d.])'+n.replace('.','\\.')+'([^\\d.]|$)').test(speech)))throw new Error('A source number was lost in the explanation');
+  const compact=(s:string)=>s.replace(/\s+/g,'').toLowerCase();
+  const quantities=facts.join(' ').match(/\d+(?:\.\d+)?\s*(?:mg|mcg|µg|μg|mL\/min|mmol\/L|mEq\/L|mmHg|mL|g|%)(?![a-z])/gi)||[];
+  if(quantities.some(q=>!compact(speech).includes(compact(q))))throw new Error('A source quantity or unit was changed');
   const sourceGrams=grams(facts.join(' ')),spokenGrams=grams(speech);
   const copied=[...spokenGrams].filter(g=>sourceGrams.has(g)).length;
   if(spokenGrams.size>10&&copied/spokenGrams.size>.65)throw new Error('The tutor must explain, not recite the source');
