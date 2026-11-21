@@ -109,6 +109,7 @@ class SyllabusVoiceTutor:
                 raise
             log.warning("Tutor generation unavailable before first token; using a safe spoken recovery", exc_info=True)
         if not emitted:
+            await self.publish({"type":"ANSWER_UNAVAILABLE","reason":"providers_busy"})
             yield fallback
 
     async def play_packet(self, packet: dict[str, Any], begin: int = 0) -> None:
@@ -245,7 +246,10 @@ class SyllabusVoiceTutor:
             self.interrupting = False
 
     async def answer(self, question: str) -> None:
-        if not question.strip() or not self.packet:
+        if not question.strip():
+            return
+        if not self.packet:
+            await self.publish({"type":"ANSWER_UNAVAILABLE","reason":"lesson_not_ready"})
             return
         if not self.interrupting:
             await self.interrupt()
@@ -271,9 +275,21 @@ class SyllabusVoiceTutor:
                       "say the provided files do not address it. Do not invent a citation. "
                       "The selected structure is student interaction context, not evidence of disease. "
                       + json.dumps({"question": question[:600], "sources": references, "selection": self.selection}, ensure_ascii=False))
-            speech = self.grounded_speech(prompt, "barge_in", "I couldn’t compose that explanation just now. Please ask that question again.") if references else "I couldn't find that answer in the material indexed for this class."
-            await self.publish({"type":"ANSWER_STARTED","state_version":self.state_version})
-            handle = self.session.say(speech, allow_interruptions=True)
+            source_speech = self.grounded_speech(prompt, "barge_in", "I couldn’t compose that explanation just now. Please ask that question again.") if references else "I couldn't find that answer in the material indexed for this class."
+            async def answer_speech():
+                parts = []
+                if isinstance(source_speech, str):
+                    parts.append(source_speech)
+                    await self.publish({"type":"ANSWER_STARTED","state_version":self.state_version})
+                    yield source_speech
+                else:
+                    async for text in source_speech:
+                        if not parts:
+                            await self.publish({"type":"ANSWER_STARTED","state_version":self.state_version})
+                        parts.append(text)
+                        yield text
+                await self.publish({"type":"ANSWER_TEXT","content":"".join(parts)[:3000]})
+            handle = self.session.say(answer_speech(), allow_interruptions=True)
             await handle.wait_for_playout()
             if handle.interrupted:
                 return
@@ -475,9 +491,9 @@ async def entrypoint(ctx: JobContext) -> None:
                        "preemptive_generation": {"enabled": False}},
         stt=inference.STT(model=os.getenv("LENXIQ_STT_MODEL", "deepgram/nova-3"), language="en"),
         tts=inference.TTS(model="cartesia/sonic-3",
-                          voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc", language="en", sample_rate=48000,
+                          voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc", language="en", sample_rate=24000,
                           extra_kwargs={"speed":max(0.8,min(1.15,float(metadata.get("teachingPace",0.94)))),
-                                        "volume":0.88,"max_buffer_delay_ms":200},
+                                        "volume":0.88,"max_buffer_delay_ms":400},
                           disable_system_default_fallback=True),
     )
     tutor = SyllabusVoiceTutor(ctx, session, metadata)
@@ -552,7 +568,8 @@ async def entrypoint(ctx: JobContext) -> None:
     await tutor.publish({"type":"TUTOR_JOINED","session_id":tutor.session_id,"course":tutor.course})
     await asyncio.sleep(0.45)
     try:
-        session.say("Welcome to class. Let's begin.", allow_interruptions=True)
+        if not tutor.syllabus_id:
+            session.say("Welcome to class. Let's begin.", allow_interruptions=True)
     except Exception:
         log.exception("Opening greeting could not be queued")
     if tutor.syllabus_id:

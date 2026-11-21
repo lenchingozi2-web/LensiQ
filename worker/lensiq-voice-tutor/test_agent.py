@@ -104,3 +104,18 @@ class WorkerTests(IsolatedAsyncioTestCase):
         tutor=self.tutor()
         await tutor.receive_packet({'type':'explore_visual'})
         self.assertGreater(tutor.visual_focus_until,time.monotonic()+5)
+
+    async def test_question_without_open_lesson_is_explicitly_released(self):
+        tutor=self.tutor()
+        await tutor.answer('Can you explain this?')
+        self.assertEqual(tutor.publish.call_args.args[0],{'type':'ANSWER_UNAVAILABLE','reason':'lesson_not_ready'})
+
+    async def test_no_provider_output_reports_failure_instead_of_silent_wait(self):
+        tutor=self.tutor()
+        async def unavailable(*args):
+            raise RuntimeError('busy')
+            yield ''
+        tutor.text_stream=unavailable
+        output=[part async for part in tutor.grounded_speech('Question','barge_in','Please retry your question.')]
+        self.assertEqual(output,['Please retry your question.'])
+        self.assertEqual(tutor.publish.call_args.args[0]['type'],'ANSWER_UNAVAILABLE')

@@ -36,7 +36,7 @@ test('Groq rate limit fails over to Gemini Flash with no dropped turn',async()=>
   for await (const chunk of routeSpokenTurn('How does glomerular filtration work?', 'barge_in',{
     env:{GROQ_API_KEY:'test-groq',GEMINI_API_KEY:'test-gemini'},fetcher,firstTokenMs:200,
   }))chunks.push(chunk);
-  assert.equal(groqCalls,1);assert.equal(geminiCalls,1);
+  assert.equal(groqCalls,2);assert.equal(geminiCalls,1);
   assert.equal(chunks.length,1);assert.equal(chunks[0].provider,'gemini');
   assert.match(chunks[0].text,/renal answer/);
 });

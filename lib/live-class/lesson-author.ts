@@ -5,34 +5,59 @@ import { teachingLines } from './teaching-content';
 import { matchCuratedClassVisual } from './model-matcher';
 
 export type BankQuestion={id:string;question:string;answer:string};
-type AuthorOptions={env?:Record<string,string|undefined>;fetcher?:typeof fetch;question?:BankQuestion|null};
+type AuthorOptions={env?:Record<string,string|undefined>;fetcher?:typeof fetch;question?:BankQuestion|null;schema?:Record<string,unknown>;maxTokens?:number;signal?:AbortSignal};
 export const TEACHING_VERSION=3;
 export function teachingFingerprint(record:ConceptRecord){return createHash('sha256').update(record.title+'\n'+record.consolidated_notes).digest('hex');}
 
-/** Gemini plans the lesson; Groq can recover a failed planner without reading the source aloud. */
+/** Bounded structured generation. A rejected or throttled model never becomes source recitation. */
+const cooling=new Map<string,number>();
 export async function generateTeachingJson(instruction:string,data:unknown,options:AuthorOptions={}):Promise<unknown>{
   const env=options.env??process.env,fetcher=options.fetcher??fetch;
   const key=env.GEMINI_API_KEY||env.GOOGLE_GENERATIVE_AI_API_KEY;
+  const maxTokens=options.maxTokens??1900;
+  const signal=options.signal??AbortSignal.timeout(28000);
   const messages=[{role:'system',content:instruction},{role:'user',content:JSON.stringify(data)}];
-  const attempts:Array<()=>Promise<Response>>=[];
-  if(key)attempts.push(()=>fetcher('https://generativelanguage.googleapis.com/v1beta/models/'+(env.GEMINI_SYLLABUS_MODEL||env.GEMINI_CLASS_BRAIN_MODEL||'gemini-3.8-flash')+':generateContent',{
-    method:'POST',cache:'no-store',signal:AbortSignal.timeout(12000),headers:{'content-type':'application/json','x-goog-api-key':key},
-    body:JSON.stringify({systemInstruction:{parts:[{text:instruction}]},contents:[{role:'user',parts:[{text:JSON.stringify(data)}]}],
-      generationConfig:{responseMimeType:'application/json',maxOutputTokens:4800,thinkingConfig:{thinkingLevel:'LOW'}}}),
-  }));
-  if(env.GROQ_API_KEY)attempts.push(()=>fetcher('https://api.groq.com/openai/v1/chat/completions',{
-    method:'POST',cache:'no-store',signal:AbortSignal.timeout(12000),headers:{'content-type':'application/json',authorization:'Bearer '+env.GROQ_API_KEY},
-    body:JSON.stringify({model:env.GROQ_CLASS_MOUTH_MODEL||'qwen/qwen3.8-27b',...((env.GROQ_CLASS_MOUTH_MODEL||'qwen/qwen3.8-27b').startsWith('qwen/')?{reasoning_effort:'none',include_reasoning:false}:{}),messages,response_format:{type:'json_object'},temperature:0.35,max_completion_tokens:4800}),
-  }));
-  for(const call of attempts){
+  const primary=env.GEMINI_SYLLABUS_MODEL||env.GEMINI_CLASS_BRAIN_MODEL||'gemini-3.8-flash';
+  const mouth=env.GROQ_CLASS_MOUTH_MODEL||'qwen/qwen3.8-27b';
+  const candidates=[...(key?[{provider:'gemini',model:primary}]:[]),
+    ...(env.GROQ_API_KEY?[{provider:'groq',model:mouth}]:[]),
+    ...(key?[{provider:'gemini',model:env.GEMINI_FALLBACK_MODEL||'gemini-3.6-flash'}]:[]),
+    ...(env.GROQ_API_KEY?[{provider:'groq',model:'openai/gpt-oss-120b'}]:[])];
+  const seen=new Set<string>();
+  for(const {provider,model} of candidates){
+    const id=provider+'/'+model;
+    if(seen.has(id)||(options.fetcher===undefined&&(cooling.get(id)||0)>Date.now()))continue;
+    seen.add(id);signal.throwIfAborted();
     try{
-      const response=await call();if(!response.ok){console.warn('Lesson planner rejected request',{status:response.status});await response.body?.cancel().catch(()=>undefined);continue;}
+      const common={method:'POST',cache:'no-store' as RequestCache,signal:AbortSignal.any([signal,AbortSignal.timeout(7000)])};
+      const response=provider==='gemini'?await fetcher('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{
+        ...common,headers:{'content-type':'application/json','x-goog-api-key':key!},
+        body:JSON.stringify({systemInstruction:{parts:[{text:instruction}]},contents:[{role:'user',parts:[{text:JSON.stringify(data)}]}],
+          generationConfig:{responseMimeType:'application/json',...(options.schema?{responseJsonSchema:options.schema}:{}),maxOutputTokens:maxTokens,thinkingConfig:{thinkingLevel:'LOW'}}}),
+      }):await fetcher('https://api.groq.com/openai/v1/chat/completions',{
+        ...common,headers:{'content-type':'application/json',authorization:'Bearer '+env.GROQ_API_KEY},
+        body:JSON.stringify({model,...(model.startsWith('qwen/')?{reasoning_effort:'none',include_reasoning:false}:{reasoning_effort:'low'}),messages,
+          response_format:options.schema?{type:'json_schema',json_schema:{name:'medical_lesson',strict:true,schema:options.schema}}:{type:'json_object'},temperature:0.35,max_completion_tokens:maxTokens}),
+      });
+      if(!response.ok){
+        console.warn('Lesson planner rejected request',{provider,model,status:response.status});
+        if([429,503].includes(response.status)&&!options.fetcher)cooling.set(id,Date.now()+30000);
+        await response.body?.cancel().catch(()=>undefined);continue;
+      }
       const payload=await response.json();
-      const text=payload.candidates?.[0]?.content?.parts?.map((p:{text?:string})=>p.text||'').join('')||payload.choices?.[0]?.message?.content;
-      if(text)return JSON.parse(text);
-    }catch(error){console.warn('Lesson planner unavailable',{kind:error instanceof Error?error.name:'unknown'});/* Try the other configured planner. Never substitute raw lecture text. */}
+      const result=payload.candidates?.[0]?.content?.parts?.filter((p:{thought?:boolean})=>!p.thought).map((p:{text?:string})=>p.text||'').join('')||payload.choices?.[0]?.message?.content;
+      if(result)return JSON.parse(result.replace(/^```(?:json)?\s*|\s*```$/g,''));
+    }catch(error){console.warn('Lesson planner unavailable',{provider,model,kind:error instanceof Error?error.name:'unknown'});}
   }
-  throw new Error('The tutor could not prepare an explanation. Retry this concept.');
+  throw new Error('Teaching providers are busy. Your source is saved; retry the lesson shortly.');
+}
+export function teachingSchema(questionId=''):Record<string,unknown>{
+  return{type:'object',additionalProperties:false,required:['title','bank_question_id','beats'],properties:{
+    title:{type:'string'},bank_question_id:{type:'string',enum:[questionId]},beats:{type:'array',minItems:2,maxItems:5,items:{
+      type:'object',additionalProperties:false,required:['speech','notes','fact_ids','use_model','activity'],properties:{
+        speech:{type:'string'},notes:{type:'array',minItems:1,maxItems:2,items:{type:'string'}},
+        fact_ids:{type:'array',items:{type:'integer'}},use_model:{type:'boolean'},activity:{type:'string'},
+      }}}}};
 }
 const INSTRUCTION=`You are LenxiQ, a warm, patient medical lecturer teaching beside an interactive whiteboard, not a document reader.
 Return JSON {"title":"clinical concept","bank_question_id":"supplied question ID or empty string","beats":[{"speech":"natural spoken explanation","notes":["short anchor"],"fact_ids":[0],"use_model":false,"activity":"optional manipulation prompt"}]}. Produce 2-5 ordered teaching beats, each 35-100 spoken words and 1-2 short notes (at most 14 words per note).
@@ -73,6 +98,7 @@ export function validateAuthoredLesson(raw:unknown,record:ConceptRecord,question
   return{title:typeof value.title==='string'?value.title.slice(0,180):record.title,beats};
 }
 export async function authorTeachingPacket(sessionId:string,syllabusId:string,version:number,record:ConceptRecord,options:AuthorOptions={}):Promise<TeachingPacket>{
+  options={...options,signal:options.signal??AbortSignal.timeout(35000),schema:teachingSchema(options.question?.id)};
   const facts=teachingLines(record.title,record.consolidated_notes);
   if(!facts.length)throw new Error('This source section contains no teachable content');
   const spec=(record.visual_spec_json||{}) as Record<string,unknown>;

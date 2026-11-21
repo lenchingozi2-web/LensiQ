@@ -8,10 +8,11 @@ const origin='https://www.lenxiq.online';
 page.on('pageerror',e=>console.error('Classroom JS error:',e.message));
 const id='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const docs=['fixture-a','fixture-b','fixture-c'];
-const nodes=Array.from({length:42},(_,i)=>({id:'concept-'+i,title:'Cited passage '+(i+1),
+const nodes=Array.from({length:68},(_,i)=>({id:'concept-'+i,title:'Cited passage '+(i+1),
   parent_id:null,node_type:'concept',sort_order:i,consolidated_notes:'Inflammatory cells migrate from blood into injured tissue, producing a protective response.',source_citations_json:[{file_name:'Lecture A.txt',page_number:i+1}]}));
-let published=false,releaseIndex,treeReads=0,active=0,peak=0;
+let published=false,releaseIndex,releaseOpening,treeReads=0,active=0,peak=0;
 const attempts=new Map();
+const openingGate=new Promise(resolve=>{releaseOpening=resolve;});
 const gate=new Promise(resolve=>{releaseIndex=resolve;});
 const json=(route,body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
 try{
@@ -24,6 +25,7 @@ try{
   await page.route('**/rest/v1/syllabus_concept_nodes?**',route=>{treeReads++;return json(route,published?nodes:nodes.slice(0,2));});
   await page.route('**/api/rag/compile-syllabus',async route=>{
     const {action,itemId,offset}=route.request().postDataJSON();
+    if(action==='lesson'){await openingGate;return json(route,{done:true,teachingReady:true});}
     if(action==='prepare')return json(route,{documents:docs.map(id=>({id,indexed:false})),published:false});
     if(action==='parse'){
       if(itemId===docs[0]&&!offset)return json(route,{done:false,next:2,ids:nodes.slice(0,2).map(n=>n.id)});
@@ -50,16 +52,18 @@ try{
   const prepare=page.getByRole('button',{name:'Prepare lecture notes'});
   await prepare.waitFor();assert.equal(await enter.isEnabled(),false);
   await prepare.click();
+  await page.getByText('Preparing first explanation',{exact:false}).waitFor();
+  assert.equal(await enter.isEnabled(),false);releaseOpening();
   await page.getByText(/Ready to enter/).waitFor({timeout:20000});
   assert.equal(await enter.isEnabled(),true);
   assert.equal(published,false);assert.ok(treeReads>=1);
   releaseIndex();
   await page.getByText('Source index ready',{exact:false}).waitFor({timeout:45000});
-  assert.equal(attempts.size,42);assert.equal(attempts.get('concept-2'),2);assert.equal(attempts.get('concept-11'),3);
+  assert.equal(attempts.size,68);assert.equal(attempts.get('concept-2'),2);assert.equal(attempts.get('concept-11'),3);
   assert.ok(peak<=3&&peak>1);assert.equal(await enter.isEnabled(),true);
   console.log('Passed 360px touch UI: entry after two cited passages, three concurrent requests, dropped response retried and exhausted node isolated.');
 }catch(error){
   console.error('Classroom state at failure:',(await page.locator('body').innerText()).slice(-1600));
   console.error('Indexed requests:',attempts.size,'tree reads:',treeReads,'published:',published);
   throw error;
-}finally{releaseIndex();await browser.close();}
+}finally{releaseOpening();releaseIndex();await browser.close();}

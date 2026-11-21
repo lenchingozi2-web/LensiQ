@@ -102,7 +102,7 @@ export function useHybridStudyRAG(){
       if(!page.data||page.data.length<500)break;
     }
     const teachable=results.filter(n=>n.node_type!=='concept'||isTeachable(n.title,n.consolidated_notes||''));
-    if(checkpoint.current===id){setTree(teachable);if(teachable.some(n=>n.node_type==='concept'))setReady(true);}
+    if(checkpoint.current===id)setTree(teachable);
     return teachable;
   },[]);
   const uploadAndCompile=useCallback(async(overrideFiles?:File[],sessionId?:string)=>{
@@ -136,6 +136,13 @@ export function useHybridStudyRAG(){
       const step=(action:string,itemId?:string,offset?:number)=>retryStep(()=>postJson('/api/rag/compile-syllabus',
         {syllabusId:syllabus,action,itemId,offset},AbortSignal.any([signal,AbortSignal.timeout(52000)])),signal);
       const plan=await step('prepare');
+      let openingPrepared=false;
+      const prepareOpening=async(nodes:SyllabusTreeNode[])=>{
+        const first=nodes.find(n=>n.node_type==='concept');
+        if(openingPrepared||!first)return;
+        setProgress({stage:'Preparing first explanation',current:0,total:1,detail:first.title});
+        await step('lesson',first.id);signal.throwIfAborted();openingPrepared=true;setReady(true);
+      };
       const docs=plan.documents as {id:string;indexed:boolean}[];
       const completed=new Set<string>();let total=0;
       const enrich=async(node:SyllabusTreeNode)=>{
@@ -155,7 +162,7 @@ export function useHybridStudyRAG(){
       total=firstNodes.length;
       // These nodes already contain the complete cited source and a usable visual.
       // Semantic vectors and optional Flash layout hints must never hold the classroom door.
-      signal.throwIfAborted();if(firstNodes.length)setReady(true);
+      signal.throwIfAborted();await prepareOpening(firstNodes);
       await inPool(firstNodes.slice(0,2),enrich);
       let parsed=docs.filter(d=>d.indexed).length;
       // Publish source pages in lecture order. Parallel document parsing could
@@ -167,7 +174,7 @@ export function useHybridStudyRAG(){
         let offset=i===0?firstOffset:0;
         for(;;){
           const result=await step('parse',doc.id,offset);
-          await retryStep(()=>loadTree(syllabus),signal);
+          await prepareOpening(await retryStep(()=>loadTree(syllabus),signal));
           if(result.done)break;
           offset=result.next;
         }
@@ -179,10 +186,12 @@ export function useHybridStudyRAG(){
       if(!plan.published)await step('publish');
       const nodes=(await retryStep(()=>loadTree(syllabus),signal)).filter(n=>n.node_type==='concept');
       if(!nodes.length)throw new Error('The source contains no readable teaching content beyond headings or objectives.');
+      await prepareOpening(nodes);
       total=nodes.length;
       await inPool(nodes.filter(n=>!completed.has(n.id)),enrich);
       signal.throwIfAborted();setStatus('ready');
       setProgress({stage:'Source index ready',current:total,total});
+      return syllabus;
     }catch(caught){
       if(signal.aborted)return;
       if(caught instanceof Error&&/expired|no longer available/.test(caught.message))clear();

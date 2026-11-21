@@ -190,10 +190,13 @@ function VoiceTutorContent() {
     if(!sessionId||!currentLiveRoom||reconnectingTutor)return;
     setReconnectingTutor(true);
     try{
-      const response=await fetch('/api/voice/reconnect',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sessionId})});
-      if(!response.ok)throw new Error((await response.json()).error||'Reconnect failed');
       setTutorFailure('');setBoardPending(true);
-      await beginSyllabusLesson(sessionId,rag.ready?rag.syllabusId:null,currentLiveRoom,true);
+      try{await beginSyllabusLesson(sessionId,rag.ready?rag.syllabusId:null,currentLiveRoom,true);}
+      catch{
+        const response=await fetch('/api/voice/reconnect',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sessionId})});
+        if(!response.ok)throw new Error((await response.json()).error||'Audio reconnection failed');
+        await beginSyllabusLesson(sessionId,rag.ready?rag.syllabusId:null,currentLiveRoom,true);
+      }
     }catch(e){setTutorFailure(e instanceof Error?e.message:'Unable to reconnect tutor');}
     finally{setReconnectingTutor(false);}
   };
@@ -1045,17 +1048,9 @@ function VoiceTutorContent() {
           setLiveStorageNotice('Real model discovery unavailable. Existing curated 3D models remain accessible.');
         }
       })();
-      activeConversation = await createConversation();
-      const tokenResponse = await fetch('/api/voice/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teachingPace:teachingPaceRef.current, syllabusId:rag.ready?rag.syllabusId:null, courseName, topicFocus, focusText, conversationId: activeConversation.id, inputMode: 'press_to_talk', fileUrls: uploadedFileUrls, materialMapUrls: uploadedMapUrls, materialContext }) });
-      const tokenData = await tokenResponse.json().catch(() => ({}));
-      if (!tokenResponse.ok) {
-        if(tokenData.resetSyllabus)clearRag();
-        throw new Error(tokenData.message || tokenData.error || 'Unable to create a secure Live Class session.');
-      }
-      setSessionId(tokenData.sessionId);
-      sessionIdRef.current = tokenData.sessionId;
-      if(!rag.ready){
-        void (async()=>{
+      let openingSyllabus=rag.ready?rag.syllabusId:null;
+      if(!openingSyllabus){
+        setStatus('Preparing your first explanation before opening class…');
           let sources:File[];
           if(uploadedFileUrls.length){
             sources=await Promise.all(uploadedFileUrls.map(async(url,i)=>{
@@ -1071,9 +1066,18 @@ function VoiceTutorContent() {
             if(!response.ok)throw new Error(source.error||'Course sources unavailable');
             sources=[new File([source.text],courseName+' course bank.txt',{type:'text/plain'})];
           }
-          if(sessionIdRef.current===tokenData.sessionId&&!endingRef.current)await rag.uploadAndCompile(sources,tokenData.sessionId);
-        })().catch(e=>{if(sessionIdRef.current===tokenData.sessionId)setError(e instanceof Error?e.message:'Unable to load course sources');});
+          openingSyllabus=await rag.uploadAndCompile(sources)||null;
+          if(!openingSyllabus)throw new Error('Your first lesson is not ready. Please retry preparation.');
       }
+      activeConversation = await createConversation();
+      const tokenResponse = await fetch('/api/voice/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teachingPace:teachingPaceRef.current, syllabusId:openingSyllabus, courseName, topicFocus, focusText, conversationId: activeConversation.id, inputMode: 'press_to_talk', fileUrls: uploadedFileUrls, materialMapUrls: uploadedMapUrls, materialContext }) });
+      const tokenData = await tokenResponse.json().catch(() => ({}));
+      if (!tokenResponse.ok) {
+        if(tokenData.resetSyllabus)clearRag();
+        throw new Error(tokenData.message || tokenData.error || 'Unable to create a secure Live Class session.');
+      }
+      setSessionId(tokenData.sessionId);
+      sessionIdRef.current = tokenData.sessionId;
       const conversation = activeConversation;
       if (!conversation) throw new Error('Unable to create Live Class history.');
       // Linking history is important, but should not hold the microphone or
@@ -1148,12 +1152,13 @@ function VoiceTutorContent() {
           if(topic==='lk-lesson-state'){
             if(!acceptTutorPacket(_participant,tokenData.sessionId,topic,data))return;
             if(_participant)subscribeTutor(_participant);
+            if(data.type==='ANSWER_UNAVAILABLE'){setInputDucked(false);setPressPhase('empty');setStatus('Your question could not be answered. Please retry.');}
             if(data.type==='ANSWER_STARTED'){setInputDucked(false);setPressPhase('idle');}
-            if(data.type==='TUTOR_RECOVERY_REQUIRED'){setInputDucked(false);setTutorFailure('Tutor audio or lesson delivery failed. Reconnect to continue from this concept.');setPressPhase('idle');return;}
+            if(data.type==='TUTOR_RECOVERY_REQUIRED'){setInputDucked(false);setBoardPending(false);setTutorFailure('The lesson could not continue. Your source is saved. Retry this lesson.');setPressPhase('idle');return;}
             if(data.type==='SYNC_VISUAL_STAGE'){setBoardPending(false);setStudioOpen(true);setTutorFailure('');workerContinuationRef.current=true;}
             if(data.type==='WORKER_READY'){void room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({type:'teaching_pace',pace:teachingPaceRef.current})),{reliable:true,topic:'lensiq.live_class.lesson_control'}).catch(()=>undefined);workerContinuationRef.current=true;setTutorFailure(previous=>previous.includes('acknowledge')?'':previous);}
             if(data.type==='TUTOR_JOINED'){setStudioOpen(true);updateVisualContext({type:'whiteboard',topic:courseName,
-              markdown:rag.ready?'Opening your first cited passage.':'Preparing the first passage from your course sources.'});}
+              markdown:rag.ready?'Starting your lesson…':'Preparing your first explanation…'});}
           }
           if (!trustedTutor(_participant)) return;
           if (data.type === 'live_class_policy_ack') {workerContinuationRef.current=true;clearLessonContinueTimer();return;}
@@ -1588,7 +1593,7 @@ function VoiceTutorContent() {
     </header>}
 
     {connected && (tutorFailure||audioState==='blocked')&&<aside role="alert" className="absolute inset-x-3 top-28 z-50 mx-auto max-w-lg rounded-xl border border-amber-300/40 bg-slate-950 p-3 text-sm text-amber-100">
-      {tutorFailure&&<><p>{tutorFailure}</p><button disabled={reconnectingTutor} className="mt-2 rounded-lg bg-amber-300 px-3 py-2 font-bold text-slate-950" onClick={()=>void reconnectTutor()}>{reconnectingTutor?'Reconnecting…':'Reconnect Tutor'}</button></>}
+      {tutorFailure&&<><p>{tutorFailure}</p><button disabled={reconnectingTutor} className="mt-2 rounded-lg bg-amber-300 px-3 py-2 font-bold text-slate-950" onClick={()=>void reconnectTutor()}>{reconnectingTutor?'Retrying lesson…':'Retry lesson'}</button></>}
       {audioState==='blocked'&&<button className="ml-2 rounded-lg bg-white px-3 py-2 font-bold text-slate-950" onClick={()=>void toggleTutorAudio()}>Tap to enable audio</button>}
     </aside>}
     {connected && rag.ready && <SyllabusNavigatorRail nodes={rag.tree}
@@ -1630,7 +1635,7 @@ function VoiceTutorContent() {
           <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${!liveStarted ? 'animate-pulse bg-[#e8a23d]' : voiceActive ? 'animate-pulse bg-[#e8a23d]' : micMuted ? 'bg-rose-400' : micHearing ? 'bg-emerald-300' : 'bg-emerald-500/70'}`} />
           <Waveform active={micHearing} level={micMuted ? 0 : micLevel} compact />
           <div className="min-w-0" aria-live="polite">
-            <p className="truncate text-[11px] font-bold sm:text-xs">{pressToTalk && (pressPhase === 'holding' || pressPhase === 'listening') ? (micHearing?'Hearing you — release when finished':'Listening — speak, then release') : pressToTalk && pressPhase === 'processing' ? (lastHeard?'Preparing your answer':'Transcribing your question') : !autoLesson?'Paused':boardPending&&rag.ready?'Preparing your first explanation':voiceActive?'Tutor speaking': pressToTalk && !voiceActive ? 'Hold to ask your tutor' : classroomStatus({started:liveStarted,blocked:audioState==='blocked',muted:micMuted,hearing:micHearing,speaking:voiceActive,paused:!autoLesson,state:runtimeState})}</p>
+            <p className="truncate text-[11px] font-bold sm:text-xs">{tutorFailure?'Lesson paused — retry available':pressToTalk && (pressPhase === 'holding' || pressPhase === 'listening') ? (micHearing?'Hearing you — release when finished':'Listening — speak, then release') : pressToTalk && pressPhase === 'processing' ? (lastHeard?'Preparing your answer':'Transcribing your question') : !autoLesson?'Paused':boardPending&&rag.ready?'Preparing your first explanation':voiceActive?'Tutor speaking': pressToTalk && !voiceActive ? 'Hold to ask your tutor' : classroomStatus({started:liveStarted,blocked:audioState==='blocked',muted:micMuted,hearing:micHearing,speaking:voiceActive,paused:!autoLesson,state:runtimeState})}</p>
             <p className="hidden truncate text-[10px] text-white/55 sm:block">{pressToTalk ? 'Hold → speak → release for an answer' : micMuted ? 'Tap mic to unmute' : micHearing ? 'Your voice is reaching the class' : lastHeard ? `Heard: ${lastHeard}` : 'Speak anytime · interrupt naturally'}</p>
           </div>
         </div>

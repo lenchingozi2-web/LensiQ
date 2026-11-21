@@ -12,7 +12,7 @@ const load=async(path,deps)=>{
  const mod=await import('data:text/javascript;base64,'+Buffer.from(`const {${Object.keys(deps).join(',')}}=globalThis['${key}'];\n`+stripTypeScriptTypes(source)).toString('base64'));
  delete globalThis[key];return mod;
 };
-const {validateAuthoredLesson,authorTeachingPacket,cachedLesson,generateTeachingJson}=await load('../lib/live-class/lesson-author.ts',{createHash,teachingLines,parseTeachingPacket,matchCuratedClassVisual:()=>({mode:'physiology_sim',structure_id:'renal_clearance'})});
+const {validateAuthoredLesson,authorTeachingPacket,cachedLesson,generateTeachingJson,teachingSchema}=await load('../lib/live-class/lesson-author.ts',{createHash,teachingLines,parseTeachingPacket,matchCuratedClassVisual:()=>({mode:'physiology_sim',structure_id:'renal_clearance'})});
 const ids=['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333'];
 const record={id:ids[2],title:'Renal elimination',consolidated_notes:'Dose is 5 mg.\nAvoid use below eGFR 15 mL/min.',key_details_json:[],visual_spec_json:{},source_citations_json:[{file_name:'Renal.pdf',page_number:9}]};
 const lesson={title:'When kidneys clear less medicine',beats:[
@@ -88,4 +88,20 @@ test('lesson planner uses supported current model and thinking parameters',async
    return new Response(JSON.stringify({choices:[{message:{content:'{}'}}]}));
  }});
  assert.equal(calls,2);
+});
+
+test('outage and rate limit select a different model with bounded tokens and a constrained lesson format',async()=>{
+ const calls=[];
+ const result=await generateTeachingJson('JSON lesson',{}, {env:{GEMINI_API_KEY:'fixture',GROQ_API_KEY:'fixture'},schema:teachingSchema(),fetcher:async(url,init)=>{
+  const body=JSON.parse(init.body);calls.push({url,body});
+  if(calls.length===1)return new Response(null,{status:503});
+  if(calls.length===2)return new Response(null,{status:429});
+  return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'{"ok":true}'}]}}]}));
+ }});
+ assert.equal(result.ok,true);assert.equal(calls.length,3);
+ assert.ok(calls[2].url.includes('gemini-3.6-flash'));
+ assert.equal(calls[0].body.generationConfig.maxOutputTokens,1900);
+ assert.equal(calls[1].body.response_format.json_schema.strict,true);
+ assert.equal(calls[1].body.response_format.json_schema.schema.properties.beats.maxItems,5);
+ assert.equal(calls[1].body.max_completion_tokens,1900);
 });

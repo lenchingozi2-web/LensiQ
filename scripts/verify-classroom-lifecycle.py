@@ -24,7 +24,12 @@ class ClassroomProbe(StudentValidation):
 
     async def upload_sources(self,sources=None):
         fixtures=json.loads((Path(__file__).resolve().parents[1]/'tests/fixtures/live-class-lessons.json').read_text())
+        original_sources=sources is None
         if sources is None:sources=[('# Learning objectives\nORIENTATION\nYEAR 4 MEDICINE\n2\nDefine the response to injury.\n\n'+'\n\n'.join('# '+chapter['title']+'\n'+paragraph for paragraph in chapter['sections'])).encode() for chapter in fixtures[:2]]
+        if original_sources:
+            # A realistically sized pharmacology index, including quantities and a negative.
+            pharmacology='\n\n'.join('# Renal clearance checkpoint '+str(i+1)+'\nIn this hypothetical teaching example, a dose is 5 mg. Avoid this example medicine below eGFR 15 mL/min. Reduced kidney clearance can cause drug accumulation; this is not a dose rule for all medicines.' for i in range(68))
+            sources.insert(0,pharmacology.encode())
         files=[{'name':f'probe-{i}.txt','size':len(data),'type':'text/plain'} for i,data in enumerate(sources)]
         prepared=await self.http('/api/rag/ingest-batch',{'action':'prepare','files':files,**({'sessionId':self.session} if self.session else {})})
         self.syllabus=prepared['syllabusId']
@@ -41,6 +46,10 @@ class ClassroomProbe(StudentValidation):
                 if result['done']:break
                 offset=result['next']
         await self.http('/api/rag/compile-syllabus',{'action':'publish','syllabusId':self.syllabus})
+        nodes=await self.http('/rest/v1/syllabus_concept_nodes?syllabus_id=eq.'+self.syllabus+'&node_type=eq.concept&order=sort_order&select=id,title',service=True)
+        first=next(n for n in nodes if 'objectives' not in n['title'].lower() and 'orientation' not in n['title'].lower())
+        await self.http('/api/rag/compile-syllabus',{'action':'lesson','syllabusId':self.syllabus,'itemId':first['id']})
+        self.check('VALIDATED_FIRST_EXPLANATION_BEFORE_CLASS_ENTRY')
         self.check('REAL_SYLLABUS_UPLOAD_COMPILE_AND_PUBLISH')
 
     async def connect(self,token):
@@ -78,18 +87,20 @@ class ClassroomProbe(StudentValidation):
         await self.send_control({'type':'ptt_mode','enabled':True})
 
     async def start(self):
-        token=await self.http('/api/voice/token',{'syllabusId':self.syllabus,'courseName':'Anatomical Pathology','inputMode':'press_to_talk'})
+        token=await self.http('/api/voice/token',{'syllabusId':self.syllabus,'courseName':'Pharmacology','inputMode':'press_to_talk'})
         await self.connect(token)
         await self.room.local_participant.publish_data(json.dumps({'type':'OPEN_LESSON','session_id':self.session,'syllabus_id':self.syllabus}).encode(),reliable=True,topic='lk-lesson-state')
         await self.wait(lambda d:d.get('type')=='SYNC_VISUAL_STAGE',timeout=65)
         deadline=time.monotonic()+45
         while not self.last_audible_at and time.monotonic()<deadline:await asyncio.sleep(.3)
         if not self.last_audible_at:raise RuntimeError('No decoded non-silent tutor audio')
+        self.report['timingsSeconds']['preparedEntryToBoard']=round(time.monotonic()-self.started,2)
+        if time.monotonic()-self.started>15:raise RuntimeError('Prepared lesson startup exceeded 15 seconds')
         self.check('SPOKEN_LESSON_AND_SESSION_VERIFIED_VISUAL')
         await self.verify_teaching()
 
     async def verify_teaching(self):
-        result=await self.http('/api/live-class/orchestrate',{'action':'state','sessionId':self.session})
+        result=await self.http('/api/live-class/orchestrate',{'action':'state','sessionId':self.session,'withPacket':True})
         packet=result.get('packet') or {}
         if packet.get('teaching_version')!=3:raise RuntimeError('Unverified raw-source teaching packet')
         cues=packet.get('visual_cues') or []
@@ -116,6 +127,11 @@ class ClassroomProbe(StudentValidation):
         transcript=await self.wait(lambda d:d.get('type')=='live_class_user_transcript',after=released,timeout=25)
         if not transcript['data'].get('content','').strip():raise RuntimeError('Empty microphone transcript')
         self.report['timingsSeconds']['releaseToTranscript']=round(transcript['at']-released,2)
+        answer=await self.wait(lambda d:d.get('type')=='ANSWER_TEXT',after=released,timeout=45)
+        import re
+        if not re.search(r'inflamm|tissue|vessel|neutroph|diaped',answer['data'].get('content',''),re.I):raise RuntimeError('The tutor did not generate a relevant medical answer')
+        if any(e['at']>=released and e['data'].get('type')=='ANSWER_UNAVAILABLE' for e in self.events):raise RuntimeError('Provider fallback was mistaken for a successful answer')
+        self.check('ACTUAL_MEDICAL_ANSWER_NOT_A_RECOVERY_PHRASE')
         restored=await self.wait(lambda d:d.get('type')=='RESTORE_VISUAL_STATE',after=released,timeout=120)
         await self.wait(lambda d:d.get('type')=='SYNC_VISUAL_STAGE',after=restored['at'],timeout=45)
         self.check('REAL_MIC_QUESTION_ANSWER_AND_LESSON_RESUMPTION')

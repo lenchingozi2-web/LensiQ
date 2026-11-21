@@ -115,7 +115,7 @@ export async function POST(request:Request){
       if(id)await packetFor({...current,phase:'TEACHING_NODE',current_node_id:id,cursor:current.cursor+1});
       return NextResponse.json({ok:true,state:current});
     }
-    if(action==='state')return NextResponse.json({ok:true,state:current,packet:await packetFor(current)});
+    if(action==='state')return NextResponse.json({ok:true,state:current,...(gateway||body.withPacket===true?{packet:await packetFor(current)}:{})});
 
     const version=Number(body.stateVersion);
     if(!Number.isSafeInteger(version)||version!==current.state_version)
@@ -175,6 +175,6 @@ export async function POST(request:Request){
     return NextResponse.json({ok:true,state:next,packet,lookahead,restoredVisual:restored,purge});
   }catch(error){
     console.error('Live Class orchestration failed',error instanceof Error?error.message:'unknown');
-    return NextResponse.json({error:'Unable to complete lesson transition; no classroom state was fabricated'},{status:503});
+    return NextResponse.json({error:'The tutor could not prepare this explanation. Your lecture is saved; retry the lesson.',retryable:true},{status:503});
   }
 }
