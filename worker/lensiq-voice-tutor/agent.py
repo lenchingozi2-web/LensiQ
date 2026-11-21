@@ -8,7 +8,7 @@ import os
 import time
 from typing import Any, AsyncIterator
 
-from medical_speech import medical_speech, spoken_sentences
+from medical_speech import spoken_sentences
 
 import httpx
 from dotenv import load_dotenv
@@ -152,7 +152,7 @@ class SyllabusVoiceTutor:
                         })
                 # The authored beat has already passed coverage and recitation checks.
                 # Synthesize it directly to preserve detail and avoid another model round trip.
-                speech = medical_speech(cue["spoken_text"])
+                speech = cue["spoken_text"]
                 self.started = True
                 handle = self.session.say(speech, allow_interruptions=True)
                 # Consecutive handles can share a speaking state. In that case
@@ -292,7 +292,7 @@ class SyllabusVoiceTutor:
                         parts.append(text)
                         yield text
                 await self.publish({"type":"ANSWER_TEXT","content":"".join(parts)[:3000]})
-            handle = self.session.say(spoken_sentences(answer_speech()), allow_interruptions=True)
+            handle = self.session.say(answer_speech(), allow_interruptions=True)
             await handle.wait_for_playout()
             if handle.interrupted:
                 return
@@ -500,6 +500,7 @@ async def entrypoint(ctx: JobContext) -> None:
         raise RuntimeError("Signed LenxiQ lesson worker dispatch metadata missing")
     session = AgentSession(
         vad=None,
+        tts_text_transforms=[spoken_sentences],
         turn_handling={"turn_detection": "manual", "interruption": {"enabled": False},
                        "preemptive_generation": {"enabled": False}},
         stt=inference.STT(model=os.getenv("LENXIQ_STT_MODEL", "deepgram/nova-3"), language="en",extra_kwargs={"interim_results":True,"endpointing":80,"punctuate":True,"smart_format":True,"no_delay":True}),
