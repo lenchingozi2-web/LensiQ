@@ -6,6 +6,9 @@ import { getPublicPaidPlan } from '../../../lib/plans';
 
 export async function POST(req: Request) {
   try {
+    if (process.env.NEXT_PUBLIC_SUBSCRIPTIONS_ENABLED !== 'true') {
+      return NextResponse.json({ error: 'Subscriptions are temporarily closed.' }, { status: 403 });
+    }
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Sign in to purchase a Premium subscription.' }, { status: 401 });
