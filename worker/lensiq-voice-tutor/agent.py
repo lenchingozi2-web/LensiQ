@@ -484,8 +484,8 @@ class SyllabusVoiceTutor:
         await self.http.aclose()
 
 
-def build_tts(pace: float = 0.94):
-    return inference.TTS(model="cartesia/sonic-3.6",
+def build_tts(pace: float = 0.94, *, http_session=None):
+    return inference.TTS(model="cartesia/sonic-3.6",http_session=http_session,
                           voice="b24f41fd-00a3-4cd8-992a-a0c9f13f3ef1", language="en", sample_rate=24000,
                           extra_kwargs={"speed":pace,
                                         "volume":0.88,"emotion":"calm","max_buffer_delay_ms":400},
