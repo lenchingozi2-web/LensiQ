@@ -76,7 +76,7 @@ export async function authorTeachingPacket(sessionId:string,syllabusId:string,ve
   const facts=teachingLines(record.title,record.consolidated_notes);
   if(!facts.length)throw new Error('This source section contains no teachable content');
   const spec=(record.visual_spec_json||{}) as Record<string,unknown>;
-  const visual=matchCuratedClassVisual(record.title)||(['anatomy_3d','molecule_3d','physiology_sim','source_diagram'].includes(String(spec.mode))?spec:null);
+  let visual=matchCuratedClassVisual(record.title)||(['anatomy_3d','molecule_3d','physiology_sim','source_diagram'].includes(String(spec.mode))?spec:null);
   const cache=spec.authored as {version?:number;fingerprint?:string;lesson?:unknown;questionId?:string}|undefined;
   let lesson;
   if(cache?.version===TEACHING_VERSION&&cache.fingerprint===teachingFingerprint(record)&&cache.questionId===(options.question?.id||'')){
@@ -90,6 +90,7 @@ export async function authorTeachingPacket(sessionId:string,syllabusId:string,ve
       lesson=validateAuthoredLesson(repaired,record,options.question);
     }
   }
+  visual ||= matchCuratedClassVisual(lesson.title);
   const refs:Citation[]=Array.isArray(record.source_citations_json)?record.source_citations_json.filter(r=>typeof r?.file_name==='string'):[];
   let modelShown=false;
   const cues:VisualCue[]=lesson.beats.map((beat,index)=>{

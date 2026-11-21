@@ -4,6 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {stripTypeScriptTypes} from 'node:module';
 import {teachingLines,isTeachable} from '../lib/live-class/teaching-content.ts';
+import {clinicalTopicLabels} from '../lib/rag/clinical-topic.ts';
 import {parseTeachingPacket} from '../lib/live-class/visual-protocol.ts';
 const load=async(path,deps)=>{
  const source=(await readFile(new URL(path,import.meta.url),'utf8')).replace(/^import .*\n/gm,'');
@@ -23,6 +24,7 @@ test('orientation and page furniture stay out of teaching; medical source remain
  assert.equal(isTeachable('Learning objectives',source),false);
  assert.deepEqual(teachingLines('Acute inflammation',source),['Neutrophils move into inflamed tissue.']);
  assert.ok(source.includes('YEAR 4'));
+ assert.deepEqual(clinicalTopicLabels(['Learning objectives','ORIENTATION','Definition','Colorectal polyps','Morphology']),['Learning objectives','ORIENTATION','Foundations','Colorectal polyps','Colorectal polyps · Morphology']);
 });
 test('authored explanations protect source coverage, dosage, units, and qualifications',()=>{
  assert.equal(validateAuthoredLesson(lesson,record).beats.length,2);
