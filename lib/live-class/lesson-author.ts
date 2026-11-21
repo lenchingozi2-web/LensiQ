@@ -96,8 +96,9 @@ export async function authorTeachingPacket(sessionId:string,syllabusId:string,ve
   const cues:VisualCue[]=lesson.beats.map((beat,index)=>{
     const show=Boolean(visual&&!modelShown&&index<lesson.beats.length-1&&(beat.use_model||index===lesson.beats.length-2));
     if(show)modelShown=true;
+    const activity=show?(beat.activity||(visual!.mode==='physiology_sim'?'Try adjusting one slider and watch how the result changes.':visual!.mode==='source_diagram'?'Look at how these structures connect in this diagram.':'You can rotate or zoom this reference anatomy while we connect it to the explanation.')):'';
     return{id:record.id+'-lesson-'+index,mode:(show?visual!.mode:'whiteboard') as VisualCue['mode'],title:lesson.title,
-      spoken_text:beat.speech+(show?' '+(beat.activity||(visual!.mode==='physiology_sim'?'Try adjusting one slider and watch how the result changes.':visual!.mode==='source_diagram'?'Look at how these structures connect in this diagram.':'You can rotate or zoom this reference anatomy while we connect it to the explanation.')):''),steps:beat.notes,source_fact_ids:beat.fact_ids,
+      spoken_text:beat.speech+(activity?' '+activity:''),learning_activity:activity,steps:beat.notes,source_fact_ids:beat.fact_ids,
       ...(show?{asset_url:typeof visual!.asset_url==='string'?visual!.asset_url:undefined,structure_id:typeof visual!.structure_id==='string'?visual!.structure_id:undefined}:{}),citations:refs.slice(0,4)};
   });
   // Expose only authored speech/notes. Raw source remains server-side in the cited index.
@@ -105,5 +106,5 @@ export async function authorTeachingPacket(sessionId:string,syllabusId:string,ve
 }
 export function cachedLesson(packet:TeachingPacket,record:ConceptRecord,question?:BankQuestion|null){
   return{version:TEACHING_VERSION,fingerprint:teachingFingerprint(record),questionId:question?.id||'',lesson:{title:packet.title,bank_question_id:question?.id||'',
-    beats:packet.visual_cues.map(c=>({speech:c.spoken_text,notes:c.steps,fact_ids:c.source_fact_ids||[],use_model:c.mode!=='whiteboard',activity:''}))}};
+    beats:packet.visual_cues.map(c=>({speech:c.learning_activity&&c.spoken_text.endsWith(' '+c.learning_activity)?c.spoken_text.slice(0,-c.learning_activity.length-1):c.spoken_text,notes:c.steps,fact_ids:c.source_fact_ids||[],use_model:c.mode!=='whiteboard',activity:c.learning_activity||''}))}};
 }

@@ -51,6 +51,7 @@ test('validated packets show a relevant interactive visual, concise anchors, the
  const cached={...record,visual_spec_json:{authored:cachedLesson(packet,record)}};
  const again=await authorTeachingPacket(ids[0],ids[1],3,cached,{env:{},fetcher:()=>assert.fail('Cache hit must not call model')});
  assert.equal(again.state_version,3);
+ assert.deepEqual(again.visual_cues.map(c=>c.spoken_text),packet.visual_cues.map(c=>c.spoken_text),'Repeated question/state reads must not append duplicate manipulation prompts');
 });
 test('a selected bank question must be identified in the actual teaching plan',()=>{
  const q={id:'bank-1',question:'Why does clearance matter?',answer:'Reduced elimination causes accumulation.'};

@@ -8,6 +8,7 @@ export type VisualCue = {
   spoken_text: string;
   steps: string[];
   source_fact_ids?: number[];
+  learning_activity?: string;
   comparison_table?: { columns: string[]; rows: string[][] };
   mechanism_flow_arrows?: string[];
   high_yield_pearl?: string;
@@ -69,6 +70,7 @@ export function parseVisualCue(raw: unknown): VisualCue {
   const c=v.camera && typeof v.camera==='object' ? v.camera as Record<string,unknown>:null;
   return { id,mode:v.mode as VisualMode,title,spoken_text:spoken,
     steps:safeStringArray(v.steps,30,1500),
+    learning_activity:safeText(v.learning_activity,220)||undefined,
     source_fact_ids:Array.isArray(v.source_fact_ids)?v.source_fact_ids.filter((n):n is number=>typeof n==='number'&&Number.isSafeInteger(n)&&n>=0).slice(0,200):undefined,
     comparison_table,
     mechanism_flow_arrows:safeStringArray(v.mechanism_flow_arrows,30,240),
