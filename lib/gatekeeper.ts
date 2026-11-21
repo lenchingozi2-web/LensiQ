@@ -6,6 +6,8 @@ type AccessResult = { reservationId?: string; allowed: boolean; status?: number;
 
 /** Every costly action is authorized/debited atomically by the medical database. */
 export async function checkAccess(feature: FeatureType, requestedCourse?: string, requestedBranch?: string): Promise<AccessResult> {
+  const subscriptionsEnabled = process.env.NEXT_PUBLIC_SUBSCRIPTIONS_ENABLED === 'true';
+  if (!subscriptionsEnabled) return { allowed: true, status: 200, message: 'All features enabled.' };
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
