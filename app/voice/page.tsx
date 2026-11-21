@@ -205,7 +205,6 @@ function VoiceTutorContent() {
   const transcriptIdsRef = useRef(new Set<string>());
   const audioContainerRef = useRef<HTMLDivElement>(null);
   const inputDuckedRef=useRef(false);
-  const setInputDucked=useCallback((ducked:boolean)=>{inputDuckedRef.current=ducked;audioElementsRef.current.forEach(el=>{el.muted=ducked||tutorMutedRef.current;});},[]);
   const audioElementsRef = useRef(new Map<string, HTMLAudioElement>());
   const ambienceAudioRef = useRef<HTMLAudioElement>(null);
   const ambienceGraphRef = useRef<AmbienceGraph | null>(null);
@@ -217,6 +216,7 @@ function VoiceTutorContent() {
   const runtimeStateRef = useRef<LiveRuntimeState>('READY');
   const runtimeStateBeforeReconnectRef = useRef<LiveRuntimeState>('READY');
   const tutorMutedRef = useRef(false);
+  const setInputDucked=useCallback((ducked:boolean)=>{inputDuckedRef.current=ducked;audioElementsRef.current.forEach(el=>{el.muted=ducked||tutorMutedRef.current;});},[]);
   const agentAudioSubscribedRef = useRef(false);
   const recordingRef = useRef<RecordingBundle | null>(null);
   const recordingDownloadUrlRef = useRef<string | null>(null);
