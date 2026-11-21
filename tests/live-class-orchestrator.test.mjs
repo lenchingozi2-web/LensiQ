@@ -21,9 +21,10 @@ const a='11111111-1111-4111-8111-111111111111';
 const b='22222222-2222-4222-8222-222222222222';
 const c='33333333-3333-4333-8333-333333333333';
 const cue=(mode,title)=>({id:title,mode,title,spoken_text:'Explain '+title,steps:['Evidence','Interpretation'],citations:[{file_name:'notes.pdf',page_number:3}]});
-test('Groq routing matches short barge-in and full teaching models',()=>{
-  assert.equal(selectModelForTask('teach').model,'llama-3.3-70b-versatile');
-  assert.equal(selectModelForTask('barge_in').model,'llama-3.1-8b-instant');
+test('Groq routing honors current mouth and an optional short-answer override',()=>{
+  assert.equal(selectModelForTask('teach').model,'qwen/qwen3.8-27b');
+  assert.equal(selectModelForTask('barge_in').model,'qwen/qwen3.8-27b');
+  assert.equal(selectModelForTask('barge_in',{GROQ_CLASS_ANSWER_MODEL:'openai/gpt-oss-20b'}).model,'openai/gpt-oss-20b');
 });
 test('Groq rate limit fails over to Gemini Flash with no dropped turn',async()=>{
   let groqCalls=0,geminiCalls=0;

@@ -15,22 +15,22 @@ export async function generateTeachingJson(instruction:string,data:unknown,optio
   const key=env.GEMINI_API_KEY||env.GOOGLE_GENERATIVE_AI_API_KEY;
   const messages=[{role:'system',content:instruction},{role:'user',content:JSON.stringify(data)}];
   const attempts:Array<()=>Promise<Response>>=[];
-  if(key)attempts.push(()=>fetcher('https://generativelanguage.googleapis.com/v1beta/models/'+(env.GEMINI_SYLLABUS_MODEL||'gemini-2.5-flash')+':generateContent',{
+  if(key)attempts.push(()=>fetcher('https://generativelanguage.googleapis.com/v1beta/models/'+(env.GEMINI_SYLLABUS_MODEL||env.GEMINI_CLASS_BRAIN_MODEL||'gemini-3.8-flash')+':generateContent',{
     method:'POST',cache:'no-store',signal:AbortSignal.timeout(12000),headers:{'content-type':'application/json','x-goog-api-key':key},
     body:JSON.stringify({systemInstruction:{parts:[{text:instruction}]},contents:[{role:'user',parts:[{text:JSON.stringify(data)}]}],
-      generationConfig:{responseMimeType:'application/json',maxOutputTokens:4800,temperature:0.35,thinkingConfig:{thinkingBudget:0}}}),
+      generationConfig:{responseMimeType:'application/json',maxOutputTokens:4800,thinkingConfig:{thinkingLevel:'LOW'}}}),
   }));
   if(env.GROQ_API_KEY)attempts.push(()=>fetcher('https://api.groq.com/openai/v1/chat/completions',{
     method:'POST',cache:'no-store',signal:AbortSignal.timeout(12000),headers:{'content-type':'application/json',authorization:'Bearer '+env.GROQ_API_KEY},
-    body:JSON.stringify({model:'llama-3.3-70b-versatile',messages,response_format:{type:'json_object'},temperature:0.35,max_completion_tokens:4800}),
+    body:JSON.stringify({model:env.GROQ_CLASS_MOUTH_MODEL||'qwen/qwen3.8-27b',...((env.GROQ_CLASS_MOUTH_MODEL||'qwen/qwen3.8-27b').startsWith('qwen/')?{reasoning_effort:'none',include_reasoning:false}:{}),messages,response_format:{type:'json_object'},temperature:0.35,max_completion_tokens:4800}),
   }));
   for(const call of attempts){
     try{
-      const response=await call();if(!response.ok)continue;
+      const response=await call();if(!response.ok){console.warn('Lesson planner rejected request',{status:response.status});await response.body?.cancel().catch(()=>undefined);continue;}
       const payload=await response.json();
       const text=payload.candidates?.[0]?.content?.parts?.map((p:{text?:string})=>p.text||'').join('')||payload.choices?.[0]?.message?.content;
       if(text)return JSON.parse(text);
-    }catch{/* Try the other configured planner. Never substitute raw lecture text. */}
+    }catch(error){console.warn('Lesson planner unavailable',{kind:error instanceof Error?error.name:'unknown'});/* Try the other configured planner. Never substitute raw lecture text. */}
   }
   throw new Error('The tutor could not prepare an explanation. Retry this concept.');
 }

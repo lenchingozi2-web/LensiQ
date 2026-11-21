@@ -12,7 +12,7 @@ const load=async(path,deps)=>{
  const mod=await import('data:text/javascript;base64,'+Buffer.from(`const {${Object.keys(deps).join(',')}}=globalThis['${key}'];\n`+stripTypeScriptTypes(source)).toString('base64'));
  delete globalThis[key];return mod;
 };
-const {validateAuthoredLesson,authorTeachingPacket,cachedLesson}=await load('../lib/live-class/lesson-author.ts',{createHash,teachingLines,parseTeachingPacket,matchCuratedClassVisual:()=>({mode:'physiology_sim',structure_id:'renal_clearance'})});
+const {validateAuthoredLesson,authorTeachingPacket,cachedLesson,generateTeachingJson}=await load('../lib/live-class/lesson-author.ts',{createHash,teachingLines,parseTeachingPacket,matchCuratedClassVisual:()=>({mode:'physiology_sim',structure_id:'renal_clearance'})});
 const ids=['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333'];
 const record={id:ids[2],title:'Renal elimination',consolidated_notes:'Dose is 5 mg.\nAvoid use below eGFR 15 mL/min.',key_details_json:[],visual_spec_json:{},source_citations_json:[{file_name:'Renal.pdf',page_number:9}]};
 const lesson={title:'When kidneys clear less medicine',beats:[
@@ -72,4 +72,20 @@ test('no-upload course teaching works even when system bank has no matching evid
  }});
  const text=await buildCourseLesson('Anatomical Pathology','Inflammation',{knowledgeSources:[],questions:[]});
  assert.ok(called);assert.equal((text.match(/^# /gm)||[]).length,6);
+});
+
+test('lesson planner uses supported current model and thinking parameters',async()=>{
+ await generateTeachingJson('JSON only',{}, {env:{GEMINI_API_KEY:'fixture'},fetcher:async(url,init)=>{
+   assert.ok(url.includes('gemini-3.8-flash'));const body=JSON.parse(init.body);
+   assert.deepEqual(body.generationConfig.thinkingConfig,{thinkingLevel:'LOW'});
+   assert.equal(body.generationConfig.temperature,undefined);
+   return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'{}'}]}}]}));
+ }});
+ let calls=0;
+ await generateTeachingJson('JSON only',{}, {env:{GEMINI_API_KEY:'fixture',GROQ_API_KEY:'fixture'},fetcher:async(url,init)=>{
+   if(++calls===1)return new Response(null,{status:429});
+   const body=JSON.parse(init.body);assert.equal(body.model,'qwen/qwen3.8-27b');assert.equal(body.reasoning_effort,'none');assert.equal(body.include_reasoning,false);
+   return new Response(JSON.stringify({choices:[{message:{content:'{}'}}]}));
+ }});
+ assert.equal(calls,2);
 });
