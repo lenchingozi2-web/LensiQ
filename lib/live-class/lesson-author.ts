@@ -80,12 +80,16 @@ export function validateAuthoredLesson(raw:unknown,record:ConceptRecord,question
     if(speech.length<60||speech.length>1800||notes.length<1||notes.length>2||notes.some(s=>!s||s.split(/\s+/).length>16||s.length>160))throw new Error('Teaching beat must have concise notes and a real explanation');
     if(/(?:learning objectives|orientation|year\s*\d+\s*medicine|referenced lecture material)/i.test(speech+' '+notes.join(' ')))throw new Error('Administrative material is not a lesson');
     const ids=Array.isArray(b.fact_ids)?b.fact_ids.filter((id):id is number=>Number.isInteger(id)&&Number(id)>=0&&Number(id)<facts.length):[];
-    const qualification=/\b(?:not|no|never|except|unless|avoid|without|contraindicated)\b/i;
-    if(ids.some(id=>qualification.test(facts[id]))&&!/\b(?:not|no|never|except|unless|avoid|without|contraindicat\w*|isn.t|aren.t|doesn.t|don.t|cannot)\b/i.test(speech))throw new Error('A source qualification needs to remain explicit');
     ids.forEach(id=>covered.add(id));
     return{speech,notes,fact_ids:ids,use_model:b.use_model===true,activity:typeof b.activity==='string'?b.activity.slice(0,220):''};
   });
   if(facts.some((_,i)=>!covered.has(i)))throw new Error('A source detail was left out of the teaching plan');
+  // A source paragraph can span several spoken beats. Its qualification must
+  // survive that combined explanation, rather than be repeated in every beat.
+  const qualification=/\b(?:not|no|never|except|unless|avoid|without|contraindicated)\b/i;
+  for(const [id,fact] of facts.entries()){
+    if(qualification.test(fact)&&!/\b(?:not|no|never|except|unless|avoid|without|contraindicat\w*|isn.t|aren.t|doesn.t|don.t|cannot)\b/i.test(beats.filter(b=>b.fact_ids.includes(id)).map(b=>b.speech).join(' ')))throw new Error('A source qualification needs to remain explicit');
+  }
   const speech=beats.map(b=>b.speech).join(' ');
   const numbers=[...new Set((facts.join(' ').match(/\d+(?:\.\d+)?/g)||[]))];
   if(numbers.some(n=>!new RegExp('(^|[^\\d.])'+n.replace('.','\\.')+'([^\\d.]|$)').test(speech)))throw new Error('A source number was lost in the explanation');

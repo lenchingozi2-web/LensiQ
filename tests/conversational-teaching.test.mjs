@@ -111,3 +111,11 @@ test('legacy lecturer headings are cleaned before explanation and model selectio
  assert.equal(isSourceAttributionHeading('Onwumelu.C'),true);
  assert.equal(isSourceAttributionHeading('Hepatitis B'),false);
 });
+
+test('a paragraph qualification is preserved across beats without mechanically repeating it',()=>{
+ const paragraph={...record,consolidated_notes:'Dose is 5 mg. Avoid use below eGFR 15 mL/min.'};
+ const divided=structuredClone(lesson);divided.beats.forEach(b=>b.fact_ids=[0]);
+ assert.equal(validateAuthoredLesson(divided,paragraph).beats.length,2);
+ const lost=structuredClone(divided);lost.beats[1].speech='The kidney clears medicine and the dose is 5 mg at eGFR 15 mL/min. This is an illustrative explanation of how renal function connects to drug exposure.';
+ assert.throws(()=>validateAuthoredLesson(lost,paragraph),/qualification/);
+});

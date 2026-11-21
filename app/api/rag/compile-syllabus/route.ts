@@ -29,6 +29,7 @@ export async function POST(request: Request) {
   try {
     return Response.json(await compileStep(user.id, syllabusId, action, itemId, offset, AbortSignal.any([request.signal,AbortSignal.timeout(42000)])));
   } catch (error) {
+    console.warn('Syllabus preparation failed',{action,reason:error instanceof Error?error.message:'unknown'});
     return Response.json({error:error instanceof Error ? error.message : 'Compilation step failed'},{status:503});
   }
 }
