@@ -47,7 +47,7 @@ function database(seed={}) {
             if(op==='gt')return row[k]>v;
             if(op==='in')return v.includes(row[k]);
             if(op==='ilike')return String(row[k]).toLowerCase()===v.toLowerCase();
-            if(op==='or'){const [_,date,id]=v.match(/^started_at\.lt\.(.*),and\(started_at\.eq\..*,id\.lt\.(.*)\)$/);return row.started_at<date||(row.started_at===date&&row.id<id);}
+            if(op==='or'){const [,date,id]=v.match(/^started_at\.lt\.(.*),and\(started_at\.eq\..*,id\.lt\.(.*)\)$/);return row.started_at<date||(row.started_at===date&&row.id<id);}
             throw new Error('Unhandled filter '+op);
           }));
           for(const [k,asc]of orders.slice().reverse())rows=rows.toSorted((a,b)=>(a[k]<b[k]?-1:a[k]>b[k]?1:0)*(asc?1:-1));
@@ -174,14 +174,14 @@ test('paused access unlocks a real free account without reporting it paid or adm
   assert.equal(result.admin,false);assert.equal(result.paid,false);assert.equal(result.voiceMinutes,null);assert.equal(result.mockExams,null);
 }));
 test('pricing renders exactly one full-access panel and no subscription buttons while paused; true restores plans',async()=>{
-  const module=await load('app/pricing/PricingClient.tsx',{subscriptionsEnabled,getPaidPlan,PUBLIC_PAID_PLANS,useState,
+  const pricing=await load('app/pricing/PricingClient.tsx',{subscriptionsEnabled,getPaidPlan,PUBLIC_PAID_PLANS,useState,
     Link:({href,children,...props})=>createElement('a',{href,...props},children)});
   await flag('false',()=>{
-    const html=renderToStaticMarkup(createElement(module.default,{}));
+    const html=renderToStaticMarkup(createElement(pricing.default,{}));
     assert.equal((html.match(/Full Access Enabled/g)||[]).length,1);assert.doesNotMatch(html,/Opening checkout|Choose Scholar|Renew plan|Explorer/);
     assert.match(html,/href="\/voice\?mode=class"/);
   });
-  await flag('true',()=>{const html=renderToStaticMarkup(createElement(module.default,{}));assert.match(html,/Choose Scholar/);assert.doesNotMatch(html,/Full Access Enabled/);});
+  await flag('true',()=>{const html=renderToStaticMarkup(createElement(pricing.default,{}));assert.match(html,/Choose Scholar/);assert.doesNotMatch(html,/Full Access Enabled/);});
 });
 test('history GET exposes only the verified caller’s conversations through the paused service client',()=>flag('false',async()=>{
   const db=database({teaching_conversations:[{id:'mine',user_id:'alice',deleted_at:null,session_type:'live_class'},{id:'theirs',user_id:'bob',deleted_at:null,session_type:'live_class'}]});
