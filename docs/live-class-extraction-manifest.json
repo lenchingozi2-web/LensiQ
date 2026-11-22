@@ -1,8 +1,8 @@
 {
   "source_repo": "lenchingozi2-web/LensiQ",
-  "source_commit": "62f0f019061cd610c52ca78e543cb10635fefd42",
-  "source_tree": "a9dc1848416b82f76d240ceec28b951d35cde201",
-  "source_revision_note": "This immutable feature commit contains the audited application code. The following documentation-only commit adds this manifest and audit without changing runtime code.",
+  "source_commit": "30b09c02765d6fba98b753db94b81f009de75414",
+  "source_tree": "c78721a6e76e51aa01de67c391f97b3e885e0472",
+  "source_revision_note": "This immutable revision contains the audited runtime code and corrected test fixtures. The following documentation-only commit updates this source pin without changing runtime code.",
   "next_version": "16.2.10",
   "react_version": "19.2.4",
   "next_upgrade_required_for_planned_phase_2": true,

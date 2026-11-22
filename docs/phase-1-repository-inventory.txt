@@ -1,6 +1,6 @@
 Repository: lenchingozi2-web/LensiQ
-Audited source commit: 62f0f019061cd610c52ca78e543cb10635fefd42
-Tracked paths: 349
+Audited source commit: 30b09c02765d6fba98b753db94b81f009de75414
+Tracked paths: 353
 
 .env.example
 .github/workflows/append-live-class-concepts.yml
@@ -132,6 +132,10 @@ components/voice/HoldToAsk.tsx
 components/voice/StudySyllabusUploader.tsx
 components/voice/SyllabusNavigatorRail.tsx
 curriculum_browser_qa.md
+docs/live-class-extraction-manifest.json
+docs/phase-1-billing-inventory.json
+docs/phase-1-repository-inventory.txt
+docs/phase-1-subscription-audit.md
 eslint.config.mjs
 hooks/useHybridStudyRAG.ts
 hooks/useLiveClassOrchestrator.ts

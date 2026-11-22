@@ -2,11 +2,11 @@
 
 Repository: `lenchingozi2-web/LensiQ` — description: “AI powered study hub”.
 
-Audited application revision: `62f0f019061cd610c52ca78e543cb10635fefd42` (tree `a9dc1848416b82f76d240ceec28b951d35cde201`). This is the feature commit immediately before the documentation-only commit containing this report. PR: https://github.com/lenchingozi2-web/LensiQ/pull/32. Branch: `chore/pause-subscriptions`; base: `main`.
+Audited application revision: `30b09c02765d6fba98b753db94b81f009de75414` (tree `c78721a6e76e51aa01de67c391f97b3e885e0472`). This is the feature commit immediately before the documentation-only commit containing this report. PR: https://github.com/lenchingozi2-web/LensiQ/pull/32. Branch: `chore/pause-subscriptions`; base: `main`.
 
 ## Task 1 — source audit
 
-Next.js **16.2.10**, React **19.2.4**. The complete 349-path tracked inventory is in [phase-1-repository-inventory.txt](phase-1-repository-inventory.txt). [phase-1-billing-inventory.json](phase-1-billing-inventory.json) lists every matching runtime, SQL policy, and operational source file. The exact import/route closure, packages, environment names, worker sources and database/Storage names are in [live-class-extraction-manifest.json](live-class-extraction-manifest.json).
+Next.js **16.2.10**, React **19.2.4**. The complete 353-path tracked inventory is in [phase-1-repository-inventory.txt](phase-1-repository-inventory.txt). [phase-1-billing-inventory.json](phase-1-billing-inventory.json) lists every matching runtime, SQL policy, and operational source file. The exact import/route closure, packages, environment names, worker sources and database/Storage names are in [live-class-extraction-manifest.json](live-class-extraction-manifest.json).
 
 The only purchase-initiation HTTP route found is `app/api/checkout/route.ts`, using Flutterwave. `app/api/checkout/verify/route.ts` verifies existing payments; `lib/payment-recovery.ts` reconciles pending receipts. Wallet and administrative finance endpoints report data rather than start charges. Existing verification and recovery remain intact. There are no new Stripe/Paystack replacements or billing schemas in this repair.
 
@@ -84,6 +84,8 @@ The worker deploy configuration targets an existing LiveKit Cloud Agent. Actual 
 Next.js 16.2.10 is below the user's requested 16.3.8 baseline. The manifest correctly flags a Phase 2 upgrade; it does not silently upgrade the production repo or assert an unverified public OpenNext support floor.
 
 ## Verification and practical limits
+
+A subsequent CI run found a Next.js-reserved test variable name; the test fixture was corrected without changing runtime behavior. Both paused and enabled Next builds passed locally.
 
 Local executed checks: frozen pnpm install, Next type generation, TypeScript, full JavaScript regression suite, configured `test:study-hub`, full ESLint and optimized production build. The new pause suite covers exact flag parsing, signed-out/foreign-owner rejection, enabled paid enforcement, no wallet writes, reservation/heartbeat expiry, concurrent starts, mock persistence and bank pagination, exact checkout response, single-panel pricing render and Storage metadata ownership. Final GitHub CI must confirm the published PR head; see the PR checks rather than inferring a pass from this document.
 
