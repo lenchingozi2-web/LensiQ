@@ -1,0 +1,662 @@
+{
+  "source_repo": "lenchingozi2-web/LensiQ",
+  "source_commit": "62f0f019061cd610c52ca78e543cb10635fefd42",
+  "source_tree": "a9dc1848416b82f76d240ceec28b951d35cde201",
+  "source_revision_note": "This immutable feature commit contains the audited application code. The following documentation-only commit adds this manifest and audit without changing runtime code.",
+  "next_version": "16.2.10",
+  "react_version": "19.2.4",
+  "next_upgrade_required_for_planned_phase_2": true,
+  "phase_2_requested_baseline": {
+    "next_15": "15.5.27+",
+    "next_16": "16.3.8+",
+    "reason": "Current Next.js 16.2.10 is below the user-requested 16.3.8 baseline. This is not a claim about the current public OpenNext support matrix; verify that independently during Phase 2."
+  },
+  "files_to_port": [
+    ".github/workflows/deploy-voice-worker.yml",
+    "app/api/live-class/orchestrate/route.ts",
+    "app/api/rag/cleanup/route.ts",
+    "app/api/rag/compile-syllabus/route.ts",
+    "app/api/rag/ingest-batch/route.ts",
+    "app/api/rag/retrieve-hybrid/route.ts",
+    "app/api/teaching/conversations/[conversationId]/route.ts",
+    "app/api/teaching/conversations/route.ts",
+    "app/api/teaching/messages/route.ts",
+    "app/api/voice/context/route.ts",
+    "app/api/voice/llm/v1/chat/completions/route.ts",
+    "app/api/voice/materials/route.ts",
+    "app/api/voice/models/route.ts",
+    "app/api/voice/reconnect/route.ts",
+    "app/api/voice/recording/route.ts",
+    "app/api/voice/session/route.ts",
+    "app/api/voice/token/route.ts",
+    "app/api/voice/transcribe/route.ts",
+    "app/api/voice/worker-disconnect/route.ts",
+    "app/voice/page.tsx",
+    "components/MoleculeViewer.tsx",
+    "components/Whiteboard.tsx",
+    "components/voice/ClassAudioOptions.tsx",
+    "components/voice/ClassroomControls.tsx",
+    "components/voice/ClassroomViewport.tsx",
+    "components/voice/DynamicWhiteboardStage.tsx",
+    "components/voice/HoldToAsk.tsx",
+    "components/voice/StudySyllabusUploader.tsx",
+    "components/voice/SyllabusNavigatorRail.tsx",
+    "hooks/useHybridStudyRAG.ts",
+    "hooks/useLiveClassOrchestrator.ts",
+    "hooks/useVisualSyncEngine.ts",
+    "lib/ai/live-class-material-map.ts",
+    "lib/auth/request-diagnostics.ts",
+    "lib/live-class/bank-question.ts",
+    "lib/live-class/course-lesson.ts",
+    "lib/live-class/lesson-author.ts",
+    "lib/live-class/model-matcher.ts",
+    "lib/live-class/orchestrator.ts",
+    "lib/live-class/teaching-packet.ts",
+    "lib/rag/ingestor.ts",
+    "lib/rag/process-syllabus.ts",
+    "lib/rag/syllabus-compiler.ts",
+    "lib/voice/inspect-pointed-image.ts",
+    "lib/voice/live-class-model-catalog.ts",
+    "lib/voice/live-class-storage-catalog.ts",
+    "public/audio/live-class-deep-focus.wav",
+    "public/audio/live-class-night-library.wav",
+    "public/audio/live-class-warm-drift.wav",
+    "worker/lensiq-voice-tutor/.dockerignore",
+    "worker/lensiq-voice-tutor/Dockerfile",
+    "worker/lensiq-voice-tutor/agent.py",
+    "worker/lensiq-voice-tutor/medical_speech.py",
+    "worker/lensiq-voice-tutor/requirements.txt"
+  ],
+  "shared_dependencies": [
+    "app/globals.css",
+    "app/layout.tsx",
+    "components/AnatomyViewer.tsx",
+    "components/LiveClassVisualStage.tsx",
+    "components/MobileNav.tsx",
+    "components/Navbar.tsx",
+    "components/NavbarControls.tsx",
+    "components/PhysiologySimulator.tsx",
+    "components/UserDropdown.tsx",
+    "lib/ai/record-usage.ts",
+    "lib/ai/teaching-context.ts",
+    "lib/ai/usage-meter.ts",
+    "lib/auth/active-session.ts",
+    "lib/curriculum-search.ts",
+    "lib/curriculum.ts",
+    "lib/curriculum/extract-text.ts",
+    "lib/curriculum/file-types.ts",
+    "lib/curriculum/material-profile.ts",
+    "lib/curriculum/source-chunks.ts",
+    "lib/gatekeeper.ts",
+    "lib/live-class/board-notes.ts",
+    "lib/live-class/teaching-content.ts",
+    "lib/live-class/tutor-identity.ts",
+    "lib/live-class/visual-protocol.ts",
+    "lib/navigation.ts",
+    "lib/plans.ts",
+    "lib/profile.ts",
+    "lib/rag/clinical-topic.ts",
+    "lib/rag/compile-pool.ts",
+    "lib/rag/deduplicator.ts",
+    "lib/rag/embeddings.ts",
+    "lib/rag/ephemeral-cleanup.ts",
+    "lib/rag/signed-upload.ts",
+    "lib/subscription-access.ts",
+    "lib/subscription-runtime.ts",
+    "lib/subscriptions.ts",
+    "lib/supabase/admin.ts",
+    "lib/supabase/client.ts",
+    "lib/supabase/server.ts",
+    "lib/supabase/service.ts",
+    "lib/voice/lesson-presentation.ts",
+    "lib/voice/live-class-gateway-auth.ts",
+    "lib/voice/live-class-visuals.ts",
+    "lib/voice/open-spoken-response.ts",
+    "lib/voice/spoken-cues.ts",
+    "postcss.config.mjs",
+    "public/icon.png",
+    "public/manifest.json",
+    "types/pdf-parse.d.ts",
+    "types/word-extractor.d.ts"
+  ],
+  "npm_packages": [
+    {
+      "name": "3dmol",
+      "version": "^2.5.5"
+    },
+    {
+      "name": "@react-three/drei",
+      "version": "^10.7.9"
+    },
+    {
+      "name": "@react-three/fiber",
+      "version": "^9.8.1"
+    },
+    {
+      "name": "@supabase/ssr",
+      "version": "^0.12.3"
+    },
+    {
+      "name": "@supabase/supabase-js",
+      "version": "^2.110.7"
+    },
+    {
+      "name": "@tailwindcss/postcss",
+      "version": "^4"
+    },
+    {
+      "name": "@tailwindcss/typography",
+      "version": "^0.5.20"
+    },
+    {
+      "name": "jszip",
+      "version": "^3.10.1"
+    },
+    {
+      "name": "livekit-client",
+      "version": "^2.22.0"
+    },
+    {
+      "name": "livekit-server-sdk",
+      "version": "^2.18.0"
+    },
+    {
+      "name": "next",
+      "version": "16.2.10"
+    },
+    {
+      "name": "pdf-parse",
+      "version": "1.1.1"
+    },
+    {
+      "name": "react",
+      "version": "19.2.4"
+    },
+    {
+      "name": "react-dom",
+      "version": "19.2.4"
+    },
+    {
+      "name": "tailwindcss",
+      "version": "^4"
+    },
+    {
+      "name": "three",
+      "version": "^0.186.1"
+    },
+    {
+      "name": "word-extractor",
+      "version": "^1.0.4"
+    }
+  ],
+  "env_vars_required": [
+    "GEMINI_API_KEY",
+    "GEMINI_CLASS_BRAIN_MODEL",
+    "GEMINI_CLASS_VERBALIZER_MODEL",
+    "GROQ_API_KEY",
+    "GROQ_CLASS_MOUTH_MODEL",
+    "LENXIQ_STT_MODEL",
+    "LIVEKIT_AGENT_ID",
+    "LIVEKIT_API_KEY",
+    "LIVEKIT_API_SECRET",
+    "LIVEKIT_PUBLIC_URL",
+    "LIVEKIT_URL",
+    "NEXT_PUBLIC_SUBSCRIPTIONS_ENABLED",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NODE_ENV",
+    "SUPABASE_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_URL"
+  ],
+  "env_var_notes": {
+    "browser_public": [
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "NEXT_PUBLIC_SUBSCRIPTIONS_ENABLED"
+    ],
+    "server_or_worker_secrets": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "LIVEKIT_API_KEY",
+      "LIVEKIT_API_SECRET",
+      "GEMINI_API_KEY",
+      "GROQ_API_KEY"
+    ],
+    "optional_aliases_or_defaults": [
+      "SUPABASE_URL",
+      "SUPABASE_KEY",
+      "LIVEKIT_PUBLIC_URL",
+      "GEMINI_CLASS_BRAIN_MODEL",
+      "GEMINI_CLASS_VERBALIZER_MODEL",
+      "GROQ_CLASS_MOUTH_MODEL",
+      "LENXIQ_STT_MODEL",
+      "NODE_ENV"
+    ],
+    "deployment_only": [
+      "LIVEKIT_AGENT_ID"
+    ],
+    "flag": "NEXT_PUBLIC_SUBSCRIPTIONS_ENABLED is public build-time configuration. Unset or anything except exact true pauses billing. Rebuild client and server together when changing it. No secret values are included."
+  },
+  "external_storage_and_database_dependencies": [
+    {
+      "name": "authorize_study_feature",
+      "kind": "rpc",
+      "referenced_by": [
+        "lib/gatekeeper.ts"
+      ]
+    },
+    {
+      "name": "charge_live_class_session",
+      "kind": "rpc",
+      "referenced_by": [
+        "app/api/voice/session/route.ts",
+        "app/api/voice/token/route.ts"
+      ]
+    },
+    {
+      "name": "confirm_study_document",
+      "kind": "rpc",
+      "referenced_by": [
+        "app/api/rag/ingest-batch/route.ts"
+      ]
+    },
+    {
+      "name": "ensure_user_profile",
+      "kind": "rpc",
+      "referenced_by": [
+        "lib/profile.ts"
+      ]
+    },
+    {
+      "name": "finish_ai_request",
+      "kind": "rpc",
+      "referenced_by": [
+        "lib/ai/record-usage.ts"
+      ]
+    },
+    {
+      "name": "live_class_gateway_allowed",
+      "kind": "rpc",
+      "referenced_by": [
+        "lib/subscription-runtime.ts"
+      ]
+    },
+    {
+      "name": "match_study_concepts_hybrid",
+      "kind": "rpc",
+      "referenced_by": [
+        "app/api/rag/retrieve-hybrid/route.ts"
+      ]
+    },
+    {
+      "name": "refresh_my_subscription",
+      "kind": "rpc",
+      "referenced_by": [
+        "app/api/teaching/conversations/route.ts",
+        "app/api/voice/materials/route.ts",
+        "app/api/voice/token/route.ts",
+        "components/Navbar.tsx",
+        "lib/profile.ts"
+      ]
+    },
+    {
+      "name": "reserve_ai_request",
+      "kind": "rpc",
+      "referenced_by": [
+        "lib/gatekeeper.ts"
+      ]
+    },
+    {
+      "name": "reserve_live_class_session",
+      "kind": "rpc",
+      "referenced_by": [
+        "app/api/voice/token/route.ts"
+      ]
+    },
+    {
+      "name": "reserve_study_documents",
+      "kind": "rpc",
+      "referenced_by": [
+        "app/api/rag/ingest-batch/route.ts"
+      ]
+    },
+    {
+      "name": "search_knowledge_chunks",
+      "kind": "rpc",
+      "referenced_by": [
+        "lib/ai/teaching-context.ts"
+      ]
+    },
+    {
+      "name": "search_question_bank",
+      "kind": "rpc",
+      "referenced_by": [
+        "lib/ai/teaching-context.ts",
+        "lib/curriculum-search.ts",
+        "lib/live-class/bank-question.ts"
+      ]
+    },
+    {
+      "name": "ephemeral_class_materials",
+      "kind": "storage_bucket",
+      "referenced_by": [
+        "app/api/voice/materials/route.ts",
+        "app/voice/page.tsx"
+      ]
+    },
+    {
+      "name": "live-class-recordings",
+      "kind": "storage_bucket",
+      "referenced_by": [
+        "app/api/voice/recording/route.ts",
+        "app/voice/page.tsx"
+      ]
+    },
+    {
+      "name": "medical-models",
+      "kind": "storage_bucket",
+      "referenced_by": [
+        "lib/voice/live-class-storage-catalog.ts"
+      ]
+    },
+    {
+      "name": "study-documents",
+      "kind": "storage_bucket",
+      "referenced_by": [
+        "app/api/rag/ingest-batch/route.ts",
+        "lib/rag/ephemeral-cleanup.ts",
+        "lib/rag/signed-upload.ts",
+        "lib/rag/syllabus-compiler.ts"
+      ]
+    },
+    {
+      "name": "curriculum_courses",
+      "kind": "table",
+      "referenced_by": [
+        "lib/curriculum.ts"
+      ]
+    },
+    {
+      "name": "curriculum_topics",
+      "kind": "table",
+      "referenced_by": [
+        "lib/curriculum.ts"
+      ]
+    },
+    {
+      "name": "document_atomic_chunks",
+      "kind": "table",
+      "referenced_by": [
+        "lib/rag/ephemeral-cleanup.ts",
+        "lib/rag/syllabus-compiler.ts"
+      ]
+    },
+    {
+      "name": "free_study_branches",
+      "kind": "table",
+      "referenced_via_rpc": "authorize_study_feature"
+    },
+    {
+      "name": "knowledge_document_chunks",
+      "kind": "table",
+      "referenced_via_rpc": "search_knowledge_chunks"
+    },
+    {
+      "name": "knowledge_documents",
+      "kind": "table",
+      "referenced_by": [
+        "lib/ai/teaching-context.ts",
+        "lib/curriculum-search.ts"
+      ]
+    },
+    {
+      "name": "live_class_lessons",
+      "kind": "table",
+      "referenced_by": [
+        "app/api/live-class/orchestrate/route.ts",
+        "lib/rag/ephemeral-cleanup.ts"
+      ]
+    },
+    {
+      "name": "live_class_sessions",
+      "kind": "table",
+      "referenced_by": [
+        "app/api/live-class/orchestrate/route.ts",
+        "app/api/rag/cleanup/route.ts",
+        "app/api/rag/ingest-batch/route.ts",
+        "app/api/voice/context/route.ts",
+        "app/api/voice/llm/v1/chat/completions/route.ts",
+        "app/api/voice/models/route.ts",
+        "app/api/voice/reconnect/route.ts",
+        "app/api/voice/session/route.ts",
+        "app/api/voice/token/route.ts",
+        "app/api/voice/worker-disconnect/route.ts",
+        "hooks/useHybridStudyRAG.ts",
+        "lib/subscription-runtime.ts"
+      ]
+    },
+    {
+      "name": "profiles",
+      "kind": "table",
+      "referenced_by": [
+        "app/api/rag/compile-syllabus/route.ts",
+        "app/api/rag/ingest-batch/route.ts",
+        "app/api/teaching/conversations/route.ts",
+        "app/api/voice/materials/route.ts",
+        "app/api/voice/token/route.ts",
+        "components/Navbar.tsx",
+        "lib/auth/active-session.ts",
+        "lib/profile.ts"
+      ]
+    },
+    {
+      "name": "questions",
+      "kind": "table",
+      "referenced_by": [
+        "lib/ai/teaching-context.ts"
+      ]
+    },
+    {
+      "name": "study_ai_usage",
+      "kind": "table",
+      "referenced_by": [
+        "lib/ai/record-usage.ts"
+      ]
+    },
+    {
+      "name": "study_documents",
+      "kind": "table",
+      "referenced_by": [
+        "lib/rag/ephemeral-cleanup.ts",
+        "lib/rag/syllabus-compiler.ts"
+      ]
+    },
+    {
+      "name": "study_syllabi",
+      "kind": "table",
+      "referenced_by": [
+        "app/api/live-class/orchestrate/route.ts",
+        "app/api/rag/cleanup/route.ts",
+        "app/api/rag/ingest-batch/route.ts",
+        "app/api/voice/token/route.ts",
+        "hooks/useHybridStudyRAG.ts",
+        "lib/rag/ephemeral-cleanup.ts",
+        "lib/rag/syllabus-compiler.ts"
+      ]
+    },
+    {
+      "name": "syllabus_concept_nodes",
+      "kind": "table",
+      "referenced_by": [
+        "app/api/live-class/orchestrate/route.ts",
+        "hooks/useHybridStudyRAG.ts",
+        "lib/rag/ephemeral-cleanup.ts",
+        "lib/rag/syllabus-compiler.ts"
+      ]
+    },
+    {
+      "name": "teaching_attachments",
+      "kind": "table",
+      "referenced_by": [
+        "app/api/teaching/conversations/[conversationId]/route.ts",
+        "lib/ai/teaching-context.ts"
+      ]
+    },
+    {
+      "name": "teaching_conversations",
+      "kind": "table",
+      "referenced_by": [
+        "app/api/teaching/conversations/[conversationId]/route.ts",
+        "app/api/teaching/conversations/route.ts",
+        "app/api/teaching/messages/route.ts",
+        "app/api/voice/recording/route.ts",
+        "app/api/voice/session/route.ts",
+        "app/api/voice/token/route.ts",
+        "lib/subscription-runtime.ts"
+      ]
+    },
+    {
+      "name": "teaching_messages",
+      "kind": "table",
+      "referenced_by": [
+        "app/api/teaching/conversations/[conversationId]/route.ts",
+        "app/api/teaching/messages/route.ts"
+      ]
+    }
+  ],
+  "storage_asset_notes": {
+    "bucket": "medical-models",
+    "declared_relative_asset_keys": [
+      "concepts/v1/haematology/Megaloblastic_Maturation.glb",
+      "concepts/v1/haematology/Platelet_Fibrin_Thrombus.glb",
+      "concepts/v1/immunology/Antibody_Antigen_Binding.glb",
+      "concepts/v1/immunology/Opsonisation_Phagocytosis.glb",
+      "concepts/v1/microbiology/Bacterial_Biofilm.glb",
+      "concepts/v1/microbiology/Bacterial_Endospore.glb",
+      "concepts/v1/microbiology/Enveloped_Virus.glb",
+      "concepts/v1/microbiology/Gram_Cell_Envelope.glb",
+      "concepts/v1/microbiology/Septate_Fungal_Hypha.glb",
+      "concepts/v1/pathology/Acute_Inflammation_Diapedesis.glb",
+      "concepts/v1/pathology/Apoptosis_Blebbing.glb",
+      "concepts/v1/pathology/Cirrhosis_Fibrous_Septa.glb",
+      "concepts/v1/pathology/Coagulative_Necrosis.glb",
+      "concepts/v1/pathology/Glomerular_Inflammation.glb",
+      "concepts/v1/pathology/Invasive_Epithelial_Carcinoma.glb",
+      "concepts/v1/pathology/Thrombosis_Embolism.glb",
+      "concepts/v1/pharmacology/Cholinergic_Synapse.glb",
+      "concepts/v1/pharmacology/Receptor_Agonist_Antagonist.glb",
+      "concepts/v1/pharmacology/Voltage_Gated_Sodium_Channel.glb",
+      "cytology/Blood_Cell_Morphology.glb",
+      "cytology/Leukocyte_Morphology.glb",
+      "histology/Epithelial_Dysplasia.glb",
+      "histology/Fatty_Liver.glb",
+      "hra-v25/blood-vasculature.glb",
+      "hra-v25/brain.glb",
+      "hra-v25/eye.glb",
+      "hra-v25/fallopian-tube.glb",
+      "hra-v25/heart.glb",
+      "hra-v25/kidney.glb",
+      "hra-v25/knee.glb",
+      "hra-v25/large-intestine.glb",
+      "hra-v25/larynx.glb",
+      "hra-v25/liver.glb",
+      "hra-v25/lung.glb",
+      "hra-v25/lymph-node.glb",
+      "hra-v25/main-bronchus.glb",
+      "hra-v25/mammary-gland.glb",
+      "hra-v25/pancreas.glb",
+      "hra-v25/pelvis.glb",
+      "hra-v25/placenta.glb",
+      "hra-v25/prostate.glb",
+      "hra-v25/renal-pelvis.glb",
+      "hra-v25/skin.glb",
+      "hra-v25/small-intestine.glb",
+      "hra-v25/spinal-cord.glb",
+      "hra-v25/spleen.glb",
+      "hra-v25/thymus.glb",
+      "hra-v25/trachea.glb",
+      "hra-v25/ureter.glb",
+      "hra-v25/urinary-bladder.glb",
+      "hra-v25/uterus.glb",
+      "organs/Kidneys.glb",
+      "pathology/Atherosclerosis.glb",
+      "pathology/Granulomatous_Inflammation.glb",
+      "pathology/Leukemia_Blast_Morphology.glb",
+      "pathology/Tumor_Microenvironment.glb",
+      "pharmacology/1U72.pdb",
+      "pharmacology/2RH1.pdb",
+      "pharmacology/4EY7.pdb"
+    ],
+    "runtime_catalog": "lib/voice/live-class-storage-catalog.ts enumerates additional stored models. These remote objects are not Git files. Preserve licenses and attribution; copy or rebind the bucket only in approved Phase 2.",
+    "private_material_buckets": [
+      "study-documents",
+      "ephemeral_class_materials"
+    ],
+    "recordings_bucket": "live-class-recordings"
+  },
+  "livekit_worker_notes": {
+    "source": "worker/lensiq-voice-tutor/agent.py",
+    "deployment_workflow": ".github/workflows/deploy-voice-worker.yml",
+    "current_target_from_source": "LiveKit Cloud; the deploy workflow updates an existing CA_ agent and requires production-voice-worker configuration. No deployment was performed in Phase 1.",
+    "process": "Long-running Python LiveKit Agents server packaged in Docker. This process must remain on LiveKit Cloud Agents; it is not a Cloudflare Workers process.",
+    "python_packages": [
+      "livekit-agents==1.8.13",
+      "httpx>=0.27,<1",
+      "python-dotenv>=1,<2"
+    ],
+    "speech_from_source": "LiveKit inference STT default deepgram/nova-3 (LENXIQ_STT_MODEL override), and inference TTS cartesia/sonic-3.6. The current worker does not use Kokoro despite an obsolete comment in the web gateway.",
+    "reasoning_from_source": "Server-side Gemini lesson brain; web speech gateway defaults to Groq and falls back to Gemini. Inspect actual source and provider configuration before changing the product stack.",
+    "phase_2_updates": [
+      "Set the independent agent dispatch name and web origin for Cortex; retain signed session/user/room tokens and 90-minute expiry.",
+      "Port web routes through @opennextjs/cloudflare after verifying LiveKit server SDK and node:crypto compatibility.",
+      "Retain Supabase Postgres and Storage with owner-scoped access; no R2.",
+      "Review whether Groq must be replaced to meet the new Gemini API product requirement; do not change the existing Study Hub voice stack during Phase 1.",
+      "Do not add Modal to Cortex."
+    ]
+  },
+  "source_shell_adaptation": [
+    "The shared root layout, navigation components, navigation constants, icon and PWA manifest are current-source shell dependencies. Rebrand and restrict navigation to Live Class in Phase 2. They do not authorize porting linked legacy pages.",
+    "Provide Cortex-specific Supabase sign-in/callback/logout routes and cookie handling. Existing Study Hub login UX and legacy study pages are excluded."
+  ],
+  "excluded_legacy_pages": [
+    "app/admin/ai-usage/page.tsx",
+    "app/admin/finances/page.tsx",
+    "app/admin/page.tsx",
+    "app/browse/[subject]/[division]/[type]/page.tsx",
+    "app/browse/[subject]/[division]/page.tsx",
+    "app/browse/[subject]/[division]/quiz/page.tsx",
+    "app/browse/[subject]/page.tsx",
+    "app/browse/page.tsx",
+    "app/curriculum/[courseSlug]/[topicSlug]/page.tsx",
+    "app/curriculum/[courseSlug]/page.tsx",
+    "app/curriculum/page.tsx",
+    "app/dashboard/page.tsx",
+    "app/exam/page.tsx",
+    "app/files/page.tsx",
+    "app/forgot-password/page.tsx",
+    "app/library/page.tsx",
+    "app/login/page.tsx",
+    "app/page.tsx",
+    "app/pricing/page.tsx",
+    "app/reset-password/page.tsx",
+    "app/search/page.tsx",
+    "app/signup/page.tsx",
+    "app/study/page.tsx",
+    "app/subscription/page.tsx",
+    "app/teach/page.tsx",
+    "app/visual-lab/page.tsx",
+    "app/wallet/page.tsx"
+  ],
+  "static_audit": {
+    "literal_imports_resolved": true,
+    "unresolved_imports": [],
+    "route_discovery": "Includes literal URLs passed to helper functions and template-ID history routes.",
+    "computed_dependencies": "Runtime model discovery and external provider behavior are documented separately; source tracing alone does not verify live credentials, remote objects or provider uptime."
+  },
+  "pr_url": "https://github.com/lenchingozi2-web/LensiQ/pull/32",
+  "blockers": [],
+  "verification_limits": [
+    "No production merge, deployment, database DDL or billing-row changes were performed.",
+    "Automated regression checks use local fixtures. A real authenticated classroom, remote Storage assets and payment settlement were not exercised against production during this branch-only Phase 1."
+  ]
+}
