@@ -6,12 +6,13 @@ type AccessResult = { reservationId?: string; allowed: boolean; status?: number;
 
 /** Every costly action is authorized/debited atomically by the medical database. */
 export async function checkAccess(feature: FeatureType, requestedCourse?: string, requestedBranch?: string): Promise<AccessResult> {
-  const subscriptionsEnabled = process.env.NEXT_PUBLIC_SUBSCRIPTIONS_ENABLED === 'true';
-  if (!subscriptionsEnabled) return { allowed: true, status: 200, message: 'All features enabled.' };
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { allowed: false, status: 401, message: 'Sign in to continue.' };
+    if (process.env.NEXT_PUBLIC_SUBSCRIPTIONS_ENABLED !== 'true') {
+      return { allowed: true, status: 200, unlimited: true, remainingTextTeaching: null, message: 'Full Access Enabled' };
+    }
     const profile = await getOrCreateProfile(supabase, user);
     if (profile.error) return { allowed: false, status: 503, message: 'Unable to verify your subscription.' };
     const ai = feature==='teaching'||feature==='explanation';
