@@ -1,3 +1,6 @@
+import { authenticatedStudyClient } from '@/lib/subscription-runtime';
+import { redirect } from 'next/navigation';
+import { subscriptionsEnabled } from '@/lib/subscriptions';
 import { createClient } from '../../../../../lib/supabase/server';
 import CbtEngine from '../../../../../components/CbtEngine';
 import Link from 'next/link';
@@ -10,7 +13,10 @@ export default async function QuizSetupPage({
   params: Promise<{ subject: string; division: string }>;
   searchParams: Promise<{ count?: string | string[] }>;
 }) {
-  const supabase = await createClient();
+  const authClient = await createClient();
+  const {data:{user}}=await authClient.auth.getUser();
+  if(!user)redirect('/login');
+  const supabase=authenticatedStudyClient(authClient,user);
   const [resolvedParams, resolvedSearchParams] = await Promise.all([params, searchParams]);
   
   const subjectId = resolvedParams.subject;
@@ -26,7 +32,7 @@ export default async function QuizSetupPage({
     .join(' ');
 
   const access=await checkAccess('quiz');
-  if(!access.allowed) return <main className="p-12 text-center"><h1>Timed mock access</h1><p>{access.message}</p><Link href="/pricing">View plans</Link></main>;
+  if(!access.allowed) return <main className="p-12 text-center"><h1>Timed mock access</h1><p>{access.message}</p><Link href="/pricing" style={{display: subscriptionsEnabled() ? undefined : 'none'}}>View plans</Link></main>;
 
   // FIXED: Using % wildcards so Supabase ignores accidental spaces (e.g., "Microbiology ")
   const { data: questions, error } = await supabase

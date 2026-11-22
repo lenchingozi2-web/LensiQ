@@ -1,3 +1,5 @@
+import { authenticatedStudyClient, ownedStoragePath } from '@/lib/subscription-runtime';
+import { subscriptionsEnabled } from '@/lib/subscriptions';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { extractLectureText } from '@/lib/curriculum/extract-text';
@@ -18,16 +20,20 @@ function safeBaseName(fileName: string) {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Sign in before uploading Live Class material.' }, { status: 401 });
-  const {error:refreshError}=await supabase.rpc('refresh_my_subscription');
+  const supabase = authenticatedStudyClient(authClient,user);
+  if (subscriptionsEnabled()) {
+  const {error:refreshError}=await authClient.rpc('refresh_my_subscription');
   if(refreshError)return NextResponse.json({error:'Unable to refresh your subscription. Please retry.'},{status:503});
   const { data: accessProfile } = await supabase.from('profiles').select('role, plan, plan_expires_at').eq('id', user.id).maybeSingle();
   const activePlan = Boolean(accessProfile?.plan && includesLiveClass(accessProfile.plan)
     && (!accessProfile.plan_expires_at || new Date(accessProfile.plan_expires_at) > new Date()));
   if (accessProfile?.role !== 'admin' && !activePlan) {
     return NextResponse.json({ error: 'Lecture uploads for Live Class require an active paid plan.' }, { status: 403 });
+  }
+
   }
 
   // Large files go directly from the learner's browser to private Supabase
@@ -56,7 +62,7 @@ export async function POST(request: Request) {
     }
     const rawPath = body.path;
     const rawName = rawPath.split('/').at(-1) || '';
-    const allowed = rawPath.startsWith(`${user.id}/class_`)
+    const allowed = ownedStoragePath(user.id,rawPath) && rawPath.startsWith(`${user.id}/class_`)
       && /^[a-f0-9-]{36}$/.test(rawPath.split('/')[1]?.replace(/^class_/, '') || '')
       && /^[a-z0-9._-]+\.(?:pdf|doc|docx|pptx|txt)$/i.test(rawName)
       && rawPath.split('/').length === 3 && !rawPath.includes('..');

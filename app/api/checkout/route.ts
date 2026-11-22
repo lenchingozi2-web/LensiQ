@@ -1,3 +1,4 @@
+import { subscriptionsEnabled } from '@/lib/subscriptions';
 import {getOrCreateProfile} from '@/lib/profile';
 import {createServiceClient} from '@/lib/supabase/service';
 import { NextResponse } from 'next/server';
@@ -6,6 +7,9 @@ import { getPublicPaidPlan } from '../../../lib/plans';
 
 export async function POST(req: Request) {
   try {
+    if (!subscriptionsEnabled()) {
+      return NextResponse.json({ error: 'Subscriptions are temporarily closed.' }, { status: 403 });
+    }
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Sign in to purchase a Premium subscription.' }, { status: 401 });

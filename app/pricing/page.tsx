@@ -1,3 +1,4 @@
+import { subscriptionsEnabled } from '@/lib/subscriptions';
 import {reconcilePendingCheckout} from '@/lib/payment-recovery';
 import { createClient } from '@/lib/supabase/server';
 import { getSubscriptionAccess } from '@/lib/subscription-access';
@@ -13,7 +14,7 @@ export default async function PricingPage() {
   let accessLabel: string | null = null;
   if (user) {
     await reconcilePendingCheckout(user.id);
-    await supabase.rpc('refresh_my_subscription');
+    if (subscriptionsEnabled()) await supabase.rpc('refresh_my_subscription');
     const upcoming=await supabase.from('scheduled_subscriptions').select('id',{count:'exact',head:true}).eq('user_id',user.id).eq('status','scheduled');
     hasScheduled=(upcoming.count??0)>0;
     const { data: profile } = await supabase.from('profiles')

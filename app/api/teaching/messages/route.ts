@@ -1,10 +1,12 @@
+import { authenticatedStudyClient } from '@/lib/subscription-runtime';
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  const supabase = authenticatedStudyClient(authClient, user);
 
   const body = await req.json().catch(() => ({}));
   const conversationId = typeof body?.conversationId === 'string' ? body.conversationId : '';

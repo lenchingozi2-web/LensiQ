@@ -1,3 +1,4 @@
+import { subscriptionsEnabled } from '@/lib/subscriptions';
 import { createClient } from '../lib/supabase/server';
 import Link from 'next/link';
 import UserDropdown from './UserDropdown';
@@ -18,7 +19,7 @@ export default async function Navbar() {
   if (user) {
     const cookieStore = await cookies();
     const activeSessionToken = cookieStore.get('session_token')?.value;
-    await supabase.rpc('refresh_my_subscription');
+    if (subscriptionsEnabled()) await supabase.rpc('refresh_my_subscription');
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role, session_token, plan, plan_expires_at')
@@ -31,7 +32,7 @@ export default async function Navbar() {
     } else {
       userRole = profile?.role === 'admin' ? 'admin' : 'user';
       const access = getSubscriptionAccess(profile);
-      if (access.active) subscriptionLabel = access.admin ? 'Admin access' : `${access.planName} active`;
+      if (access.active) subscriptionLabel = !subscriptionsEnabled() ? 'Full Access Enabled' : access.admin ? 'Admin access' : `${access.planName} active`;
       const sessionWasReplaced = Boolean(profile?.session_token && activeSessionToken !== profile.session_token);
 
       if (sessionWasReplaced) {

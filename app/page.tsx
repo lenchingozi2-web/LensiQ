@@ -1,4 +1,5 @@
 'use client';
+import { subscriptionsEnabled } from '@/lib/subscriptions';
 
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
@@ -110,7 +111,7 @@ export default function Home() {
       </section>
 
       <section className="mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-6 lg:px-8">
-        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8"><div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Teaching modes</p><h2 className="mt-2 text-2xl font-black tracking-tight text-[#0B1220]">Learn in the mode that suits the moment.</h2></div><Link href="/pricing" className="text-sm font-black text-[#9A5D00] hover:text-[#0B1220]">See premium access →</Link></div>
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8"><div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Teaching modes</p><h2 className="mt-2 text-2xl font-black tracking-tight text-[#0B1220]">Learn in the mode that suits the moment.</h2></div><Link href="/pricing" style={{display: subscriptionsEnabled() ? undefined : 'none'}} className="text-sm font-black text-[#9A5D00] hover:text-[#0B1220]">See premium access →</Link></div>
           <div className="grid gap-3 md:grid-cols-2">{teachingModes.map((mode) => <Link key={mode.href} href={mode.href} className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 hover:border-[#E8A23D] hover:bg-white"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0B1220] text-sm font-black text-[#E8A23D]">{mode.icon}</span><span className="text-xs font-black uppercase tracking-[0.15em] text-slate-400">{mode.eyebrow}</span></div><h3 className="mt-5 text-lg font-black text-[#0B1220]">{mode.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{mode.description}</p><span className="mt-4 block text-sm font-black text-[#9A5D00]">Enter →</span></Link>)}</div>
         </div>
       </section>

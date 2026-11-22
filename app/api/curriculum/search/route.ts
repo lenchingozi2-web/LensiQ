@@ -1,3 +1,4 @@
+import { authenticatedStudyClient, ownedStoragePath } from '@/lib/subscription-runtime';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { checkAccess } from '@/lib/gatekeeper';
@@ -42,11 +43,14 @@ async function readSearchPayload(request: Request) {
 
 export async function POST(request: Request) {
   let temporaryStoragePath: string | null = null;
+  let cleanupClient: ReturnType<typeof authenticatedStudyClient> | null = null;
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const authClient = await createClient();
+    const { data: { user } } = await authClient.auth.getUser();
     if (!user) return NextResponse.json({ error: 'You must be logged in to search the question bank.' }, { status: 401 });
 
+    const supabase = authenticatedStudyClient(authClient,user);
+    cleanupClient=supabase;
     const { payload, file: multipartFile } = await readSearchPayload(request);
     const rawQuery = typeof payload.query === 'string' ? payload.query : '';
     const courseSlug = typeof payload.courseSlug === 'string' ? payload.courseSlug : '';
@@ -56,7 +60,7 @@ export async function POST(request: Request) {
 
     if (payload.storagePath) {
       const expectedPrefix = `${user.id}/search/`;
-      if (!payload.storagePath.startsWith(expectedPrefix)) return NextResponse.json({ error: 'This lecture upload does not belong to your account.' }, { status: 403 });
+      if (!ownedStoragePath(user.id,payload.storagePath) || !payload.storagePath.startsWith(expectedPrefix)) return NextResponse.json({ error: 'This lecture upload does not belong to your account.' }, { status: 403 });
       if (!payload.fileName || !payload.mimeType) return NextResponse.json({ error: 'The lecture upload metadata is incomplete.' }, { status: 400 });
       if (payload.sizeBytes && payload.sizeBytes > MAX_FILE_SIZE) return NextResponse.json({ error: 'Lecture files must be 20 MB or smaller.' }, { status: 413 });
       temporaryStoragePath = payload.storagePath;
@@ -116,8 +120,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unable to search the curriculum right now. Please try again with a smaller text-based file or a typed query.' }, { status: 500 });
   } finally {
     if (temporaryStoragePath) {
-      const supabase = await createClient();
-      await supabase.storage.from(STORAGE_BUCKET).remove([temporaryStoragePath]).catch(() => undefined);
+      await cleanupClient?.storage.from(STORAGE_BUCKET).remove([temporaryStoragePath]).catch(() => undefined);
     }
   }
 }

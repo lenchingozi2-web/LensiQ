@@ -1,3 +1,4 @@
+import { subscriptionsEnabled } from '@/lib/subscriptions';
 import { createClient } from './supabase/server';
 import { getOrCreateProfile } from './profile';
 
@@ -10,6 +11,9 @@ export async function checkAccess(feature: FeatureType, requestedCourse?: string
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { allowed: false, status: 401, message: 'Sign in to continue.' };
+    if (!subscriptionsEnabled()) {
+      return { allowed: true, status: 200, unlimited: true, remainingTextTeaching: null, message: 'Full Access Enabled' };
+    }
     const profile = await getOrCreateProfile(supabase, user);
     if (profile.error) return { allowed: false, status: 503, message: 'Unable to verify your subscription.' };
     const ai = feature==='teaching'||feature==='explanation';

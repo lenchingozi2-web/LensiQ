@@ -1,3 +1,4 @@
+import { authenticatedStudyClient, ownedStoragePath } from '@/lib/subscription-runtime';
 import { checkPaidAccess } from '@/lib/paid-access';
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
@@ -27,9 +28,10 @@ export async function POST(request: Request) {
   const paid = await checkPaidAccess();
   if (!paid.allowed) return NextResponse.json({error:paid.message},{status:paid.status??403});
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  const supabase = authenticatedStudyClient(authClient, user);
   const body = await readSmallJson(request);
   if (!body) return NextResponse.json({ error: 'Invalid lecture upload request.' }, { status: 400 });
   const scope = body?.scope === 'teaching' || body?.scope === 'search' ? body.scope : null;
@@ -43,7 +45,7 @@ export async function POST(request: Request) {
   const normalizedMimeType = normalizeLectureMimeType(fileName, mimeType);
 
   if (scope === 'teaching') {
-    const { data: usage, error: usageError } = await supabase.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id });
+    const { data: usage, error: usageError } = await authClient.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id });
     if (usageError) return NextResponse.json({ error: 'Unable to confirm your Teaching storage usage.' }, { status: 503 });
     if (Number(usage ?? 0) + sizeBytes > MAX_STORAGE_BYTES) return NextResponse.json({ error: 'Your persistent Teaching storage is full. Delete an older lecture file before uploading another.' }, { status: 413 });
   }
@@ -58,12 +60,13 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  const supabase = authenticatedStudyClient(authClient, user);
   const body = await request.json().catch(() => ({}));
   const storagePath = typeof body?.storagePath === 'string' ? body.storagePath : '';
-  if (storagePath.length > 600 || !storagePath.startsWith(`${user.id}/search/`)) return NextResponse.json({ error: 'Temporary search upload does not belong to your account.' }, { status: 403 });
+  if (!ownedStoragePath(user.id,storagePath) || storagePath.length > 600 || !storagePath.startsWith(`${user.id}/search/`)) return NextResponse.json({ error: 'Temporary search upload does not belong to your account.' }, { status: 403 });
   const { error } = await supabase.storage.from(BUCKET).remove([storagePath]);
   if (error) return NextResponse.json({ error: 'Unable to remove the temporary search upload.' }, { status: 500 });
   return NextResponse.json({ ok: true, storagePath });

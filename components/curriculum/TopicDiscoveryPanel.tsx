@@ -1,4 +1,5 @@
 'use client';
+import { subscriptionsEnabled } from '@/lib/subscriptions';
 
 import Link from 'next/link';
 import { useState } from 'react';
@@ -145,7 +146,7 @@ export default function TopicDiscoveryPanel({ courseSlug, topicSlug, topicTitle 
           </div>
         )}
 
-        {practicalLocked && <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-black text-amber-950">Some practical matches are locked.</p><p className="mt-1 text-sm leading-6 text-amber-900/70">One Anatomical Pathology organ/system is available on the free plan. Upgrade to unlock the other organ systems, specimen images, and the complete practical bank.</p></div><Link href="/pricing" className="rounded-xl bg-[#0B1220] px-5 py-3 text-center text-sm font-black text-white hover:bg-slate-700">View plans</Link></div>}
+        {subscriptionsEnabled() && practicalLocked && <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-black text-amber-950">Some practical matches are locked.</p><p className="mt-1 text-sm leading-6 text-amber-900/70">One Anatomical Pathology organ/system is available on the free plan. Upgrade to unlock the other organ systems, specimen images, and the complete practical bank.</p></div><Link href="/pricing" style={{display: subscriptionsEnabled() ? undefined : 'none'}} className="rounded-xl bg-[#0B1220] px-5 py-3 text-center text-sm font-black text-white hover:bg-slate-700">View plans</Link></div>}
       </div>
     </section>
   );

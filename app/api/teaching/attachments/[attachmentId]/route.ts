@@ -1,12 +1,14 @@
+import { authenticatedStudyClient, ownedStoragePath } from '@/lib/subscription-runtime';
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../../lib/supabase/server';
 
 type RouteContext = { params: Promise<{ attachmentId: string }> };
 
 export async function DELETE(_req: Request, { params }: RouteContext) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  const supabase = authenticatedStudyClient(authClient, user);
   const { attachmentId } = await params;
 
   const { data: attachment, error: attachmentError } = await supabase
@@ -17,6 +19,7 @@ export async function DELETE(_req: Request, { params }: RouteContext) {
     .single();
   if (attachmentError || !attachment) return NextResponse.json({ error: 'Teaching attachment not found.' }, { status: 404 });
 
+  if(!ownedStoragePath(user.id,attachment.storage_path))return NextResponse.json({error:'Attachment path is invalid.'},{status:403});
   const { error: storageError } = await supabase.storage.from('teaching-attachments').remove([attachment.storage_path]);
   if (storageError) return NextResponse.json({ error: 'Unable to remove the stored lecture file.' }, { status: 500 });
   const { error: deleteError } = await supabase.from('teaching_attachments').delete().eq('id', attachmentId).eq('user_id', user.id);

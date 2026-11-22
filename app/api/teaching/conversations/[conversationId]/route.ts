@@ -1,10 +1,10 @@
+import { authenticatedStudyClient } from '@/lib/subscription-runtime';
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../../lib/supabase/server';
 
 type RouteContext = { params: Promise<{ conversationId: string }> };
 
-async function getOwnedConversation(conversationId: string, userId: string) {
-  const supabase = await createClient();
+async function getOwnedConversation(supabase: Awaited<ReturnType<typeof createClient>>, conversationId: string, userId: string) {
   const { data, error } = await supabase
     .from('teaching_conversations')
     .select('id, course_name, title, session_type, is_pinned, created_at, updated_at, recording_expires_at, recording_path')
@@ -16,12 +16,13 @@ async function getOwnedConversation(conversationId: string, userId: string) {
 }
 
 export async function GET(_req: Request, { params }: RouteContext) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  const supabase = authenticatedStudyClient(authClient, user);
 
   const { conversationId } = await params;
-  const { data: conversation, error: conversationError } = await getOwnedConversation(conversationId, user.id);
+  const { data: conversation, error: conversationError } = await getOwnedConversation(supabase, conversationId, user.id);
 
   if (conversationError || !conversation) {
     return NextResponse.json({ error: 'Teaching session not found.' }, { status: 404 });
@@ -49,9 +50,10 @@ export async function GET(_req: Request, { params }: RouteContext) {
 }
 
 export async function PATCH(req: Request, { params }: RouteContext) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  const supabase = authenticatedStudyClient(authClient, user);
 
   const { conversationId } = await params;
   const body = await req.json().catch(() => ({}));
@@ -71,9 +73,10 @@ export async function PATCH(req: Request, { params }: RouteContext) {
 }
 
 export async function DELETE(_req: Request, { params }: RouteContext) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  const supabase = authenticatedStudyClient(authClient, user);
 
   const { conversationId } = await params;
   const { error } = await supabase

@@ -1,3 +1,5 @@
+import { subscriptionsEnabled } from '@/lib/subscriptions';
+import { updateOpenClass, OPEN_CLASS_PREFIX } from '@/lib/subscription-runtime';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { purgeSessionMaterialsOnEnd } from '@/lib/rag/ephemeral-cleanup';
@@ -21,8 +23,18 @@ export async function POST(req: Request) {
 
   if (!sessionId || !action) return NextResponse.json({ error: 'Session and action are required.' }, { status: 400 });
 
+  const admin = createAdminClient();
+  if (!admin) return NextResponse.json({error:'Class service unavailable.'},{status:503});
+  const {data:owned,error:ownedError}=await admin.from('live_class_sessions').select('id,room_name')
+    .eq('id',sessionId).eq('user_id',user.id).maybeSingle();
+  if(ownedError)return NextResponse.json({error:'Unable to load the class.'},{status:503});
+  if(!owned)return NextResponse.json({error:'Live Class session not found.'},{status:404});
+
   if (action === 'link') {
     if (!conversationId) return NextResponse.json({ error: 'Conversation is required.' }, { status: 400 });
+    const {data:conversation}=await admin.from('teaching_conversations').select('id').eq('id',conversationId)
+      .eq('user_id',user.id).eq('session_type','live_class').is('deleted_at',null).maybeSingle();
+    if(!conversation)return NextResponse.json({error:'Teaching session not found.'},{status:404});
     const { error } = await supabase
       .from('live_class_sessions')
       .update({ conversation_id: conversationId, last_heartbeat_at: new Date().toISOString() })
@@ -32,7 +44,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const { data: chargeRows, error: chargeError } = await supabase.rpc('charge_live_class_session', {
+  const { data: chargeRows, error: chargeError } = (!subscriptionsEnabled() || owned.room_name.startsWith(OPEN_CLASS_PREFIX))
+    ? await updateOpenClass(admin,user.id,sessionId,action==='end')
+    : await supabase.rpc('charge_live_class_session', {
     p_session_id: sessionId,
     p_duration_seconds: durationSeconds,
     p_end: action === 'end',

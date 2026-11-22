@@ -1,3 +1,4 @@
+import { authenticatedStudyClient, ownedStoragePath } from '@/lib/subscription-runtime';
 import { checkPaidAccess } from '@/lib/paid-access';
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
@@ -13,12 +14,13 @@ function safeFileName(fileName: string) {
 }
 
 export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  const supabase = authenticatedStudyClient(authClient, user);
   const [{ data: attachments, error }, { data: storageUsed, error: storageError }] = await Promise.all([
     supabase.from('teaching_attachments').select('id, conversation_id, file_name, mime_type, size_bytes, extraction_status, extraction_error, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(200),
-    supabase.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id }),
+    authClient.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id }),
   ]);
   if (error || storageError) return NextResponse.json({ error: 'Unable to load your retained lecture files.' }, { status: 503 });
   return NextResponse.json({ attachments: attachments ?? [], storageUsedBytes: Number(storageUsed ?? 0), storageLimitBytes: MAX_STORAGE_BYTES });
@@ -28,9 +30,10 @@ export async function POST(req: Request) {
   const paid = await checkPaidAccess();
   if (!paid.allowed) return NextResponse.json({error:paid.message},{status:paid.status??403});
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  const supabase = authenticatedStudyClient(authClient, user);
   const contentType = req.headers.get('content-type') ?? '';
   let conversationId = '';
   let fileName = '';
@@ -68,7 +71,7 @@ export async function POST(req: Request) {
   if (!conversation) return NextResponse.json({ error: 'Teaching session not found.' }, { status: 404 });
 
   if (storagePath) {
-    if (!storagePath.startsWith(`${user.id}/teaching/`)) return NextResponse.json({ error: 'This lecture upload does not belong to your account.' }, { status: 403 });
+    if (!ownedStoragePath(user.id,storagePath) || !storagePath.startsWith(`${user.id}/teaching/`)) return NextResponse.json({ error: 'This lecture upload does not belong to your account.' }, { status: 403 });
     const { data: blob, error: downloadError } = await supabase.storage.from(STORAGE_BUCKET).download(storagePath);
     if (downloadError || !blob) return NextResponse.json({ error: 'The uploaded lecture could not be retrieved. Please upload it again.' }, { status: 400 });
     if (blob.size <= 0 || blob.size > MAX_FILE_SIZE) {
@@ -80,7 +83,7 @@ export async function POST(req: Request) {
 
   if (!file) return NextResponse.json({ error: 'The lecture file could not be read.' }, { status: 400 });
 
-  const { data: currentUsage, error: usageError } = await supabase.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id });
+  const { data: currentUsage, error: usageError } = await authClient.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id });
   if (usageError) {
     if (storagePath) await supabase.storage.from(STORAGE_BUCKET).remove([storagePath]);
     return NextResponse.json({ error: 'Unable to confirm your Teaching storage usage.' }, { status: 503 });

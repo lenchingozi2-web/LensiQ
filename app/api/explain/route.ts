@@ -1,3 +1,4 @@
+import { authenticatedStudyClient } from '@/lib/subscription-runtime';
 import {usageFromPayload} from '@/lib/ai/usage-meter';
 import {finishAiRequest,recordAiUsage} from '@/lib/ai/record-usage';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -11,14 +12,15 @@ import { checkAccess } from '../../../lib/gatekeeper';
 export async function POST(req: Request) {
   let reservationId:string|undefined;
   try {
-    const supabase = await createClient();
+    const authClient = await createClient();
 
     // 1. Get the user
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await authClient.auth.getUser();
     if (!user) {
       return NextResponse.json({ content: "You must be logged in to use the AI Tutor." }, { status: 401 });
     }
     const userId = user.id;
+    const supabase = authenticatedStudyClient(authClient,user);
 
     // =========================================================================
     // STEP 3: THE GATEKEEPER LOCK

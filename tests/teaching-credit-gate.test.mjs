@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {stripTypeScriptTypes} from 'node:module';
 let checks=0;
 globalThis.__teachingGateTest={
- NextResponse:{json:(body,options={})=>Response.json(body,options)},
+ authenticatedStudyClient:db=>db,NextResponse:{json:(body,options={})=>Response.json(body,options)},
  createClient:async()=>({auth:{getUser:async()=>({data:{user:{id:'test-user'}}})}}),
  checkAccess:async()=>{checks++;return {allowed:false,status:403,message:'No AI allowance'};},
  includesLiveClass:()=>false,getOrCreateProfile:()=>{throw new Error('Unexpected profile lookup');},
@@ -12,7 +12,7 @@ globalThis.__teachingGateTest={
  buildTeachingSystemPrompt:()=>{throw new Error('Unauthorised provider preparation');},
 };
 const source=(await readFile(new URL('../app/api/teach/route.ts',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
-const prepared='const {NextResponse,createClient,checkAccess,includesLiveClass,getOrCreateProfile,buildTeachingContext,buildTeachingSystemPrompt}=globalThis.__teachingGateTest;\n'+stripTypeScriptTypes(source);
+const prepared='const {authenticatedStudyClient,NextResponse,createClient,checkAccess,includesLiveClass,getOrCreateProfile,buildTeachingContext,buildTeachingSystemPrompt}=globalThis.__teachingGateTest;\n'+stripTypeScriptTypes(source);
 const {POST}=await import('data:text/javascript;base64,'+Buffer.from(prepared).toString('base64'));
 test.after(()=>delete globalThis.__teachingGateTest);
 for(const count of [1,2,3,20])test(`deny exhausted/free teaching with ${count} messages before any LLM work`,async()=>{

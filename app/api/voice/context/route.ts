@@ -1,3 +1,4 @@
+import { classGatewayAllowed } from '@/lib/subscription-runtime';
 import {inspectPointedImage} from '@/lib/voice/inspect-pointed-image';
 import {after} from 'next/server';
 import {recordAiUsage} from '@/lib/ai/record-usage';
@@ -118,12 +119,11 @@ export async function POST(request: Request) {
 
   try {
     const supabase = createServiceClient();
-    let activeQuery = supabase.from('live_class_sessions').select('id').eq('user_id',userId).eq('status','active');
+    let activeQuery = supabase.from('live_class_sessions').select('id,started_at,room_name,status').eq('user_id',userId).eq('status','active');
     if(gateway) activeQuery=activeQuery.eq('id',gateway.session).eq('room_name',gateway.room);
     const {data: active} = await activeQuery.limit(1).maybeSingle();
     if(!active) return NextResponse.json({error:'Active Live Class required.'},{status:403});
-    const {data: eligible,error: entitlementError} = await supabase.rpc('live_class_gateway_allowed',{p_session:active?.id,p_user:userId});
-    if(entitlementError || eligible!==true) return NextResponse.json({error:'Active Live Class required.'},{status:403});
+    if(!await classGatewayAllowed(supabase,active,userId)) return NextResponse.json({error:'Class allowance expired.'},{status:403});
     if (body.imageSelection) {
       if (!gateway) return NextResponse.json({error:'Session credential required.'},{status:401});
       const imageEvidence = await inspectPointedImage(body.imageSelection, query, userId, request.signal);

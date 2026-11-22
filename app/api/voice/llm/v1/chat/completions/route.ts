@@ -1,3 +1,4 @@
+import { classGatewayAllowed } from '@/lib/subscription-runtime';
 import {observeAiStream,usageFromPayload} from '@/lib/ai/usage-meter';
 import {recordAiUsage} from '@/lib/ai/record-usage';
 import { verifyLiveClassGatewayToken } from '@/lib/voice/live-class-gateway-auth';
@@ -45,18 +46,14 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: 'Class service unavailable.' }, { status: 503 });
-  // These are independent, read-only checks. Keep both gates while avoiding
-  // a second serial database round trip before every spoken answer.
-  const [{ data: session, error: sessionError }, { data: eligible, error: eligibilityError }] = await Promise.all([
-    admin.from('live_class_sessions').select('id').eq('id', auth.session)
-      .eq('user_id', auth.user).eq('room_name', auth.room).eq('status', 'active').maybeSingle(),
-    admin.rpc('live_class_gateway_allowed', {p_session:auth.session,p_user:auth.user}),
-  ]);
+  const { data: session, error: sessionError } = await admin.from('live_class_sessions')
+    .select('id,started_at,room_name,status').eq('id', auth.session)
+    .eq('user_id', auth.user).eq('room_name', auth.room).eq('status', 'active').maybeSingle();
   if (sessionError || !session) {
     return NextResponse.json({ error: 'Live Class session is no longer active.' }, { status: 401 });
   }
-
-  if(eligibilityError || eligible !== true) return NextResponse.json({error:'Class allowance expired.'},{status:403});
+  if (!await classGatewayAllowed(admin,session,auth.user))
+    return NextResponse.json({error:'Class allowance expired.'},{status:403});
 
   const lengthHeader = Number(request.headers.get('content-length') || 0);
   if (!Number.isFinite(lengthHeader) || lengthHeader > 240_000) {
