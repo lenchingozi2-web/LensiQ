@@ -1,4 +1,5 @@
 'use client';
+import { subscriptionsEnabled } from '@/lib/subscriptions';
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
@@ -94,7 +95,7 @@ export default function MobileNav({ links, secondaryLinks, isAuthenticated }: Pr
             <p className="mt-4 border-t border-slate-100 px-3 pb-2 pt-4 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Explore and manage</p>
             <div className="space-y-1">{secondaryLinks.map((link, index) => renderLink(link, index + links.length))}</div>
             <div className="mt-3 grid gap-2 border-t border-slate-100 pt-3">
-              <Link href="/pricing" onClick={() => setIsOpen(false)} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-[#81500a]">Plans and access</Link>
+              <Link href="/pricing" style={{display: subscriptionsEnabled() ? undefined : 'none'}} onClick={() => setIsOpen(false)} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-[#81500a]">Plans and access</Link>
               {!isAuthenticated && pathname !== '/login' && pathname !== '/signup' && (
                 <Link href={loginPath} onClick={() => setIsOpen(false)} className="rounded-xl bg-[#0B1220] px-4 py-3 text-center text-sm font-bold text-white">Sign in</Link>
               )}

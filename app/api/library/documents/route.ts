@@ -1,3 +1,4 @@
+import { authenticatedStudyClient } from '@/lib/subscription-runtime';
 import { checkPaidAccess } from '@/lib/paid-access';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -30,9 +31,10 @@ function getSupportedExtension(file: File) {
 export async function POST(request: Request) {
   const paid=await checkPaidAccess();
   if(!paid.allowed) return NextResponse.json({error:paid.message},{status:paid.status??403});
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  const supabase = authenticatedStudyClient(authClient, user);
 
   const formData = await request.formData();
   const files = formData.getAll('files').filter((value): value is File => value instanceof File);
@@ -87,7 +89,7 @@ export async function POST(request: Request) {
   }
 
   const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
-  const { data: currentUsage, error: usageError } = await supabase.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id });
+  const { data: currentUsage, error: usageError } = await authClient.rpc('get_user_teaching_storage_bytes', { p_user_id: user.id });
   if (usageError) return NextResponse.json({ error: 'Unable to confirm your document storage usage.' }, { status: 503 });
   if (Number(currentUsage ?? 0) + totalBytes > MAX_STORAGE_BYTES) {
     return NextResponse.json({ error: 'Your document storage limit would be exceeded by this batch.' }, { status: 413 });

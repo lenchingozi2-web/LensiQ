@@ -50,7 +50,7 @@ test('cancelling a spoken response cancels its upstream audio-text stream',async
 test('gateway falls back once on empty Groq output and accounts for both providers',async t=>{
   const deferred=[],usage=[],calls=[];
   const db={from:()=>({select(){return this;},eq(){return this;},maybeSingle:async()=>({data:{id:'session'}})}),rpc:async()=>({data:true})};
-  globalThis.__voiceStreamTest={openSpokenResponse,observeAiStream,usageFromPayload,
+  globalThis.__voiceStreamTest={classGatewayAllowed:async(db,session,userId)=>{const r=await db.rpc('live_class_gateway_allowed',{p_session:session.id,p_user:userId});return !r.error&&r.data===true;},openSpokenResponse,observeAiStream,usageFromPayload,
     recordAiUsage:async(...args)=>{usage.push(args);},
     verifyLiveClassGatewayToken:()=>({user:'student',session:'session',room:'room'}),
     createAdminClient:()=>db,after:fn=>deferred.push(fn),NextResponse:{json:Response.json}};

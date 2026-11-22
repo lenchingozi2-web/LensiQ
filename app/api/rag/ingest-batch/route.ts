@@ -1,3 +1,4 @@
+import { subscriptionsEnabled } from '@/lib/subscriptions';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getLectureFileExtension } from '@/lib/curriculum/file-types';
@@ -17,10 +18,13 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  if (subscriptionsEnabled()) {
   const { data: profile } = await supabase.from('profiles').select('role,plan,plan_expires_at').eq('id', user.id).maybeSingle();
   const hasPlan = profile?.role === 'admin' || (profile?.plan && includesLiveClass(profile.plan)
     && (!profile.plan_expires_at || new Date(profile.plan_expires_at) > new Date()));
   if (!hasPlan) return NextResponse.json({ error: 'Active Live Class subscription required' }, { status: 403 });
+  }
+
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   if (body.action === 'course'){

@@ -9,11 +9,11 @@ async function handler({paid=true,failDispatch=false}={}) {
   const calls=[];
   const sessionId='22222222-2222-4222-8222-222222222222';
   const user={id:'11111111-1111-4111-8111-111111111111',email:'fixture@example.test'};
-  const db={auth:{getUser:async()=>({data:{user}})},from:()=>({select(){return this;},eq(){return this;},order(){return this;},limit:async()=>({data:[]}),maybeSingle:async()=>({data:{role:'student',plan:paid?'scholar':'free'}})}),rpc:async(name)=>{
+  const db={auth:{getUser:async()=>({data:{user}})},from:()=>({update(){return this;},like:async()=>({error:null}),select(){return this;},eq(){return this;},order(){return this;},limit:async()=>({data:[]}),maybeSingle:async()=>({data:{role:'student',plan:paid?'scholar':'free'}})}),rpc:async(name)=>{
     calls.push(name);
     return name==='reserve_live_class_session'?{data:{allowed:true,session_id:sessionId,max_duration_seconds:5400},error:null}:{error:null};
   }};
-  globalThis.__voiceStartup={issueLiveClassGatewayToken,NextResponse:{json:Response.json},createClient:async()=>db,createAdminClient:()=>db,logAuthRequestRejection:()=>{},includesLiveClass:plan=>plan==='scholar',LIVE_CLASS_MODEL_ASSETS:{},LIVE_CLASS_MOLECULE_ASSETS:{},
+  globalThis.__voiceStartup={subscriptionsEnabled:()=>true,OPEN_CLASS_PREFIX:'lensiq-open-',issueLiveClassGatewayToken,NextResponse:{json:Response.json},createClient:async()=>db,createAdminClient:()=>db,logAuthRequestRejection:()=>{},includesLiveClass:plan=>plan==='scholar',LIVE_CLASS_MODEL_ASSETS:{},LIVE_CLASS_MOLECULE_ASSETS:{},
     after:()=>{}, RoomServiceClient:class {}, purgeSessionMaterialsOnEnd:async()=>[],
     AccessToken:class {addGrant(){}async toJwt(){return 'synthetic-token';}},
     AgentDispatchClient:class {async createDispatch(room,agent,options){calls.push({room,agent,metadata:JSON.parse(options.metadata)});if(failDispatch)throw new Error('test dispatch failed');}}

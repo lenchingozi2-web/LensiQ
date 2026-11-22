@@ -1,3 +1,4 @@
+import { classGatewayAllowed } from '@/lib/subscription-runtime';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -33,14 +34,13 @@ export async function POST(request:Request){
     return NextResponse.json({error:'Only the verified tutor worker may acknowledge spoken delivery'},{status:403});
   const admin=createAdminClient();
   if(!admin)return NextResponse.json({error:'Lesson database unavailable'},{status:503});
-  const {data:session}=await admin.from('live_class_sessions').select('id,room_name,status,course_name')
+  const {data:session}=await admin.from('live_class_sessions').select('id,room_name,status,course_name,started_at')
     .eq('id',sessionId).eq('user_id',user.id).maybeSingle();
   if(!session || (gateway&&session.room_name!==gateway.room))
     return NextResponse.json({error:'No authorized Live Class session'},{status:403});
   if(session.status!=='active' && !['state','end'].includes(action))
     return NextResponse.json({error:'Live Class is no longer active'},{status:409});
-  const {data:entitled,error:entitlementError}=await admin.rpc('live_class_gateway_allowed',{p_session:sessionId,p_user:user.id});
-  if(entitlementError||entitled!==true)return NextResponse.json({error:'Live Class entitlement unavailable'},{status:403});
+  if(!['state','end'].includes(action) && !await classGatewayAllowed(admin,session,user.id))return NextResponse.json({error:'Live Class entitlement unavailable'},{status:403});
   try{
     const {data:existingLesson,error:lookupError}=await admin.from('live_class_lessons').select('*').eq('session_id',sessionId).eq('user_id',user.id).maybeSingle();
     if(lookupError)throw lookupError;

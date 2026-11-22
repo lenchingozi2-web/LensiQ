@@ -13,7 +13,7 @@ function load(name, user, rpcResult = { data: { allowed: true, admin: false }, e
   const source = sources[name].replace(/^import .*;\r?\n/gm, '');
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   const exports = {};
-  new Function('exports', 'createClient', 'getOrCreateProfile', compiled)(exports, async () => db, async () => ({ data: { role: 'student' }, error: null }));
+  new Function('exports', 'createClient', 'getOrCreateProfile', 'subscriptionsEnabled', compiled)(exports, async () => db, async () => ({ data: { role: 'student' }, error: null }), () => process.env.NEXT_PUBLIC_SUBSCRIPTIONS_ENABLED === 'true');
   return { call: () => name === 'gatekeeper' ? exports.checkAccess('teaching') : exports.checkPaidAccess(), calls };
 }
 async function flag(value, run) {

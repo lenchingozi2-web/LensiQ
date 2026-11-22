@@ -1,3 +1,5 @@
+import { subscriptionsEnabled } from '@/lib/subscriptions';
+import { authenticatedStudyClient } from '@/lib/subscription-runtime';
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
 import { logAuthRequestRejection } from '../../../../lib/auth/request-diagnostics';
@@ -10,12 +12,13 @@ function normalizeSessionType(value: unknown): SessionType {
 }
 
 export async function GET(req: Request) {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user }, error: authError } = await authClient.auth.getUser();
   if (!user) {
     logAuthRequestRejection(req, 'teaching-conversations-get', authError);
     return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
   }
+  const supabase = authenticatedStudyClient(authClient, user);
 
   const requestedType = new URL(req.url).searchParams.get('sessionType');
   const sessionType = requestedType === 'live_class' || requestedType === 'teaching_room' ? requestedType : null;
@@ -36,12 +39,13 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user }, error: authError } = await authClient.auth.getUser();
   if (!user) {
     logAuthRequestRejection(req, 'teaching-conversations-post', authError);
     return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
   }
+  const supabase = authenticatedStudyClient(authClient, user);
 
   const body = await req.json().catch(() => ({}));
   const courseName = typeof body?.courseName === 'string' ? body.courseName.trim() : '';
@@ -49,8 +53,8 @@ export async function POST(req: Request) {
   const sessionType = normalizeSessionType(body?.sessionType);
 
   if (!courseName) return NextResponse.json({ error: 'Course is required.' }, { status: 400 });
-  if (sessionType === 'live_class') {
-  const {error:refreshError}=await supabase.rpc('refresh_my_subscription');
+  if (subscriptionsEnabled() && sessionType === 'live_class') {
+  const {error:refreshError}=await authClient.rpc('refresh_my_subscription');
   if(refreshError)return NextResponse.json({error:'Unable to refresh your subscription. Please retry.'},{status:503});
     const { data: profile } = await supabase.from('profiles').select('role, plan, plan_expires_at').eq('id', user.id).maybeSingle();
     const activePlan = Boolean(profile?.plan && includesLiveClass(profile.plan)

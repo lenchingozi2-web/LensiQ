@@ -1,3 +1,5 @@
+import { reserveOpenClass, updateOpenClass, OPEN_CLASS_PREFIX } from '@/lib/subscription-runtime';
+import { subscriptionsEnabled } from '@/lib/subscriptions';
 import { issueLiveClassGatewayToken } from '@/lib/voice/live-class-gateway-auth';
 import { after, NextResponse } from 'next/server';
 import { AccessToken, AgentDispatchClient, RoomServiceClient } from 'livekit-server-sdk';
@@ -30,6 +32,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Not authenticated.', message: 'Sign in to start your Live Class.' }, { status: 401 });
   }
 
+  if (subscriptionsEnabled()) {
   const {error:refreshError}=await supabase.rpc('refresh_my_subscription');
   if(refreshError)return NextResponse.json({error:'Unable to refresh your subscription. Please retry.'},{status:503});
   const { data: voiceProfile } = await supabase
@@ -46,6 +49,8 @@ export async function POST(req: Request) {
       error: 'live_class_plan_required',
       message: 'Choose Scholar, Scholar Plus or Mastery to use Live Class. Free accounts have no Live Class access.',
     }, { status: 403 });
+  }
+
   }
 
   const admin = createAdminClient();
@@ -124,11 +129,24 @@ export async function POST(req: Request) {
     branches: Array.isArray(rawMaterialContext.branches) ? rawMaterialContext.branches.filter((value): value is string => typeof value === 'string').slice(0, 8).map((value) => value.slice(0, 80)) : [],
     sources: Array.isArray(rawMaterialContext.sources) ? rawMaterialContext.sources.filter((value): value is string => typeof value === 'string').slice(0, 6).map((value) => value.slice(0, 120)) : [],
   } : null;
-  const roomName = `lensiq-voice-${user.id.slice(0, 8)}-${crypto.randomUUID()}`;
+  const roomName = `${subscriptionsEnabled() ? 'lensiq-voice-' : OPEN_CLASS_PREFIX}${user.id.slice(0, 8)}-${crypto.randomUUID()}`;
+  if (conversationId) {
+    const owned=await admin.from('teaching_conversations').select('id').eq('id',conversationId)
+      .eq('user_id',user.id).eq('session_type','live_class').is('deleted_at',null).maybeSingle();
+    if(owned.error||!owned.data)return NextResponse.json({error:'Live Class conversation not found.'},{status:404});
+  }
   const previous=await admin.from('live_class_sessions').select('id,room_name')
     .eq('user_id',user.id).order('started_at',{ascending:false}).limit(10);
 
-  const reserveSession = () => supabase.rpc('reserve_live_class_session', {
+  // Close open-access rooms without billing them when subscriptions resume.
+  if (subscriptionsEnabled()) {
+    const closed = await admin.from('live_class_sessions').update({status:'ended',ended_at:new Date().toISOString()})
+      .eq('user_id',user.id).eq('status','active').like('room_name',OPEN_CLASS_PREFIX+'%');
+    if (closed.error) return NextResponse.json({error:'Unable to close the previous class.'},{status:503});
+  }
+  const reserveSession = () => !subscriptionsEnabled()
+    ? reserveOpenClass(admin,user.id,roomName,courseName,conversationId)
+    : supabase.rpc('reserve_live_class_session', {
     p_room_name: roomName,
     p_course_name: courseName,
     p_conversation_id: conversationId,
@@ -175,7 +193,9 @@ export async function POST(req: Request) {
   // Every failed LiveKit start must release its reserved room, otherwise a
   // learner can lose available classroom access without ever connecting.
   const releaseFailedStart = async () => {
-    const { error } = await supabase.rpc('charge_live_class_session', {
+    const { error } = !subscriptionsEnabled()
+      ? await updateOpenClass(admin,user.id,String(quota.session_id),true)
+      : await supabase.rpc('charge_live_class_session', {
       p_session_id: quota.session_id,
       p_duration_seconds: 0,
       p_end: true,

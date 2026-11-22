@@ -1,11 +1,21 @@
 
 'use server';
+import { subscriptionsEnabled } from '@/lib/subscriptions';
+import { authenticatedStudyClient } from '@/lib/subscription-runtime';
+import { startOpenTimedMock } from '@/lib/open-timed-mock';
 import {createClient} from '@/lib/supabase/server';
 import {checkAccess} from '@/lib/gatekeeper';
 export async function checkQuizAccess(){return checkAccess('quiz');}
 export async function checkBrowseAccess(course:string){return checkAccess('browse',course);}
 export async function startTimedMock(subject:string,division:string,count:number){
- const db=await createClient();const {data,error}=await db.rpc('begin_timed_mock',{p_subject:subject,p_division:division,p_count:count});
+ const db=await createClient();
+ const {data:{user}}=await db.auth.getUser();
+ if(!user)return {error:'Sign in to start a timed mock.'};
+ if(!subscriptionsEnabled()){
+   try{return {attempt:await startOpenTimedMock(authenticatedStudyClient(db,user),user.id,subject,division,count)};}
+   catch(error){return {error:error instanceof Error?error.message:'Unable to start your mock.'};}
+ }
+ const {data,error}=await db.rpc('begin_timed_mock',{p_subject:subject,p_division:division,p_count:count});
  if(error||!data) return {error:'Unable to start: check your paid plan, remaining mock allowance and selected question bank.'};
  return {attempt:data};
 }

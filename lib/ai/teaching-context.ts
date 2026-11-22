@@ -73,6 +73,7 @@ export async function buildTeachingContext(
   courseName: string,
   messages: ChatMessage[],
   conversationId?: string,
+  ownerId?: string,
 ) {
   const subject = subjectForCourse(courseName);
   const searchText = evidenceQuery(messages) || courseName;
@@ -140,11 +141,12 @@ export async function buildTeachingContext(
     questions = (fallbackQuestions ?? []) as QuestionContext[];
   }
 
-  const { data: attachmentRows } = conversationId
+  const { data: attachmentRows } = conversationId && ownerId
     ? await supabase
       .from('teaching_attachments')
       .select('file_name,mime_type,extraction_status,extraction_error,extracted_text')
       .eq('conversation_id', conversationId)
+      .eq('user_id', ownerId)
       .order('created_at', { ascending: true })
     : { data: [] };
 

@@ -15,7 +15,7 @@ async function handler(options={}){
  const filters=[];let databaseCalls=0;
  const active={id:sessionId,user_id:userId,status:'active',room_name:roomName,...options.active};
  const builder={select(){return this;},eq(key,value){filters.push([key,value]);return this;},limit(){return this;},async maybeSingle(){return{data:options.missing||filters.some(([key,value])=>active[key]!==value)?null:active};}};
- globalThis.__voiceContext={createHmac,timingSafeEqual,verifyLiveClassGatewayToken,
+ globalThis.__voiceContext={classGatewayAllowed:async(db,session,userId)=>{const r=await db.rpc('live_class_gateway_allowed',{p_session:session.id,p_user:userId});return !r.error&&r.data===true;},createHmac,timingSafeEqual,verifyLiveClassGatewayToken,
   inspectPointedImage:async()=> 'Visible labelled epithelium',
   after:()=>{},recordAiUsage:async()=>{},usageFromPayload:()=>({}),
   NextResponse:{json:(value,init)=>Response.json(value,init)},
@@ -24,7 +24,7 @@ async function handler(options={}){
  process.env.LIVEKIT_API_SECRET=secret;
  let source=await readFile(new URL('../app/api/voice/context/route.ts',import.meta.url),'utf8');
  source=source.replace(/^import .*\n/gm,'');
- const preamble='const {createHmac,timingSafeEqual,verifyLiveClassGatewayToken,inspectPointedImage,after,recordAiUsage,usageFromPayload,NextResponse,createServiceClient,buildTeachingContext}=globalThis.__voiceContext;\n';
+ const preamble='const {classGatewayAllowed,createHmac,timingSafeEqual,verifyLiveClassGatewayToken,inspectPointedImage,after,recordAiUsage,usageFromPayload,NextResponse,createServiceClient,buildTeachingContext}=globalThis.__voiceContext;\n';
  const routeModule=await import('data:text/javascript;base64,'+Buffer.from(preamble+stripTypeScriptTypes(source)).toString('base64')+'#'+sequence++);
  const token=issueLiveClassGatewayToken(secret,{roomName,sessionId,userId,expiresAt:new Date(Date.now()+60_000).toISOString()});
  return{post:routeModule.POST,token,filters,calls:()=>databaseCalls};

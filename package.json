@@ -11,7 +11,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:study-hub": "node --test tests/study-hub-runtime.test.mjs tests/subscription-auth.test.mjs"
+    "test:study-hub": "node --test tests/study-hub-runtime.test.mjs tests/subscription-auth.test.mjs tests/subscription-pause.test.mjs"
   },
   "dependencies": {
     "@livekit/components-react": "^2.9.24",

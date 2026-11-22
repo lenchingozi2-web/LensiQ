@@ -1,3 +1,4 @@
+import { subscriptionsEnabled } from '@/lib/subscriptions';
 import { createClient } from '@/lib/supabase/server';
 import { includesLiveClass } from '@/lib/plans';
 import { compileStep } from '@/lib/rag/syllabus-compiler';
@@ -11,10 +12,13 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: 'Sign in first' }, { status: 401 });
+  if (subscriptionsEnabled()) {
   const { data: profile } = await supabase.from('profiles').select('role,plan,plan_expires_at').eq('id',user.id).maybeSingle();
   const paid = profile?.role === 'admin' || (profile?.plan && includesLiveClass(profile.plan)
     && (!profile.plan_expires_at || new Date(profile.plan_expires_at) > new Date()));
   if (!paid) return Response.json({ error: 'Live Class subscription required' }, { status: 403 });
+  }
+
   const body = await request.json().catch(() => null);
   const syllabusId = typeof body?.syllabusId === 'string' ? body.syllabusId : '';
   if (!UUID.test(syllabusId)) return Response.json({ error: 'Invalid syllabus ID' }, { status: 400 });

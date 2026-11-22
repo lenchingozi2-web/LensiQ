@@ -1,3 +1,4 @@
+import { subscriptionsEnabled } from '@/lib/subscriptions';
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
 import { getSubscriptionAccess } from '@/lib/subscription-access';
@@ -9,7 +10,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
 
-  await supabase.rpc('refresh_my_subscription');
+  if (subscriptionsEnabled()) await supabase.rpc('refresh_my_subscription');
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('role, plan, plan_expires_at, wallet_reset_at, voice_minutes_balance, text_teaching_balance, storage_limit_bytes, free_live_class_minutes_balance, free_live_class_reset_at')
@@ -30,8 +31,8 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(100);
   if (eventsError) return NextResponse.json({ error: 'Unable to load wallet history.' }, { status: 503 });
-  const voiceMinutes = access.voiceMinutes ?? 0;
-  const textCredits = access.textCredits ?? 0;
+  const voiceMinutes = access.voiceMinutes;
+  const textCredits = access.textCredits;
   const storageUsedBytes = Number(storageBytes ?? 0);
   const storageLimitBytes = Number(profile.storage_limit_bytes ?? DEFAULT_STORAGE_LIMIT);
 
@@ -46,7 +47,9 @@ export async function GET() {
     rollover: false,
     voiceMinutes,
     textTeachingCredits: textCredits,
-    lowVoiceBalance: activePremium && profile.role !== 'admin' && voiceMinutes <= 5,
+    subscriptionsEnabled: subscriptionsEnabled(),
+    unlimited: !subscriptionsEnabled() || access.admin,
+    lowVoiceBalance: subscriptionsEnabled() && voiceMinutes !== null && activePremium && profile.role !== 'admin' && voiceMinutes <= 5,
     storageUsedBytes,
     storageLimitBytes,
     storageUsedPercent: Math.min(100, Math.round((storageUsedBytes / Math.max(storageLimitBytes, 1)) * 100)),

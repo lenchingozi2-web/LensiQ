@@ -1,3 +1,4 @@
+import { authenticatedStudyClient, ownedStoragePath } from '@/lib/subscription-runtime';
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
 
@@ -15,9 +16,10 @@ function daysRemaining(expiresAt: string | null | undefined) {
 }
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  const supabase = authenticatedStudyClient(authClient, user);
 
   if (req.headers.get('content-type')?.includes('application/json')) {
     const raw = await req.text();
@@ -73,7 +75,7 @@ export async function POST(req: Request) {
           recording_expires_at: expiresAt.toISOString(),
         }).eq('id', requestedId).eq('user_id', user.id);
       if (error) return NextResponse.json({ error: 'Unable to save recording metadata.' }, { status: 503 });
-      if (ownedConversation.recording_path && ownedConversation.recording_path !== path) {
+      if (ownedStoragePath(user.id,ownedConversation.recording_path) && ownedConversation.recording_path !== path) {
         const { error: cleanupError } = await storage.remove([ownedConversation.recording_path]);
         if (cleanupError) console.warn('Previous recording cleanup postponed');
       }
@@ -130,7 +132,7 @@ export async function POST(req: Request) {
   }
   // Only delete the previous recording AFTER the new storage path is committed.
   // A failed database update must not destroy the learner's last saved class.
-  if (conversation.recording_path && conversation.recording_path !== storagePath) {
+  if (ownedStoragePath(user.id,conversation.recording_path) && conversation.recording_path !== storagePath) {
     const { error: previousRemovalError } = await supabase.storage.from('live-class-recordings')
       .remove([conversation.recording_path]);
     if (previousRemovalError) console.warn('Previous class recording cleanup deferred');
@@ -141,9 +143,10 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+  const supabase = authenticatedStudyClient(authClient, user);
   const conversationId = new URL(req.url).searchParams.get('conversationId')?.trim() || '';
   if (!conversationId) return NextResponse.json({ error: 'Conversation is required.' }, { status: 400 });
 
@@ -156,6 +159,7 @@ export async function GET(req: Request) {
     .is('deleted_at', null)
     .single();
   if (!conversation?.recording_path) return NextResponse.json({ recording: null });
+  if (!ownedStoragePath(user.id,conversation.recording_path))return NextResponse.json({error:'Recording path is invalid.'},{status:403});
   if (conversation.recording_expires_at && new Date(conversation.recording_expires_at).getTime() <= Date.now()) return NextResponse.json({ recording: { expired: true, expiresAt: conversation.recording_expires_at } });
   const { data: signedUrl, error } = await supabase.storage.from('live-class-recordings').createSignedUrl(conversation.recording_path, 60 * 60);
   if (error || !signedUrl?.signedUrl) return NextResponse.json({ error: 'Unable to open the saved recording.' }, { status: 500 });

@@ -1,3 +1,6 @@
+import { subscriptionsEnabled } from '@/lib/subscriptions';
+import { classGatewayAllowed } from '@/lib/subscription-runtime';
+import { authenticatedStudyClient } from '@/lib/subscription-runtime';
 import {observeAiStream} from '@/lib/ai/usage-meter';
 import {finishAiRequest,recordAiUsage} from '@/lib/ai/record-usage';
 import { NextResponse } from 'next/server';
@@ -17,12 +20,13 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   let reservationId:string|undefined;
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const authClient = await createClient();
+    const { data: { user } } = await authClient.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'You must be logged in to use Teaching Mode.' }, { status: 401 });
     }
+  const supabase = authenticatedStudyClient(authClient, user);
     const userId = user.id;
 
     const contentLength = Number(req.headers.get('content-length') || 0);
@@ -98,14 +102,17 @@ export async function POST(req: Request) {
       if (!liveClassSessionId) return NextResponse.json({ error: 'Live Class session is required.' }, { status: 400 });
       const { data: liveSession } = await supabase
         .from('live_class_sessions')
-        .select('id, status, started_at, is_free_trial')
+        .select('id, status, started_at, is_free_trial,room_name')
         .eq('id', liveClassSessionId)
         .eq('user_id', userId)
         .eq('status', 'active')
         .maybeSingle();
       if (!liveSession) return NextResponse.json({ error: 'The Live Class session has ended. Start a new session to continue.' }, { status: 403 });
 
-      const { data: profile, error: profileError } = await getOrCreateProfile(supabase, user!);
+      if (!subscriptionsEnabled()) {
+        if (!await classGatewayAllowed(supabase,liveSession,userId)) return NextResponse.json({error:'This Live Class has reached its session limit.'},{status:403});
+      } else {
+      const { data: profile, error: profileError } = await getOrCreateProfile(authClient, user!);
       if (profileError || !profile) return NextResponse.json({ error: 'Your account profile could not be loaded.' }, { status: 503 });
       const isAdmin = profile.role === 'admin';
       const hasLiveClassPlan = includesLiveClass(profile.plan)
@@ -116,7 +123,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Live Class is available only with an active paid plan.' }, { status: 403 });
       }
       if (!isAdmin) {
-        const { data: chargeRows, error: chargeError } = await supabase.rpc('charge_live_class_session', {
+        const { data: chargeRows, error: chargeError } = await authClient.rpc('charge_live_class_session', {
           p_session_id: liveClassSessionId,
           p_duration_seconds: Math.max(0, Math.floor((Date.now() - new Date(liveSession!.started_at).getTime()) / 1000)),
           p_end: false,
@@ -124,6 +131,7 @@ export async function POST(req: Request) {
         const charge = Array.isArray(chargeRows) ? chargeRows[0] : chargeRows;
         if (chargeError || !charge?.ok) return NextResponse.json({ error: 'Unable to confirm the remaining Live Class wallet balance.' }, { status: 503 });
         if (charge.should_end) return NextResponse.json({ error: charge.reason === 'free_monthly_exhausted' ? 'Your free Live Class allowance has ended for this month. It refreshes next month.' : 'Your Premium Live Class allowance has ended. Minutes refresh on your next monthly billing date.' }, { status: 403 });
+      }
       }
     } else {
       const access = await checkAccess('teaching');
@@ -133,7 +141,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const context = await buildTeachingContext(supabase, courseName, messages, conversationId || undefined);
+    const context = await buildTeachingContext(supabase, courseName, messages, conversationId || undefined, userId);
     const systemPrompt = buildTeachingSystemPrompt(courseName, context, sessionType === 'live_class');
 
     // Gemini-only tutor: use a second Gemini Flash model when the primary is overloaded.
