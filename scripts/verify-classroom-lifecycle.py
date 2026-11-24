@@ -103,6 +103,7 @@ class ClassroomProbe(StudentValidation):
         result=await self.http('/api/live-class/orchestrate',{'action':'state','sessionId':self.session,'withPacket':True})
         packet=result.get('packet') or {}
         if packet.get('teaching_version')!=3:raise RuntimeError('Unverified raw-source teaching packet')
+        if packet.get('source_fallback'):raise RuntimeError('Classroom is available but normal conversational lesson planning degraded to source recovery')
         cues=packet.get('visual_cues') or []
         if len(cues)<2:raise RuntimeError('No progressive explanation')
         import re

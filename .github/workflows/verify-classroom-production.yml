@@ -2,7 +2,15 @@ name: Verify production classroom without redeploying
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/verify-classroom-production.yml']
+    paths:
+      - '.github/workflows/verify-classroom-production.yml'
+      - 'lib/live-class/lesson-author.ts'
+      - 'lib/live-class/visual-protocol.ts'
+      - 'lib/rag/syllabus-compiler.ts'
+      - 'app/api/live-class/orchestrate/route.ts'
+      - 'hooks/useHybridStudyRAG.ts'
+      - 'scripts/verify-classroom-lifecycle.py'
+      - 'scripts/verify-syllabus-class.py'
   workflow_dispatch:
 permissions:
   contents: read
