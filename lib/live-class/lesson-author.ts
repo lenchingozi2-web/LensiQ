@@ -10,6 +10,15 @@ type AuthorOptions={env?:Record<string,string|undefined>;fetcher?:typeof fetch;q
 export const TEACHING_VERSION=3;
 const AUTHOR_REVISION=2;
 export function teachingFingerprint(record:ConceptRecord){return createHash('sha256').update(record.title+'\n'+record.consolidated_notes).digest('hex');}
+function groqCompatibleSchema(schema:Record<string,unknown>):Record<string,unknown>{
+  const stripCardinality=(value:unknown):unknown=>{
+    if(Array.isArray(value))return value.map(stripCardinality);
+    if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value as Record<string,unknown>)
+      .filter(([key])=>key!=='minItems'&&key!=='maxItems').map(([key,child])=>[key,stripCardinality(child)]));
+    return value;
+  };
+  return stripCardinality(schema) as Record<string,unknown>;
+}
 
 /** Bounded structured generation. Unvalidated generated speech is never delivered. */
 export async function generateTeachingJson(instruction:string,data:unknown,options:AuthorOptions={}):Promise<unknown>{
@@ -41,7 +50,7 @@ export async function generateTeachingJson(instruction:string,data:unknown,optio
       }):await fetcher('https://api.groq.com/openai/v1/chat/completions',{
         ...common,headers:{'content-type':'application/json',authorization:'Bearer '+env.GROQ_API_KEY},
         body:JSON.stringify({model,...(model.startsWith('qwen/')?{reasoning_effort:'none',include_reasoning:false}:{reasoning_effort:'low'}),messages,
-          response_format:options.schema?{type:'json_schema',json_schema:{name:'medical_lesson',strict:true,schema:options.schema}}:{type:'json_object'},temperature:0.35,max_completion_tokens:maxTokens}),
+          response_format:options.schema?{type:'json_schema',json_schema:{name:'medical_lesson',strict:true,schema:groqCompatibleSchema(options.schema)}}:{type:'json_object'},temperature:0.35,max_completion_tokens:maxTokens}),
       });
       if(!response.ok){
         console.warn('Lesson planner rejected request',{provider,model,status:response.status});
