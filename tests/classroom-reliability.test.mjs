@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {stripTypeScriptTypes} from 'node:module';
 import {parseTeachingPacket,parseVisualCue} from '../lib/live-class/visual-protocol.ts';
-import {clinicalTopicLabels} from '../lib/rag/clinical-topic.ts';
+import {clinicalTopicLabels,legacyClinicalTopicLabels,isLectureCredit,isDocumentCoverHeading,clinicalSectionCategory,normalizedClinicalHeading} from '../lib/rag/clinical-topic.ts';
+import {isTeachable} from '../lib/live-class/teaching-content.ts';
 import {compileCanonicalConcept} from '../lib/rag/deduplicator.ts';
 
 const load=async(path,deps)=>{
@@ -51,4 +52,23 @@ test('generic headings can stage relevant models using substantive lecture conte
  assert.equal(matchCuratedClassVisual('Foundations','Prostatic enlargement alters the outflow tract.').mode,'anatomy_3d');
  assert.equal(matchCuratedClassVisual('Elimination','Renal excretion removes this drug.').structure_id,'renal_clearance');
  assert.equal(matchCuratedClassVisual('Risk factors','Age over 50 and male predominance.'),null);
+});
+
+
+test('compiled exam PDFs keep credits and title-page furniture out of teachable topics while preserving source facts',async()=>{
+ const {parseDocumentSections,chunkFacts}=await load('../lib/rag/ingestor.ts',{isLectureCredit,isDocumentCoverHeading,clinicalSectionCategory,normalizedClinicalHeading});
+ const {processSyllabus}=await load('../lib/rag/process-syllabus.ts',{clinicalTopicLabels,legacyClinicalTopicLabels,compileCanonicalConcept,chunkFacts});
+ const source='[Page 1]\nANATOMICAL PATHOLOGY / MB EXAM NOTES\nDr. Jane Example\nACUTE INFLAMMATION\nDefinition\nAcute inflammation is a protective tissue response.\n[Page 2]\nANATOMICAL PATHOLOGY / MB EXAM NOTES\nMorphology\nNeutrophils move into injured tissue.\n1. Neutrophils are recruited in early inflammation.\nDose is 0.5 mg only in this example.\n[Page 3]\nDr. Jane Example\nClinical features\nRedness and swelling occur.\nPNEUMONIA\nMorphology\nAlveolar spaces contain inflammatory cells.';
+ const parsed=parseDocumentSections(source,ids[0],'Notes.pdf');
+ const nodes=processSyllabus([parsed]);
+ const visible=nodes.filter(n=>isTeachable(n.title,n.notes));
+ assert.deepEqual(visible.map(n=>n.topic),['ACUTE INFLAMMATION','ACUTE INFLAMMATION','ACUTE INFLAMMATION','PNEUMONIA']);
+ assert.deepEqual(visible.map(n=>n.title),['ACUTE INFLAMMATION · Foundations','ACUTE INFLAMMATION · Morphology','ACUTE INFLAMMATION · Clinical features','PNEUMONIA · Morphology']);
+ assert.ok(nodes.some(n=>n.title==='Source attribution'&&n.notes.includes('Dr. Jane Example')));
+ assert.ok(nodes.some(n=>n.title==='Document information'));
+ assert.ok(visible[1].notes.includes('0.5 mg'));
+ assert.ok(visible[1].notes.includes('1. Neutrophils are recruited'));
+ assert.equal(visible[1].citations[0].page_number,2);
+ assert.equal(isLectureCredit('Hepatitis B'),false);
+ assert.equal(isLectureCredit('By increasing vascular permeability'),false);
 });

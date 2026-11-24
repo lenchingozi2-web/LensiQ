@@ -1,6 +1,7 @@
 import { extractLectureText } from '@/lib/curriculum/extract-text';
 import { getLectureFileExtension, normalizeLectureMimeType } from '@/lib/curriculum/file-types';
 import type { CitedAtomicFact } from './deduplicator';
+import { isLectureCredit, isDocumentCoverHeading, clinicalSectionCategory, normalizedClinicalHeading } from './clinical-topic';
 
 export type ParsedSection = {
   heading: string;
@@ -10,7 +11,7 @@ export type ParsedSection = {
 };
 export type ParsedDocument = { sections: ParsedSection[]; characters: number; source: string };
 
-function headingOf(line: string): string | null {
+function legacyHeadingOf(line: string): string | null {
   const value = line.trim();
   if (value.length < 4 || value.length > 145 || /[.!?]$/.test(value)) return null;
   if (/^#{1,5}\s+/.test(value)) return value.replace(/^#+\s+/, '');
@@ -19,7 +20,18 @@ function headingOf(line: string): string | null {
   return null;
 }
 
-export function parseDocumentSections(text: string, documentId: string, fileName: string): ParsedDocument {
+function headingOf(line:string):string|null {
+  const value=line.trim();
+  if(/^#{1,5}\s+\S/.test(value))return normalizedClinicalHeading(value);
+  const normalized=normalizedClinicalHeading(value);
+  if(clinicalSectionCategory(normalized))return normalized;
+  if(normalized.length<3||normalized.length>100||normalized.split(/\s+/).length>10||/[.!?]$/.test(normalized)||/\t/.test(value))return null;
+  if(/^(?:\d{1,3}\.){1,4}\s+[A-Z]/.test(value)&&!/[\d%]|\b(?:is|are|was|were|has|have|may|can|should|must|causes?|includes?)\b/i.test(normalized))return normalized;
+  if(/^[A-Z][A-Z0-9 /,():–-]{4,}$/.test(normalized)&&!/[\d%]|\b(?:IS|ARE|WAS|WERE|HAS|HAVE|MAY|CAN|SHOULD|MUST|CAUSES?|INCLUDES?)\b/.test(normalized))return normalized;
+  return null;
+}
+
+export function parseDocumentSections(text: string, documentId: string, fileName: string, legacy=false): ParsedDocument {
   const sections: ParsedSection[] = [];
   let page: number | null = null;
   let heading = 'General concepts', moduleTitle = 'General', topic = 'Overview';
@@ -41,9 +53,15 @@ export function parseDocumentSections(text: string, documentId: string, fileName
     }
     if (/^\[Slide \d+: Image-only visual slide\]$/i.test(line.trim())) { flush(); continue; }
     if (!line.trim() || line.trim() === '[Speaker notes]') continue;
-    const title = !inSlides||slideStart?headingOf(line):null;
+    if(!legacy&&(isLectureCredit(line)||isDocumentCoverHeading(line))){
+      flush();
+      const metadata=isLectureCredit(line)?'Source attribution':'Document information';
+      sections.push({heading:metadata,module:moduleTitle,topic:metadata,facts:[{text:line.trim(),documentId,sourceFile:fileName,pageNumber:page}]});
+      continue;
+    }
+    const title = !inSlides||slideStart?(legacy?legacyHeadingOf(line):headingOf(line)):null;
     if (slideStart || title) {
-      flush(); heading = title || (line.trim().length <= 120 ? line.trim() : heading);
+      flush(); heading = title || (legacy&&line.trim().length <= 120 ? line.trim() : heading);
       topic = heading; if (!sections.length) moduleTitle = heading;
       slideStart = false;
       if (/^#{1,5}\s+/.test(line.trim()))continue;
@@ -55,13 +73,13 @@ export function parseDocumentSections(text: string, documentId: string, fileName
   return { sections, characters: text.length, source: fileName };
 }
 
-export async function parseUploadedDocument(bytes: Uint8Array, documentId: string, fileName: string): Promise<ParsedDocument> {
+export async function parseUploadedDocument(bytes: Uint8Array, documentId: string, fileName: string, legacy=false): Promise<ParsedDocument> {
   const extension = getLectureFileExtension(fileName);
   if (!extension) throw new Error('Unsupported lecture document');
   const file = new File([new Uint8Array(bytes)], fileName, { type: normalizeLectureMimeType(fileName) });
   const extracted = await extractLectureText(file, { requireCompleteText: true });
   if (!extracted.trim()) throw new Error('The document contained no readable content');
-  return parseDocumentSections(extracted, documentId, fileName);
+  return parseDocumentSections(extracted, documentId, fileName, legacy);
 }
 
 export type AtomicChunk = { text: string; sourceFile: string; pageNumber: number | null; documentId: string };

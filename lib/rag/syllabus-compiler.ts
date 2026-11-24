@@ -76,17 +76,22 @@ export async function compileStep(userId:string, syllabusId:string, action:strin
   if(doc.status==='indexed')return {done:true};
   const download=await db.storage.from('study-documents').download(doc.storage_path);
   check(download.error);
-  const parsed=await parseUploadedDocument(new Uint8Array(await download.data!.arrayBuffer()),doc.id,doc.original_name);
-  const nodes=processSyllabus([parsed]);
+  const id=(key:string)=>stableId(syllabusId+'/'+generation+'/'+doc.id+'/'+key);
+  const moduleId=id('module');
+  const prior=await db.from('syllabus_concept_nodes').select('visual_spec_json').match(scope).eq('id',moduleId).maybeSingle();
+  check(prior.error);
+  // Documents already partly indexed retain identical node offsets.
+  const legacy=Boolean(prior.data&&prior.data.visual_spec_json?.parserVersion!==2);
+  const parsed=await parseUploadedDocument(new Uint8Array(await download.data!.arrayBuffer()),doc.id,doc.original_name,legacy);
+  const nodes=processSyllabus([parsed],legacy);
   if(!nodes.length || offset>=nodes.length)throw new Error('No readable material at this document position');
   const limit=offset===0?2:PAGE;
   const page=nodes.slice(offset,offset+limit);
-  const id=(key:string)=>stableId(syllabusId+'/'+generation+'/'+doc.id+'/'+key);
-  const moduleId=id('module'), order=index*10_000_000+offset;
-  const parents=[{...scope,id:moduleId,parent_id:null as string|null,node_type:'module',title:doc.original_name,sort_order:order-offset}];
+  const order=index*10_000_000+offset;
+  const parents=[{...scope,id:moduleId,parent_id:null as string|null,node_type:'module',title:doc.original_name,sort_order:order-offset,visual_spec_json:{parserVersion:legacy?1:2} as Record<string,unknown>}];
   for(const [i,n] of page.entries()){
     const topicId=id('topic/'+n.topic);
-    if(!parents.some(p=>p.id===topicId))parents.push({...scope,id:topicId,parent_id:moduleId,node_type:'topic',title:n.topic,sort_order:order+i});
+    if(!parents.some(p=>p.id===topicId))parents.push({...scope,id:topicId,parent_id:moduleId,node_type:'topic',title:n.topic,sort_order:order+i,visual_spec_json:{}});
   }
   check((await db.from('syllabus_concept_nodes').upsert(parents,{ignoreDuplicates:true})).error);
   const concepts=page.map((n,i)=>({...scope,id:id('node/'+(offset+i)),parent_id:id('topic/'+n.topic),node_type:'concept',
