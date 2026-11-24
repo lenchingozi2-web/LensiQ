@@ -8,6 +8,7 @@ import { matchCuratedClassVisual } from './model-matcher';
 export type BankQuestion={id:string;question:string;answer:string};
 type AuthorOptions={env?:Record<string,string|undefined>;fetcher?:typeof fetch;question?:BankQuestion|null;schema?:Record<string,unknown>;maxTokens?:number;signal?:AbortSignal};
 export const TEACHING_VERSION=3;
+const AUTHOR_REVISION=2;
 export function teachingFingerprint(record:ConceptRecord){return createHash('sha256').update(record.title+'\n'+record.consolidated_notes).digest('hex');}
 
 /** Bounded structured generation. Unvalidated generated speech is never delivered. */
@@ -97,7 +98,7 @@ export function validateAuthoredLesson(raw:unknown,record:ConceptRecord,question
   const spokenNumbers=new Set(numericTokens(speech).map(canonicalNumber));
   const missing=numbers.filter(n=>!spokenNumbers.has(n));
   if(missing.length)throw new Error('A source number was lost in the explanation: '+missing.join(', '));
-  const compact=(s:string)=>s.replace(/\s+/g,'').toLowerCase();
+  const compact=(s:string)=>s.toLowerCase().replace(/\b(?:milligrams?)\b/g,'mg').replace(/\b(?:micrograms?)\b/g,'mcg').replace(/[µμ]g/g,'mcg').replace(/\bmillilit(?:res|ers) per minute\b/g,'ml/min').replace(/\bmillilit(?:res|ers)\b/g,'ml').replace(/\bmillimet(?:res|ers) of mercury\b/g,'mmhg').replace(/\bgrams?\b/g,'g').replace(/\bpercent\b/g,'%').replace(/\s+/g,'');
   const quantities=facts.join(' ').match(/\d+(?:\.\d+)?\s*(?:mg|mcg|µg|μg|mL\/min|mmol\/L|mEq\/L|mmHg|mL|g|%)(?![a-z])/gi)||[];
   if(quantities.some(q=>!compact(speech).includes(compact(q))))throw new Error('A source quantity or unit was changed');
   const sourceGrams=grams(facts.join(' ')),spokenGrams=grams(speech);
@@ -105,28 +106,6 @@ export function validateAuthoredLesson(raw:unknown,record:ConceptRecord,question
   if(spokenGrams.size>10&&copied/spokenGrams.size>.65)throw new Error('The tutor must explain, not recite the source');
   if(question&&(value.bank_question_id!==question.id||!speech.includes('?')))throw new Error('The selected practice question was not integrated');
   return{title:typeof value.title==='string'?value.title.slice(0,180):record.title,beats};
-}
-// A bounded source-backed recovery is preferable to an inaccessible classroom.
-// It uses only the indexed source, not rejected model text or invented clinical claims.
-// Preserve full facts; concise board anchors are separate from the spoken evidence.
-function sourceRecoveryLesson(record:ConceptRecord, question?:BankQuestion|null):ReturnType<typeof validateAuthoredLesson>{
-  const facts=teachingLines(record.title,record.consolidated_notes);
-  const title=cleanClinicalTitle(record.title);
-  const groups:Array<{text:string;ids:number[]}>= [];
-  for(const [id,fact] of facts.entries()){
-    const last=groups.at(-1);
-    if(last&&last.text.length+fact.length<650){last.text+='\n'+fact;last.ids.push(id);}
-    else groups.push({text:fact,ids:[id]});
-  }
-  const beats=groups.map((group,index)=>({
-    speech:(index===0?'Let us work through the key information in your lecture notes. ':'The next point in your notes is this. ')+group.text,
-    notes:group.text.split(/\s+/).slice(0,12).join(' ').slice(0,150) ? [group.text.split(/\s+/).slice(0,12).join(' ').slice(0,150)] : [title],
-    fact_ids:group.ids,use_model:false,activity:'',
-  }));
-  if(question)beats.push({speech:'Consider this practice question. '+question.question+' The supplied answer is: '+question.answer,
-    notes:['Practice question'],fact_ids:[],use_model:false,activity:''});
-  if(beats.length===1)beats.push({speech:'Keep that source detail in mind as we connect it to the next part of the lecture.',notes:['Connect to the next concept'],fact_ids:[],use_model:false,activity:''});
-  return {title,beats};
 }
 export async function authorTeachingPacket(sessionId:string,syllabusId:string,version:number,record:ConceptRecord,options:AuthorOptions={}):Promise<TeachingPacket>{
   options={...options,signal:options.signal??AbortSignal.timeout(35000),schema:teachingSchema(options.question?.id)};
@@ -137,20 +116,17 @@ export async function authorTeachingPacket(sessionId:string,syllabusId:string,ve
   const sourceName=Array.isArray(record.source_citations_json)?String(record.source_citations_json[0]?.file_name||''):'';
   const context=/prostat|colon|cardiac|renal|kidney|receptor|pharmac|carcinoma|inflamm/i.test(sourceName)?sourceName.replace(/\.[a-z0-9]+$/i,'').replace(/[_-]+/g,' ').replace(/\b(?:lecture|slides?|year\s*\d+)\b/gi,'').trim():'';
   let visual=matchCuratedClassVisual(clinicalTitle,record.consolidated_notes+' '+context)||(['anatomy_3d','molecule_3d','physiology_sim','source_diagram'].includes(String(spec.mode))?spec:null);
-  const cache=spec.authored as {version?:number;fingerprint?:string;lesson?:unknown;questionId?:string;sourceFallback?:boolean;fallbackUntil?:number}|undefined;
+  const cache=spec.authored as {version?:number;revision?:number;fingerprint?:string;lesson?:unknown;questionId?:string;sourceFallback?:boolean;fallbackUntil?:number}|undefined;
   let lesson:ReturnType<typeof validateAuthoredLesson>|undefined;
-  let sourceFallback=false;
-  const cacheMatches=cache?.version===TEACHING_VERSION&&cache.fingerprint===teachingFingerprint(record)&&cache.questionId===(options.question?.id||'');
-  if(cacheMatches&&cache?.sourceFallback&&Number(cache.fallbackUntil)>Date.now()){
-    lesson=sourceRecoveryLesson(record,options.question);sourceFallback=true;
-  }else if(cacheMatches&&!cache?.sourceFallback&&!(cache?.lesson&&typeof cache.lesson==='object'&&isSourceAttributionHeading(String((cache.lesson as {title?:unknown}).title||'').split(' · ')[0]))){
+  const cacheMatches=cache?.version===TEACHING_VERSION&&cache.revision===AUTHOR_REVISION&&cache.fingerprint===teachingFingerprint(record)&&cache.questionId===(options.question?.id||'');
+  if(cacheMatches&&!cache?.sourceFallback){
     try{lesson=validateAuthoredLesson(cache?.lesson,record,options.question);}
-    catch{ /* A stale invalid cache must be regenerated, not block the class. */ }
+    catch{ /* regenerate stale or rejected explanations */ }
   }
   if(!lesson){
     const input={title:clinicalTitle,source_topic_context:context,facts:facts.map((text,id)=>({id,text})),approved_visual:visual,bank_question:options.question||null};
     // Reserve time for source recovery and cache writes inside the 42s compiler budget.
-    const planning={...options,signal:AbortSignal.any([options.signal!,AbortSignal.timeout(18000)])};
+    const planning={...options,signal:AbortSignal.any([options.signal!,AbortSignal.timeout(26000)])};
     try{
       const raw=await generateTeachingJson(INSTRUCTION,input,planning);
       try{lesson=validateAuthoredLesson(raw,record,options.question);}
@@ -160,8 +136,8 @@ export async function authorTeachingPacket(sessionId:string,syllabusId:string,ve
       }
     }catch(error){
       options.signal!.throwIfAborted();
-      console.warn('Using cited source recovery for a teaching checkpoint',{reason:error instanceof Error?error.message:'unknown'});
-      lesson=sourceRecoveryLesson(record,options.question);sourceFallback=true;
+      console.warn('Conversational teaching plan unavailable',{reason:error instanceof Error?error.message:'unknown'});
+      throw new Error('The tutor is preparing a verified explanation. Your lecture is saved.');
     }
   }
   lesson.title=cleanClinicalTitle(lesson.title);
@@ -177,13 +153,9 @@ export async function authorTeachingPacket(sessionId:string,syllabusId:string,ve
       ...(show?{asset_url:typeof visual!.asset_url==='string'?visual!.asset_url:undefined,structure_id:typeof visual!.structure_id==='string'?visual!.structure_id:undefined}:{}),citations:refs.slice(0,4)};
   });
   // Expose only authored speech/notes. Raw source remains server-side in the cited index.
-  return parseTeachingPacket({type:'TEACHING_PACKET',session_id:sessionId,syllabus_id:syllabusId,state_version:version,concept_node_id:record.id,title:lesson.title,visual_cues:cues,teaching_version:TEACHING_VERSION,source_fallback:sourceFallback,practice_question_id:options.question?.id});
+  return parseTeachingPacket({type:'TEACHING_PACKET',session_id:sessionId,syllabus_id:syllabusId,state_version:version,concept_node_id:record.id,title:lesson.title,visual_cues:cues,teaching_version:TEACHING_VERSION,source_fallback:false,practice_question_id:options.question?.id});
 }
 export function cachedLesson(packet:TeachingPacket,record:ConceptRecord,question?:BankQuestion|null){
-  if(packet.source_fallback){
-    const previous=(record.visual_spec_json as {authored?:{fallbackUntil?:number}}|null)?.authored;
-    return{version:TEACHING_VERSION,fingerprint:teachingFingerprint(record),questionId:question?.id||'',sourceFallback:true,fallbackUntil:Number(previous?.fallbackUntil)>Date.now()?Number(previous?.fallbackUntil):Date.now()+120000};
-  }
-  return{version:TEACHING_VERSION,fingerprint:teachingFingerprint(record),questionId:question?.id||'',lesson:{title:packet.title,bank_question_id:question?.id||'',
+  return{version:TEACHING_VERSION,revision:AUTHOR_REVISION,fingerprint:teachingFingerprint(record),questionId:question?.id||'',lesson:{title:packet.title,bank_question_id:question?.id||'',
     beats:packet.visual_cues.map(c=>({speech:c.learning_activity&&c.spoken_text.endsWith(' '+c.learning_activity)?c.spoken_text.slice(0,-c.learning_activity.length-1):c.spoken_text,notes:c.steps,fact_ids:c.source_fact_ids||[],use_model:c.mode!=='whiteboard',activity:c.learning_activity||''}))}};
 }

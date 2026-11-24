@@ -72,3 +72,9 @@ test('compiled exam PDFs keep credits and title-page furniture out of teachable 
  assert.equal(isLectureCredit('Hepatitis B'),false);
  assert.equal(isLectureCredit('By increasing vascular permeability'),false);
 });
+
+test('cover of rebuilt exam notes and document instructions never become a spoken lesson',()=>{
+ assert.equal(isTeachable('MB EXAMINATION / REBUILT NOTES · 1','Lecture-based study notes · Main concepts and examinable details\n2 Course revision'),false);
+ assert.equal(isTeachable('General concepts','Dr. Jane Example\nLecture-based study notes · Main concepts and examinable details\nCourse revision'),false);
+ assert.equal(isTeachable('Acute inflammation','Neutrophils migrate into injured tissue.'),true);
+});

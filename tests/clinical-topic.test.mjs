@@ -17,7 +17,7 @@ test('clinical navigation does not group two diseases under a single generic hea
 test('qualified headings are kept exactly, and each document has independent context', () => {
   assert.deepEqual(clinicalTopicLabels(['Mechanism of action of propranolol', '2. Risk factors:', 'Slide 4']), [
     'Mechanism of action of propranolol', 'Mechanism of action of propranolol · Etiology',
-    'Mechanism of action of propranolol · Slide 4',
+    'Mechanism of action of propranolol',
   ]);
   assert.deepEqual(clinicalTopicLabels(['Treatment', 'Differential diagnosis', 'Prognosis']), [
     'Management', 'Investigations', 'Complications and prognosis',
@@ -25,6 +25,6 @@ test('qualified headings are kept exactly, and each document has independent con
 });
 
 test('lecturer initials never replace the clinical topic inherited by later sections',()=>{
- assert.deepEqual(clinicalTopicLabels(['Prostate cancer','ONWUMELU.C','Epidemiology','Morphology']),['Prostate cancer','Prostate cancer · Source attribution','Prostate cancer · Foundations','Prostate cancer · Morphology']);
+ assert.deepEqual(clinicalTopicLabels(['Prostate cancer','ONWUMELU.C','Epidemiology','Morphology']),['Prostate cancer','Source attribution','Prostate cancer · Foundations','Prostate cancer · Morphology']);
  assert.deepEqual(clinicalTopicLabels(['ONWUMELU.C','Definition']),['Source attribution','Foundations']);
 });

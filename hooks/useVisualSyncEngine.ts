@@ -51,7 +51,7 @@ export function useVisualSyncEngine(room:Room|null,sessionId:string|null){
           setConceptId(nextConcept);setCueIndex(index);setCue(nextCue);setCitations(nextCue.citations);
           if(nextConcept!==lastConceptRef.current){
             lastConceptRef.current=nextConcept;setSteps([...nextCue.steps]);
-          }else if(nextCue.mode==='whiteboard'){
+          }else if(nextCue.mode!=='whiteboard_scratchpad'){
             setSteps(current=>progressiveAnchors(current,nextCue.steps));
           }
         }catch{return;}
@@ -59,7 +59,7 @@ export function useVisualSyncEngine(room:Room|null,sessionId:string|null){
         const snapshot=data.snapshot as VisualSnapshot|null;
         if(!snapshot||!Array.isArray(snapshot.whiteboard_snapshot))return;
         try{
-          setCue(parseVisualCue(snapshot.active_cue));setConceptId(snapshot.concept_node_id);
+          const restoredCue=parseVisualCue(snapshot.active_cue);setCue(restoredCue);setCitations(restoredCue.citations);setConceptId(snapshot.concept_node_id);
           setCueIndex(snapshot.cue_index);setSteps(snapshot.whiteboard_snapshot.slice(0,32));
           lastConceptRef.current=snapshot.concept_node_id;lastIndexRef.current=snapshot.cue_index;
           versionRef.current=version;

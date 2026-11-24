@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import time
+import re
 from typing import Any, AsyncIterator
 
 from medical_speech import spoken_sentences
@@ -32,6 +33,7 @@ class SyllabusVoiceTutor:
         self.packet: dict[str, Any] | None = None
         self.state_version = 0
         self.cue_index = 0
+        self.sentence_index = 0
         self.speech_task: asyncio.Task[None] | None = None
         self.answer_task: asyncio.Task[None] | None = None
         self.speaking = False
@@ -114,8 +116,8 @@ class SyllabusVoiceTutor:
             await self.publish({"type":"ANSWER_UNAVAILABLE","reason":"providers_busy"})
             yield fallback
 
-    async def play_packet(self, packet: dict[str, Any], begin: int = 0) -> None:
-        if packet.get("teaching_version") != 3:
+    async def play_packet(self, packet: dict[str, Any], begin: int = 0, sentence_begin: int = 0) -> None:
+        if packet.get("teaching_version") != 3 or packet.get("source_fallback"):
             await self.publish({"type":"TUTOR_RECOVERY_REQUIRED","reason":"teaching_plan_required","state_version":self.state_version})
             return
         self.packet = packet
@@ -152,18 +154,20 @@ class SyllabusVoiceTutor:
                         })
                 # The authored beat has already passed coverage and recitation checks.
                 # Synthesize it directly to preserve detail and avoid another model round trip.
-                speech = cue["spoken_text"]
-                self.started = True
-                handle = self.session.say(speech, allow_interruptions=True)
-                # Consecutive handles can share a speaking state. In that case
-                # stage this checkpoint now; otherwise on_audio_state stages it
-                # when synthesized audio actually begins.
-                if self.speaking and self.pending_visual:
-                    await self.publish(self.pending_visual)
-                    self.pending_visual = None
-                await handle.wait_for_playout()
-                if self.interrupting or handle.interrupted:
-                    return
+                sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+(?=[A-Z])', cue["spoken_text"]) if s.strip()]
+                for sentence_index in range(sentence_begin if index == begin else 0, len(sentences)):
+                    if self.interrupting:
+                        return
+                    self.sentence_index = sentence_index
+                    self.started = True
+                    handle = self.session.say(sentences[sentence_index], allow_interruptions=True)
+                    if self.speaking and self.pending_visual:
+                        await self.publish(self.pending_visual)
+                        self.pending_visual = None
+                    await handle.wait_for_playout()
+                    if self.interrupting or handle.interrupted:
+                        return
+                    self.sentence_index = sentence_index + 1
                 await asyncio.sleep(0.55 if cue["mode"] == "whiteboard" else 1.8)
                 while time.monotonic() < self.visual_focus_until and not self.interrupting:
                     await asyncio.sleep(0.2)
@@ -307,7 +311,7 @@ class SyllabusVoiceTutor:
             self.state_version = int(result["state"]["state_version"])
             if result.get("packet"):
                 self.speech_task = asyncio.create_task(
-                    self.play_packet(result["packet"], int(restored.get("cue_index", 0)) if restored else 0)
+                    self.play_packet(result["packet"], int(restored.get("cue_index", self.cue_index)) if restored else self.cue_index, self.sentence_index)
                 )
         except asyncio.CancelledError:
             raise
@@ -342,10 +346,12 @@ class SyllabusVoiceTutor:
                 return
             if self.speech_task:
                 await self.stop_speech()
+            same_concept = self.packet and self.packet.get('concept_node_id') == packet.get('concept_node_id')
+            resume_cue, resume_sentence = (self.cue_index, self.sentence_index) if same_concept else (0, 0)
             self.packet = packet
             self.state_version = packet["state_version"]
             self.interrupting = False
-            self.speech_task = asyncio.create_task(self.play_packet(packet))
+            self.speech_task = asyncio.create_task(self.play_packet(packet, resume_cue, resume_sentence))
 
     async def stop_speech(self) -> None:
         if self.speech_task and not self.speech_task.done():
@@ -383,7 +389,7 @@ class SyllabusVoiceTutor:
                     })
                     self.interrupting = False
                     if result.get("packet"):
-                        self.speech_task = asyncio.create_task(self.play_packet(result["packet"], self.cue_index))
+                        self.speech_task = asyncio.create_task(self.play_packet(result["packet"], self.cue_index, self.sentence_index))
         except Exception:
             log.exception("Could not finish the learner turn")
             if self.turn_id == turn_id:

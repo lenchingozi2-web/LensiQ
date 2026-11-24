@@ -47,7 +47,7 @@ export function isLectureCredit(value:string):boolean{
 }
 export function isDocumentCoverHeading(value:string):boolean{
   const text=value.trim().replace(/^#{1,5}\s+/,'');
-  return /^(?:anatomical pathology|anatomic pathology|chemical pathology|pharmacology|medical microbiology|microbiology|haematology|hematology|immunology)(?:\s*[/&|–-]\s*(?:immunology|haematology|hematology|mb(?:bs)?\s+exam(?:ination)?\s+notes|lecture notes|study notes|revision notes))*$/i.test(text)||
+  return /^(?:mb(?:bs)?\s+exam(?:ination)?\s*[/&|–-]\s*rebuilt notes|rebuilt notes|lecture-based study notes(?:\s*·.*)?|course revision|main concepts and examinable details.*)$/i.test(text)||/^(?:anatomical pathology|anatomic pathology|chemical pathology|pharmacology|medical microbiology|microbiology|haematology|hematology|immunology)(?:\s*[/&|–-]\s*(?:immunology|haematology|hematology|mb(?:bs)?\s+exam(?:ination)?\s+notes|lecture notes|study notes|revision notes))*$/i.test(text)||
     /^(?:mb(?:bs)?\s+exam(?:ination)?\s+notes|lecture notes|study notes|revision notes|course notes|medical mastery notes|university of port harcourt)$/i.test(text);
 }
 export function normalizedClinicalHeading(value:string):string{

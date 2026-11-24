@@ -44,7 +44,7 @@ class WorkerTests(IsolatedAsyncioTestCase):
         await tutor.finish_turn('first',True)
         await asyncio.sleep(0)
         tutor.session.commit_user_turn.assert_not_awaited()
-        tutor.play_packet.assert_awaited_once_with({'id':'restored'},0)
+        tutor.play_packet.assert_awaited_once_with({'id':'restored'},0,0)
         self.assertFalse(tutor.interrupting)
 
     async def test_selection_is_retained_without_inventing_a_question(self):
@@ -120,3 +120,16 @@ class WorkerTests(IsolatedAsyncioTestCase):
         output=[part async for part in tutor.grounded_speech('Question','barge_in','Please retry your question.')]
         self.assertEqual(output,['Please retry your question.'])
         self.assertEqual(tutor.publish.call_args.args[0]['type'],'ANSWER_UNAVAILABLE')
+
+    async def test_resume_keeps_sentence_checkpoint_and_rejects_raw_fallback(self):
+        tutor=self.tutor();spoken=[]
+        async def finished():pass
+        def say(text,**kwargs):
+            spoken.append(text);return SimpleNamespace(wait_for_playout=finished,interrupted=False)
+        tutor.session.say=say;tutor.speaking=True;tutor.started=True
+        tutor.api.return_value={'state':{'state_version':3}}
+        packet={'teaching_version':3,'state_version':2,'concept_node_id':'concept','title':'Mechanism','visual_cues':[{'id':'c','mode':'whiteboard','title':'Mechanism','spoken_text':'First sentence. Second sentence. Third sentence.','steps':['Evidence'],'citations':[]}]}
+        await tutor.play_packet(packet,0,1)
+        self.assertEqual(spoken,['Second sentence.','Third sentence.'])
+        await tutor.play_packet({**packet,'source_fallback':True})
+        self.assertEqual(len(spoken),2)

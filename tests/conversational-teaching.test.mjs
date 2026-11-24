@@ -128,15 +128,9 @@ test('sentence punctuation does not turn a preserved number into a missing medic
  const changed=structuredClone(raw);changed.beats[0].speech=changed.beats[0].speech.replace('2.','2.5.');
  assert.throws(()=>validateAuthoredLesson(changed,r),/number/);
 });
-test('persistent invalid generation cannot block entry or silently drop source doses',async()=>{
+test('persistent invalid generation never falls back to raw reading',async()=>{
  const rejected=structuredClone(lesson);rejected.beats[0].speech=rejected.beats[0].speech.replace('5 mg','a small dose');
- const packet=await authorTeachingPacket(ids[0],ids[1],2,record,{env:{GEMINI_API_KEY:'fixture'},fetcher:async()=>new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(rejected)}]}}]}))});
- assert.equal(packet.source_fallback,true);
- assert.equal(packet.teaching_version,3);
- const speech=packet.visual_cues.map(c=>c.spoken_text).join(' ');
- assert.ok(speech.includes('5 mg'));assert.ok(speech.includes('Avoid use below eGFR 15 mL/min.'));
- assert.equal(packet.visual_cues.at(-1).mode,'whiteboard');
- assert.ok(packet.visual_cues.every(c=>c.citations[0].file_name==='Renal.pdf'));
- const again=await authorTeachingPacket(ids[0],ids[1],3,{...record,visual_spec_json:{authored:cachedLesson(packet,record)}},{env:{},fetcher:()=>assert.fail('Opening recovery must be reused')});
- assert.equal(again.source_fallback,true);assert.deepEqual(again.visual_cues,packet.visual_cues);
+ await assert.rejects(()=>authorTeachingPacket(ids[0],ids[1],2,record,{env:{GEMINI_API_KEY:'fixture'},fetcher:async()=>new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(rejected)}]}}]}))}),/verified explanation/);
 });
+
+ test('expanded spoken medical units preserve numerical fidelity',()=>{const expanded=structuredClone(lesson);expanded.beats[0].speech=expanded.beats[0].speech.replace('5 mg','5 milligrams');expanded.beats[1].speech=expanded.beats[1].speech.replace('15 mL/min','15 millilitres per minute');assert.equal(validateAuthoredLesson(expanded,record).beats.length,2);});
