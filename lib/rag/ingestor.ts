@@ -28,6 +28,15 @@ function headingOf(line:string):string|null {
   if(normalized.length<3||normalized.length>100||normalized.split(/\s+/).length>10||/[.!?]$/.test(normalized)||/\t/.test(value))return null;
   if(/^(?:\d{1,3}\.){1,4}\s+[A-Z]/.test(value)&&!/[\d%]|\b(?:is|are|was|were|has|have|may|can|should|must|causes?|includes?)\b/i.test(normalized))return normalized;
   if(/^[A-Z][A-Z0-9 /,():–-]{4,}$/.test(normalized)&&!/[\d%]|\b(?:IS|ARE|WAS|WERE|HAS|HAVE|MAY|CAN|SHOULD|MUST|CAUSES?|INCLUDES?)\b/.test(normalized))return normalized;
+  if(/^(?:source|citation|reference)\s*:/i.test(normalized)||/[•●▪◦→]/.test(value))return null;
+  const title=normalized.replace(/^\d{1,3}[.)]?\s+/,'');
+  const words=title.match(/[\p{L}\p{N}][\p{L}\p{M}\p{N}'’/-]*/gu)||[];
+  const sentenceStarts=new Set(['a','an','and','as','because','but','during','each','for','from','how','if','in','it','many','most','one','some','the','these','they','this','those','to','what','when','where','which','while','why']);
+  const titleLike=words.length>=2&&words.length<=10&&/^[A-Z\p{Lu}]/u.test(title)&&
+    !sentenceStarts.has(words[0]!.toLowerCase())&&
+    !/^(?:key points to recall|exam anchors?|conceptual study pathway)\b/i.test(title)&&
+    (words.slice(1).some(word=>/^\p{Lu}/u.test(word))||words.length<=4||title.includes(':'));
+  if(titleLike)return title;
   return null;
 }
 
