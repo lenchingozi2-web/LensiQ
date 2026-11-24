@@ -102,7 +102,8 @@ test('outage and rate limit select a different model with bounded tokens and a c
  assert.ok(calls[2].url.includes('gemini-3.6-flash'));
  assert.equal(calls[0].body.generationConfig.maxOutputTokens,1900);
  assert.equal(calls[1].body.response_format.json_schema.strict,true);
- assert.equal(calls[1].body.response_format.json_schema.schema.properties.beats.maxItems,5);
+ assert.equal(calls[1].body.response_format.json_schema.schema.properties.beats.maxItems,undefined);
+ assert.equal(calls[1].body.response_format.json_schema.schema.properties.beats.items.properties.notes.maxItems,undefined);
  assert.equal(calls[1].body.max_completion_tokens,1900);
 });
 
