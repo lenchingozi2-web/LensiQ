@@ -41,7 +41,7 @@ export function processSyllabus(documents: ParsedDocument[], legacy=false): Proc
     document.sections.forEach((section, sectionIndex) => {
       const label = labels[sectionIndex] || 'General concepts';
       const metadataSection = /^(?:source attribution|document information)$/i.test(section.heading.trim());
-      if (isTeachingMetadata(section.heading) && !metadataSection) return;
+      if (metadataSection || isTeachingMetadata(section.heading)) return;
       const topic = label.split(' · ')[0] || 'General concepts';
       // Keep clinical sub-sections distinct, but merge slide fragments that share
       // the same named concept or clinical sub-section.
@@ -52,7 +52,7 @@ export function processSyllabus(documents: ParsedDocument[], legacy=false): Proc
         const normalized = text.replace(/\s+/g, ' ').toLowerCase();
         const repeatedHeader = (counts.get(normalized) || 0) >= 4 &&
           /\b(?:university|department|faculty|college|school of|lecture notes|revision|mbbs|copyright)\b/i.test(text);
-        if (!text || (!metadataSection && isTeachingMetadata(text)) || repeatedHeader) continue;
+        if (!text || isTeachingMetadata(text) || repeatedHeader) continue;
         group.facts.push(fact);
       }
       if (group.facts.length) groups.set(key, group);

@@ -64,8 +64,9 @@ test('compiled exam PDFs keep credits and title-page furniture out of teachable 
  const visible=nodes.filter(n=>isTeachable(n.title,n.notes));
  assert.deepEqual(visible.map(n=>n.topic),['ACUTE INFLAMMATION','ACUTE INFLAMMATION','ACUTE INFLAMMATION','PNEUMONIA']);
  assert.deepEqual(visible.map(n=>n.title),['ACUTE INFLAMMATION · Foundations','ACUTE INFLAMMATION · Morphology','ACUTE INFLAMMATION · Clinical features','PNEUMONIA · Morphology']);
- assert.ok(nodes.some(n=>n.title==='Source attribution'&&n.notes.includes('Dr. Jane Example')));
- assert.ok(nodes.some(n=>n.title==='Document information'));
+ assert.ok(parsed.sections.some(section=>section.heading==='Source attribution'&&section.facts.some(fact=>fact.text.includes('Dr. Jane Example'))));
+ assert.ok(parsed.sections.some(section=>section.heading==='Document information'));
+ assert.ok(!nodes.some(n=>n.title==='Source attribution'||n.title==='Document information'));
  assert.ok(visible[1].notes.includes('0.5 mg'));
  assert.ok(visible[1].notes.includes('1. Neutrophils are recruited'));
  assert.equal(visible[1].citations[0].page_number,2);

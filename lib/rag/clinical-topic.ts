@@ -4,7 +4,7 @@
 const categories: Array<[string, RegExp]> = [
   ['Foundations', /^(?:definition|definitions|overview|introduction|anatomy|normal anatomy|background|epidemiology|incidence|prevalence)$/i],
   ['Classification', /^(?:classification|classifications|types|subtypes|staging|grading)$/i],
-  ['Etiology', /^(?:etiology|aetiology|causes|risk factors|etiology and risk factors|aetiology and risk factors)$/i],
+  ['Etiology', /^(?:etiology|aetiology|causes|risk factors|causes and risk factors|etiology and risk factors|aetiology and risk factors)$/i],
   ['Pathogenesis', /^(?:pathogenesis|pathophysiology|mechanism|mechanisms|mechanism of disease|mechanism of action)$/i],
   ['Morphology', /^(?:morphology|histology|gross appearance|gross morphology|gross pathology|microscopy|microscopic appearance|histopathology)$/i],
   ['Clinical features', /^(?:clinical features|clinical manifestations|clinical presentation|presentation|symptoms|signs|signs and symptoms)$/i],
@@ -51,7 +51,7 @@ export function isDocumentCoverHeading(value:string):boolean{
     /^(?:mb(?:bs)?\s+exam(?:ination)?\s+notes|lecture notes|study notes|revision notes|course notes|medical mastery notes|university of port harcourt)$/i.test(text);
 }
 export function normalizedClinicalHeading(value:string):string{
-  return value.trim().replace(/^#{1,5}\s+/,'').replace(/^(?:\d{1,3}\.){1,4}\s+/,'').replace(/[:：]\s*$/,'').trim();
+  return value.trim().replace(/^#{1,5}\s+/,'').replace(/^(?:(?:\d{1,3}\.){1,4}|\d{1,3})\s+/,'').replace(/[:：]\s*$/,'').trim();
 }
 export function clinicalSectionCategory(value:string):string|undefined{
   return categories.find(([,pattern])=>pattern.test(normalizedClinicalHeading(value)))?.[0];
