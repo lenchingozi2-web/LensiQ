@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { inPool, retryStep } from '../lib/rag/compile-pool.ts';
+import { parseRetryAfterMs } from '../lib/http/retry-after.ts';
 const read = p => readFile(new URL('../'+p, import.meta.url), 'utf8');
 
 test('Text and explanation routes retain auth and paid access without obsolete AI spend gates', async () => {
@@ -97,6 +99,41 @@ test('Google OAuth uses a single allow-list-compatible callback while preserving
   assert.ok(google.includes('lensiq_oauth_next'));
   assert.ok(callback.includes("request.cookies.get('lensiq_oauth_next')"));
   assert.ok(callback.includes("response.cookies.delete('lensiq_oauth_next')"));
+});
+
+test('compilation limits concurrency and honors Retry-After without retrying early',async()=>{
+  let active=0,maximum=0;
+  await inPool(Array.from({length:7},(_,index)=>index),async()=>{
+    active++;maximum=Math.max(maximum,active);await new Promise(resolve=>setTimeout(resolve,4));active--;
+  },5);
+  assert.equal(maximum,2);
+  assert.equal(parseRetryAfterMs('2',0),2000);
+  assert.equal(parseRetryAfterMs(new Date(3000).toUTCString(),0),3000);
+  assert.equal(parseRetryAfterMs('nonsense',0),null);
+  let attempts=0;const started=Date.now();
+  await retryStep(async()=>{if(++attempts===1)throw Object.assign(new Error('rate limited'),{retryAfterMs:15});return'tried';},new AbortController().signal,1);
+  assert.equal(attempts,2);assert.ok(Date.now()-started>=12);
+  let refused=0;
+  await assert.rejects(()=>retryStep(async()=>{refused++;throw Object.assign(new Error('wait longer'),{retryAfterMs:30_001});},new AbortController().signal,1),/wait longer/);
+  assert.equal(refused,1);
+});
+
+test('syllabus recompilation clears only its owned staging document and never enriches the whole outline',async()=>{
+  const compiler=await read('lib/rag/syllabus-compiler.ts');
+  const hook=await read('hooks/useHybridStudyRAG.ts');
+  const embeddings=await read('lib/rag/concept-embeddings.ts');
+  const orchestration=await read('app/api/live-class/orchestrate/route.ts');
+  assert.ok(compiler.indexOf("if(offset===0)")<compiler.indexOf('const prior='));
+  assert.match(compiler,/document_atomic_chunks'\)\.delete\(\)\.match\(scope\)\.eq\('document_id',doc\.id\)/);
+  assert.match(compiler,/syllabus_concept_nodes'\)\.delete\(\)\.match\(scope\)\.eq\('id',moduleId\)/);
+  assert.match(hook,/firstNodes\.slice\(0,2\)/);
+  assert.doesNotMatch(hook,/inPool\(nodes\.filter\(/);
+  assert.match(embeddings,/MAX_CHUNKS_PER_CONCEPT=2/);
+  assert.match(embeddings,/MAX_EMBED_TEXT_CHARS=1_200/);
+  assert.match(orchestration,/state\.nodes\[state\.cursor\+1\]/);
+  assert.match(orchestration,/compileConceptEmbeddings\(admin!/);
+  const cleanup=await read('lib/rag/ephemeral-cleanup.ts');
+  assert.match(cleanup,/study_document_extractions'\)\.delete\(\)\s*\.eq\('syllabus_id',syllabusId\)\.eq\('user_id',userId\)/);
 });
 
 

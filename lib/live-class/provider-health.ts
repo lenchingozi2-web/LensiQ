@@ -1,3 +1,5 @@
+import { parseRetryAfterMs } from '@/lib/http/retry-after';
+
 const MAX_COOLDOWN_MS = 5 * 60_000;
 
 async function client() {
@@ -22,7 +24,7 @@ export async function providerIsCoolingDown(providerModel: string): Promise<bool
   }
 }
 
-export async function recordProviderResult(providerModel: string, status: number | null): Promise<void> {
+export async function recordProviderResult(providerModel: string, status: number | null, retryAfter?:string|null): Promise<void> {
   try {
     const db = await client();
     if (!db) return;
@@ -30,7 +32,9 @@ export async function recordProviderResult(providerModel: string, status: number
       .select('failure_count').eq('provider_model', providerModel).maybeSingle();
     const transient = status === 429 || status === 503 || status === null;
     const failures = transient ? Math.min(Number(data?.failure_count || 0) + 1, 8) : 0;
-    const cooldown = transient ? Math.min(15_000 * (2 ** (failures - 1)), MAX_COOLDOWN_MS) : 0;
+    const backoff = Math.min(15_000 * (2 ** (failures - 1)), MAX_COOLDOWN_MS);
+    const requested = parseRetryAfterMs(retryAfter ?? null) ?? 0;
+    const cooldown = transient ? Math.max(backoff,requested) : 0;
     await db.from('live_class_provider_health').upsert({
       provider_model: providerModel,
       failure_count: failures,

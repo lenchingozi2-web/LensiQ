@@ -7,6 +7,7 @@ import { identifyStudyDocumentFile } from '@/lib/curriculum/file-types';
 
 import { isTeachable } from '@/lib/live-class/teaching-content';
 import { inPool, retryStep } from '@/lib/rag/compile-pool';
+import { parseRetryAfterMs } from '@/lib/http/retry-after';
 
 export const STUDY_RAG_MAX_FILES=25;
 export const STUDY_RAG_MAX_BYTES=70*1024*1024;
@@ -19,7 +20,12 @@ type SearchHit={id:string;text:string;source:{fileName:string;pageOrSlide:number
 async function postJson(url:string,value:Record<string,unknown>, signal?:AbortSignal){
   const response=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(value),cache:'no-store',signal});
   const payload=await response.json().catch(()=>null);
-  if(!response.ok)throw new Error(payload?.error||'Study material request failed');
+  if(!response.ok){
+    const error=new Error(payload?.error||'Study material request failed') as Error & {retryAfterMs?:number};
+    const retryAfter=parseRetryAfterMs(response.headers.get('retry-after'));
+    if(retryAfter!==null)error.retryAfterMs=retryAfter;
+    throw error;
+  }
   return payload;
 }
 const subscribeToHydration=()=>()=>{};
@@ -145,12 +151,15 @@ export function useHybridStudyRAG(){
       const step=(action:string,itemId?:string,offset?:number)=>retryStep(()=>postJson('/api/rag/compile-syllabus',
         {syllabusId:syllabus,action,itemId,offset},AbortSignal.any([signal,AbortSignal.timeout(52000)])),signal);
       const plan=await step('prepare');
-      let openingPrepared=false;
+      let openingPrepared=false,openingAttempted=false,openingPromise:Promise<void>|null=null;
       const prepareOpening=async(nodes:SyllabusTreeNode[])=>{
         const first=nodes.find(n=>n.node_type==='concept');
-        if(openingPrepared||!first)return;
+        if(openingPrepared||openingAttempted||!first)return;
+        openingAttempted=true;
         setProgress({stage:'Preparing first explanation',current:0,total:1,detail:first.title});
-        await step('lesson',first.id);signal.throwIfAborted();openingPrepared=true;setReady(true);
+        openingPromise=step('lesson',first.id).then(()=>{signal.throwIfAborted();openingPrepared=true;}).catch(failure=>{
+          signal.throwIfAborted();console.warn('First lesson will be retried after deterministic indexing',failure instanceof Error?failure.name:'');
+        });
       };
       const docs=plan.documents as {id:string;indexed:boolean}[];
       const completed=new Set<string>();let total=0;
@@ -172,7 +181,8 @@ export function useHybridStudyRAG(){
       // These nodes already contain the complete cited source and a usable visual.
       // Semantic vectors and optional Flash layout hints must never hold the classroom door.
       signal.throwIfAborted();await prepareOpening(firstNodes);
-      await inPool(firstNodes.slice(0,2),enrich);
+      // Only the first two concepts receive optional vectors before class entry.
+      await inPool(firstNodes.slice(0,2),enrich,1);
       let parsed=docs.filter(d=>d.indexed).length;
       // Publish source pages in lecture order. Parallel document parsing could
       // expose a later lecture before an earlier one, causing the tutor to
@@ -183,7 +193,6 @@ export function useHybridStudyRAG(){
         let offset=i===0?firstOffset:0;
         for(;;){
           const result=await step('parse',doc.id,offset);
-          await prepareOpening(await retryStep(()=>loadTree(syllabus),signal));
           if(result.done)break;
           offset=result.next;
         }
@@ -197,7 +206,11 @@ export function useHybridStudyRAG(){
       if(!nodes.length)throw new Error('The source contains no readable teaching content beyond headings or objectives.');
       await prepareOpening(nodes);
       total=nodes.length;
-      await inPool(nodes.filter(n=>!completed.has(n.id)),enrich);
+      // Publish the complete deterministic outline before waiting for a model.
+      if(openingPromise)await openingPromise;
+      if(!openingPrepared){openingAttempted=false;await prepareOpening(nodes);if(openingPromise)await openingPromise;}
+      if(!openingPrepared)throw new Error('The source index is ready, but the first explanation could not be prepared. Retry shortly.');
+      setReady(true);
       signal.throwIfAborted();setStatus('ready');
       setProgress({stage:'Source index ready',current:total,total});
       return syllabus;

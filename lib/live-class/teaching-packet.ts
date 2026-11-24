@@ -2,7 +2,7 @@ import { parseTeachingPacket, parseVisualCue, type TeachingPacket, type Citation
 
 type SourceFact={text?:string;sourceFile?:string;pageNumber?:number|null};
 export type ConceptRecord={
-  id:string;title:string;consolidated_notes:string;
+  id:string;title:string;generation?:number;consolidated_notes:string;
   key_details_json:unknown;source_citations_json:unknown;visual_spec_json:unknown;
 };
 export function makeTeachingPacket(sessionId:string,syllabusId:string,version:number,record:ConceptRecord):TeachingPacket {

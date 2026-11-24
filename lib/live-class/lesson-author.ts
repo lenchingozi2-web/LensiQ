@@ -4,6 +4,7 @@ import type { ConceptRecord } from './teaching-packet';
 import { parseTeachingPacket, type TeachingPacket, type VisualCue, type Citation } from './visual-protocol';
 import { teachingLines } from './teaching-content';
 import { matchCuratedClassVisual } from './model-matcher';
+import { parseRetryAfterMs } from '@/lib/http/retry-after';
 
 export type BankQuestion={id:string;question:string;answer:string};
 type AuthorOptions={env?:Record<string,string|undefined>;fetcher?:typeof fetch;question?:BankQuestion|null;schema?:Record<string,unknown>;maxTokens?:number;signal?:AbortSignal;sessionBrief?:Record<string,unknown>};
@@ -29,6 +30,7 @@ export async function generateTeachingJson(instruction:string,data:unknown,optio
   const messages=[{role:'system',content:instruction},{role:'user',content:JSON.stringify(data)}];
   const primary=env.GEMINI_SYLLABUS_MODEL||env.GEMINI_CLASS_BRAIN_MODEL||'gemini-3.8-flash';
   const mouth=env.GROQ_CLASS_MOUTH_MODEL||'openai/gpt-oss-20b';
+  let retryAfterMs=0;
   const candidates=[...(key?[{provider:'gemini',model:primary}]:[]),
     ...(env.GROQ_API_KEY?[{provider:'groq',model:mouth}]:[]),
     ...(key?[{provider:'gemini',model:env.GEMINI_FALLBACK_MODEL||'gemini-3.6-flash'}]:[]),
@@ -54,8 +56,11 @@ export async function generateTeachingJson(instruction:string,data:unknown,optio
       });
       if(!response.ok){
         console.warn('Lesson planner rejected request',{provider,model,status:response.status});
+        const retryAfter=response.headers.get('retry-after');
+        const wait=response.status===429||response.status===503?parseRetryAfterMs(retryAfter):null;
+        if(wait!==null)retryAfterMs=Math.max(retryAfterMs,wait);
         if(!options.fetcher){
-          try{const health=await import('./provider-health');await health.recordProviderResult(id,response.status);}catch{/* advisory only */}
+          try{const health=await import('./provider-health');await health.recordProviderResult(id,response.status,retryAfter);}catch{/* advisory only */}
         }
         await response.body?.cancel().catch(()=>undefined);continue;
       }
@@ -70,7 +75,9 @@ export async function generateTeachingJson(instruction:string,data:unknown,optio
       console.warn('Lesson planner unavailable',{provider,model,kind:error instanceof Error?error.name:'unknown'});
     }
   }
-  throw new Error('Teaching providers are busy. Your source is saved; retry the lesson shortly.');
+  const unavailable=new Error('Teaching providers are busy. Your source is saved; retry the lesson shortly.') as Error & {retryAfterMs?:number};
+  if(retryAfterMs)unavailable.retryAfterMs=retryAfterMs;
+  throw unavailable;
 }
 export function teachingSchema(questionId=''):Record<string,unknown>{
   return{type:'object',additionalProperties:false,required:['title','bank_question_id','beats'],properties:{
@@ -176,7 +183,10 @@ export async function authorTeachingPacket(sessionId:string,syllabusId:string,ve
     }catch(error){
       options.signal!.throwIfAborted();
       console.warn('Conversational teaching plan unavailable',{reason:error instanceof Error?error.message:'unknown'});
-      throw new Error('The tutor is preparing a verified explanation. Your lecture is saved.');
+      const unavailable=new Error('The tutor is preparing a verified explanation. Your lecture is saved.') as Error & {retryAfterMs?:number};
+      const retryAfterMs=(error as {retryAfterMs?:unknown})?.retryAfterMs;
+      if(typeof retryAfterMs==='number'&&retryAfterMs>0)unavailable.retryAfterMs=retryAfterMs;
+      throw unavailable;
     }
   }
   lesson.title=cleanClinicalTitle(lesson.title);
