@@ -166,7 +166,7 @@ test('Live Class normalizes Android document names and MIME before reserving or 
   const ts = await import('typescript');
   const source = await read('lib/curriculum/file-types.ts');
   const { outputText } = ts.default.transpileModule(source, { compilerOptions: { module: ts.default.ModuleKind.ESNext } });
-  const { normalizeStudyDocumentFile, LECTURE_FILE_ACCEPT } = await import('data:text/javascript;base64,' + Buffer.from(outputText).toString('base64'));
+  const { normalizeStudyDocumentFile, identifyStudyDocumentFile, LECTURE_FILE_ACCEPT } = await import('data:text/javascript;base64,' + Buffer.from(outputText).toString('base64'));
   const cases = [
     ['Pharmacology', 'application/pdf', 'Pharmacology.pdf', 'application/pdf'],
     ['Lecture.PDF', '', 'Lecture.PDF', 'application/pdf'],
@@ -190,6 +190,18 @@ test('Live Class normalizes Android document names and MIME before reserving or 
   assert.equal(normalizeStudyDocumentFile(new File(['x'], 'image.jpg', { type: 'image/jpeg' })), null);
   assert.equal(normalizeStudyDocumentFile(new File(['x'], 'unknown', { type: 'application/octet-stream' })), null);
   assert.ok(LECTURE_FILE_ACCEPT.includes('application/pdf'));
-  assert.match(await read('hooks/useHybridStudyRAG.ts'), /normalizeStudyDocumentFile\(original\)/);
+  for (const mime of ['', 'application/octet-stream', 'text/plain']) {
+    const raw = '%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF';
+    const original = new File([raw], 'Anath Path Notes', { type: mime, lastModified: 123 });
+    const detected = await identifyStudyDocumentFile(original);
+    assert.equal(detected.name, 'Anath Path Notes.pdf');
+    assert.equal(detected.type, 'application/pdf');
+    assert.equal(detected.lastModified, 123);
+    assert.equal(await detected.text(), raw);
+  }
+  assert.equal(await identifyStudyDocumentFile(new File(['not a PDF'], 'unknown', {type:'application/octet-stream'})), null);
+  assert.equal((await identifyStudyDocumentFile(new File(['%PDF-1.4'], 'Lecture.PDF', {type:''}))).name, 'Lecture.PDF');
+  assert.match(await read('hooks/useHybridStudyRAG.ts'), /await identifyStudyDocumentFile\(original\)/);
+  assert.match(await read('app/voice/page.tsx'), /connecting \|\| rag.selecting/);
   assert.match(await read('components/voice/StudySyllabusUploader.tsx'), /accept=\{LECTURE_FILE_ACCEPT\}/);
 });

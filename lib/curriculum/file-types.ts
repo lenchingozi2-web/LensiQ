@@ -62,3 +62,19 @@ export function normalizeStudyDocumentFile(file: File): File | null {
   if (name === file.name && type === file.type) return file;
   return new File([file], name, { type, lastModified: file.lastModified });
 }
+
+/** Android document providers may omit both the extension and a useful MIME type.
+ * Inspect only the first KiB; the full parser remains responsible for PDF validity.
+ */
+export async function identifyStudyDocumentFile(file: File): Promise<File | null> {
+  const header = new Uint8Array(await file.slice(0, 1024).arrayBuffer());
+  const marker = [0x25, 0x50, 0x44, 0x46, 0x2d]; // %PDF-
+  const isPdf = header.some((_, index) =>
+    index + marker.length <= header.length && marker.every((byte, offset) => header[index + offset] === byte));
+  if (isPdf) {
+    const trimmed = file.name.trim().replace(/[. ]+$/, '');
+    const name = /\.pdf$/i.test(trimmed) ? trimmed : (trimmed || 'lecture-material') + '.pdf';
+    return normalizeStudyDocumentFile(new File([file], name, { type: 'application/pdf', lastModified: file.lastModified }));
+  }
+  return normalizeStudyDocumentFile(file);
+}

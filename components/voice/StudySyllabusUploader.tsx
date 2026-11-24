@@ -10,10 +10,10 @@ export default function StudySyllabusUploader({rag,focusText,onFocusTextChange}:
 }){
   const bytes=rag.files.reduce((total,file)=>total+file.size,0);
   const onChoose=(event:ChangeEvent<HTMLInputElement>)=>{
-    rag.addFiles(Array.from(event.currentTarget.files||[]));
+    void rag.addFiles(Array.from(event.currentTarget.files||[]));
     event.currentTarget.value='';
   };
-  const working=rag.status==='uploading'||rag.status==='compiling';
+  const working=rag.selecting||rag.status==='uploading'||rag.status==='compiling';
   return <section className="space-y-3 rounded-2xl border border-white/10 bg-slate-950/45 p-4" aria-label="Master syllabus document upload">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h2 className="text-sm font-black text-white">Master student syllabus</h2>
@@ -21,7 +21,7 @@ export default function StudySyllabusUploader({rag,focusText,onFocusTextChange}:
     </div>
     <p className="text-xs leading-5 text-white/65">Upload your lecture notes once. LenxiQ builds a private, cited topic tree and keeps repeated facts only once. Raw files and compiled vectors are erased after your class.</p>
     <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-[#E8A23D]/50 bg-[#E8A23D]/[0.07] px-4 py-4 text-center text-sm font-bold text-[#FFE2A8] hover:bg-[#E8A23D]/15">
-      Choose PDF, DOC, DOCX, PPTX or TXT files
+      {rag.selecting?'Checking selected documents…':'Choose PDF, DOC, DOCX, PPTX or TXT files'}
       <input type="file" multiple accept={LECTURE_FILE_ACCEPT} onChange={onChoose}
         disabled={!rag.interactive||working||rag.ready||Boolean(rag.resumeId)} className="sr-only" aria-label="Choose study documents" />
     </label>
@@ -39,7 +39,7 @@ export default function StudySyllabusUploader({rag,focusText,onFocusTextChange}:
     </label>
     {(rag.files.length>0||rag.resumeId)&&(!rag.ready||rag.status==='error')&&<button type="button" disabled={working} onClick={()=>void rag.uploadAndCompile().catch(()=>undefined)}
       className="w-full rounded-xl bg-[#E8A23D] px-4 py-3 text-sm font-black text-[#172033] disabled:cursor-wait disabled:opacity-65">
-      {working?'Building your cited syllabus…':rag.resumeId?'Resume syllabus preparation':'Prepare lecture notes'}
+      {rag.selecting?'Checking selected documents…':working?'Building your cited syllabus…':rag.resumeId?'Resume syllabus preparation':'Prepare lecture notes'}
     </button>}
     {rag.progress&&<div aria-live="polite" className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs text-white/70">
       <span>{rag.progress.stage} · {rag.progress.detail||'Organizing concepts'}</span>

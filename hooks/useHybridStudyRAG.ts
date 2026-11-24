@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { uploadStudyDocumentToSignedUrl } from '@/lib/rag/signed-upload';
-import { normalizeStudyDocumentFile } from '@/lib/curriculum/file-types';
+import { identifyStudyDocumentFile } from '@/lib/curriculum/file-types';
 
 import { isTeachable } from '@/lib/live-class/teaching-content';
 import { inPool, retryStep } from '@/lib/rag/compile-pool';
@@ -26,6 +26,8 @@ const subscribeToHydration=()=>()=>{};
 export function useHybridStudyRAG(){
   const interactive=useSyncExternalStore(subscribeToHydration,()=>true,()=>false);
   const [files,setFiles]=useState<File[]>([]);
+  const [selecting,setSelecting]=useState(false);
+  const selectionRef=useRef(false);
   const [syllabusId,setSyllabusId]=useState<string|null>(null);
   const [tree,setTree]=useState<SyllabusTreeNode[]>([]);
   const [status,setStatus]=useState<'idle'|'uploading'|'compiling'|'ready'|'error'>('idle');
@@ -44,12 +46,14 @@ export function useHybridStudyRAG(){
     sessionStorage.removeItem('lensiq.pending-syllabus');setResumeId(null);setReady(false);setProgress(null);
     if(old)void postJson('/api/rag/cleanup',{action:'purge-syllabus',syllabusId:old}).catch(()=>undefined);
   },[]);
-  const addFiles=useCallback((incoming:File[])=>{
-    if(!incoming.length)return;
+  const addFiles=useCallback(async(incoming:File[])=>{
+    if(!incoming.length||selectionRef.current)return;
+    selectionRef.current=true;setSelecting(true);setError('');
+    try{
     const seen=new Set(files.map(file=>[file.name,file.size,file.lastModified].join(':')));
     const next=[...files];
     for(const original of incoming){
-      const file=normalizeStudyDocumentFile(original);
+      const file=await identifyStudyDocumentFile(original);
       if(!file){setError(`Cannot recognize "${original.name || 'this file'}". Select a PDF, DOC, DOCX, PPTX or TXT document.`);return;}
       if(!file.size){setError(`"${file.name}" is empty. Select the original document again.`);return;}
       const key=[file.name,file.size,file.lastModified].join(':');
@@ -59,6 +63,8 @@ export function useHybridStudyRAG(){
       setError('Up to 25 documents, combined maximum 70 MiB. Remove some files before uploading.');return;
     }
     invalidate();setFiles(next);setStatus('idle');setError('');setSyllabusId(null);setTree([]);
+    }catch{setError('Unable to read the selected document. Download it to your device and select it again.');}
+    finally{selectionRef.current=false;setSelecting(false);}
   },[files,invalidate]);
   const removeFile=useCallback((index:number)=>{invalidate();setFiles(current=>current.filter((_,i)=>i!==index));setStatus('idle');setSyllabusId(null);setTree([]);setError('');},[invalidate]);
   const clear=useCallback(()=>{jobRef.current?.abort();jobRef.current=null;busyRef.current=false;
@@ -212,5 +218,5 @@ export function useHybridStudyRAG(){
   const sweepStale=useCallback(async()=>{
     return postJson('/api/rag/cleanup',{action:'sweep'});
   },[]);
-  return {interactive,files,addFiles,removeFile,clear,discard,validate,syllabusId,tree,status,ready,progress,error,flagged,resumeId,lastSearch,uploadAndCompile,loadTree,search,sweepStale};
+  return {interactive,files,selecting,addFiles,removeFile,clear,discard,validate,syllabusId,tree,status,ready,progress,error,flagged,resumeId,lastSearch,uploadAndCompile,loadTree,search,sweepStale};
 }
