@@ -26,6 +26,7 @@ export type TeachingPacket = {
   title: string;
   visual_cues: VisualCue[];
   teaching_version?: number;
+  source_fallback?: boolean;
   practice_question_id?: string;
 };
 export type VisualSnapshot = { active_mode: VisualMode; concept_node_id: string; cue_index: number; whiteboard_snapshot: string[]; active_cue: VisualCue };
@@ -93,7 +94,7 @@ export function parseTeachingPacket(value: unknown): TeachingPacket {
   if (ids.size!==cues.length) throw new Error('Cue IDs must be unique');
   return {type:'TEACHING_PACKET',session_id:session,syllabus_id:syllabus,
     state_version:version,concept_node_id:concept,title:safeText(v.title,200),visual_cues:cues,
-    teaching_version:v.teaching_version===3?3:undefined,practice_question_id:safeText(v.practice_question_id,100)||undefined};
+    teaching_version:v.teaching_version===3?3:undefined,source_fallback:v.source_fallback===true?true:undefined,practice_question_id:safeText(v.practice_question_id,100)||undefined};
 }
 export function syncVisualStage(packet: TeachingPacket, index: number): SyncVisualStage {
   if (!Number.isSafeInteger(index)||index<0||index>=packet.visual_cues.length) throw new Error('Checkpoint outside packet');

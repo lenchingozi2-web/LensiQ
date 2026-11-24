@@ -119,3 +119,24 @@ test('a paragraph qualification is preserved across beats without mechanically r
  const lost=structuredClone(divided);lost.beats[1].speech='The kidney clears medicine and the dose is 5 mg at eGFR 15 mL/min. This is an illustrative explanation of how renal function connects to drug exposure.';
  assert.throws(()=>validateAuthoredLesson(lost,paragraph),/qualification/);
 });
+
+
+test('sentence punctuation does not turn a preserved number into a missing medical number',()=>{
+ const r={...record,consolidated_notes:'There are 2 major types.\nThe incidence is 1,000 cases.'};
+ const raw={title:'Types and incidence',beats:[{speech:'There are 2. The distinction matters because the categories help us organize and understand the clinical presentation.',notes:['Two categories'],fact_ids:[0]}, {speech:'The source describes 1000. Consider that value in the context of the population being discussed rather than assuming it applies everywhere.',notes:['Incidence in context'],fact_ids:[1]}]};
+ assert.equal(validateAuthoredLesson(raw,r).beats.length,2);
+ const changed=structuredClone(raw);changed.beats[0].speech=changed.beats[0].speech.replace('2.','2.5.');
+ assert.throws(()=>validateAuthoredLesson(changed,r),/number/);
+});
+test('persistent invalid generation cannot block entry or silently drop source doses',async()=>{
+ const rejected=structuredClone(lesson);rejected.beats[0].speech=rejected.beats[0].speech.replace('5 mg','a small dose');
+ const packet=await authorTeachingPacket(ids[0],ids[1],2,record,{env:{GEMINI_API_KEY:'fixture'},fetcher:async()=>new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(rejected)}]}}]}))});
+ assert.equal(packet.source_fallback,true);
+ assert.equal(packet.teaching_version,3);
+ const speech=packet.visual_cues.map(c=>c.spoken_text).join(' ');
+ assert.ok(speech.includes('5 mg'));assert.ok(speech.includes('Avoid use below eGFR 15 mL/min.'));
+ assert.equal(packet.visual_cues.at(-1).mode,'whiteboard');
+ assert.ok(packet.visual_cues.every(c=>c.citations[0].file_name==='Renal.pdf'));
+ const again=await authorTeachingPacket(ids[0],ids[1],3,{...record,visual_spec_json:{authored:cachedLesson(packet,record)}},{env:{},fetcher:()=>assert.fail('Opening recovery must be reused')});
+ assert.equal(again.source_fallback,true);assert.deepEqual(again.visual_cues,packet.visual_cues);
+});
