@@ -10,12 +10,13 @@ export async function planVisualTimeline(
   if(!key)return null;
   const fetcher=options.fetcher??fetch;
   try{
-    const response=await fetcher('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',{
+    const model=env.GEMINI_CLASS_BRAIN_MODEL||env.GEMINI_SYLLABUS_MODEL||'gemini-3.8-flash';
+    const response=await fetcher('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{
       method:'POST',cache:'no-store',signal:AbortSignal.timeout(4500),
       headers:{'content-type':'application/json','x-goog-api-key':key},
       body:JSON.stringify({contents:[{role:'user',parts:[{text:PROMPT+'\nTitle:'+title.slice(0,180)+'\nSource evidence:\n'+source.slice(0,2900)
         +'\nAllowed references:'+JSON.stringify(citations.slice(0,12))+'\nApproved assets:'+JSON.stringify(approvedAssetUrls.slice(0,12))}]}],
-        generationConfig:{responseMimeType:'application/json',maxOutputTokens:1100,temperature:0.1,thinkingConfig:{thinkingBudget:0}}}),
+        generationConfig:{responseMimeType:'application/json',maxOutputTokens:1100,temperature:0.1,thinkingConfig:{thinkingLevel:'LOW'}}}),
     });
     if(!response.ok)return null;
     const body=await response.json() as {candidates?:Array<{content?:{parts?:Array<{text?:string}>}}>} ;

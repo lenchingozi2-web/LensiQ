@@ -30,7 +30,8 @@ export async function purgeSyllabusMaterials(admin:SupabaseClient,userId:string,
     const {error}=await admin.storage.from(BUCKET).remove(paths.slice(i,i+50));
     errorIf(error,'Delete class source binaries');
   }
-  const {error:lessonError}=await admin.from('live_class_lessons').update({phase:'COMPLETED',visual_stack_json:[],nodes_json:[],current_node_id:null})
+  const {error:lessonError}=await admin.from('live_class_lessons').update({phase:'COMPLETED',visual_stack_json:[],nodes_json:[],current_node_id:null,
+    session_memory_json:{recent_questions:[],taught_titles:[]},delivered_checkpoint_json:null})
     .eq('syllabus_id',syllabusId).eq('user_id',userId);
   errorIf(lessonError,'Clear saved lesson checkpoints');
   const {error:chunksError}=await admin.from('document_atomic_chunks').delete()
@@ -69,6 +70,9 @@ export async function purgeRawFilesAfterCompile(admin:SupabaseClient,userId:stri
     const {error:removeError}=await admin.storage.from(BUCKET).remove(paths.slice(i,i+50));
     errorIf(removeError,'Delete compiled source file');
   }
+  const {error:extractionError}=await admin.from('study_document_extractions').delete()
+    .eq('syllabus_id',syllabusId).eq('user_id',userId);
+  errorIf(extractionError,'Delete compiled source extraction cache');
   for(const doc of docs||[]){
     const {error:updateError}=await admin.from('study_documents').update({status:'removed',actual_size_bytes:0})
       .eq('id',doc.id).eq('user_id',userId);

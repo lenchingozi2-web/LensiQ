@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { parseUploadedDocument } from './ingestor';
+import { extractUploadedDocumentText, parseExtractedDocumentText } from './ingestor';
 import { processSyllabus } from './process-syllabus';
 import { embedStudyText } from './embeddings';
 import {authorTeachingPacket,cachedLesson} from '@/lib/live-class/lesson-author';
@@ -45,16 +45,20 @@ export async function compileStep(userId:string, syllabusId:string, action:strin
     const row=await db.from('syllabus_concept_nodes').select('title,visual_spec_json').match(scope).eq('id',itemId).eq('node_type','concept').single();
     check(row.error);
     if(row.data?.visual_spec_json?.compiled)return {done:true,lexical:row.data.visual_spec_json.lexical};
-    const result=await db.from('document_atomic_chunks').select('id,chunk_text').match(scope).eq('concept_node_id',itemId).single();
+    const result=await db.from('document_atomic_chunks').select('id,chunk_text').match(scope).eq('concept_node_id',itemId).order('id').limit(24);
     check(result.error);
-    const chunk=result.data!;
-    const [vector,layout]=await Promise.all([embedStudyText(chunk.chunk_text,{taskType:'RETRIEVAL_DOCUMENT',timeoutMs:2200}),Promise.resolve(/→|->/.test(chunk.chunk_text)?'flow':chunk.chunk_text.includes('\t')?'comparison':'notes')]);
-    if(vector.values)check((await db.from('document_atomic_chunks').update({embedding:'['+vector.values.join(',')+']'}).match(scope).eq('id',chunk.id)).error);
+    const chunks=result.data||[];
+    const layout=/→|->/.test(chunks.map(chunk=>chunk.chunk_text).join('\n'))?'flow':chunks.some(chunk=>chunk.chunk_text.includes('\t'))?'comparison':'notes';
+    let lexical=true;
+    for(const chunk of chunks){
+      const vector=await embedStudyText(chunk.chunk_text,{taskType:'RETRIEVAL_DOCUMENT',timeoutMs:2200});
+      if(vector.values){lexical=false;check((await db.from('document_atomic_chunks').update({embedding:'['+vector.values.join(',')+']'}).match(scope).eq('id',chunk.id)).error);}
+    }
     const latest=await db.from('syllabus_concept_nodes').select('visual_spec_json').match(scope).eq('id',itemId).single();
     check(latest.error);
-    const spec={...latest.data!.visual_spec_json,layout,compiled:true,lexical:!vector.values};
+    const spec={...latest.data!.visual_spec_json,layout,compiled:true,lexical};
     check((await db.from('syllabus_concept_nodes').update({visual_spec_json:spec}).match(scope).eq('id',itemId)).error);
-    return {done:true,lexical:!vector.values};
+    return {done:true,lexical};
   }
   const documents=await db.from('study_documents').select('id,status,original_name,storage_path')
     .eq('syllabus_id',syllabusId).eq('user_id',userId).order('created_at').order('id');
@@ -74,15 +78,26 @@ export async function compileStep(userId:string, syllabusId:string, action:strin
   const index=docs.findIndex(d=>d.id===itemId), doc=docs[index];
   if(action!=='parse'||!doc)throw new Error('Unknown document');
   if(doc.status==='indexed')return {done:true};
-  const download=await db.storage.from('study-documents').download(doc.storage_path);
-  check(download.error);
   const id=(key:string)=>stableId(syllabusId+'/'+generation+'/'+doc.id+'/'+key);
   const moduleId=id('module');
   const prior=await db.from('syllabus_concept_nodes').select('visual_spec_json').match(scope).eq('id',moduleId).maybeSingle();
   check(prior.error);
   // Documents already partly indexed retain identical node offsets.
   const legacy=Boolean(prior.data&&prior.data.visual_spec_json?.parserVersion!==2);
-  const parsed=await parseUploadedDocument(new Uint8Array(await download.data!.arrayBuffer()),doc.id,doc.original_name,legacy);
+  const cached=await db.from('study_document_extractions').select('parser_version,extraction_json')
+    .eq('document_id',doc.id).eq('user_id',userId).eq('syllabus_id',syllabusId).maybeSingle();
+  check(cached.error);
+  let extracted=typeof cached.data?.extraction_json?.text==='string'&&cached.data?.parser_version===1
+    ?cached.data.extraction_json.text:'';
+  if(!extracted){
+    const download=await db.storage.from('study-documents').download(doc.storage_path);
+    check(download.error);
+    extracted=await extractUploadedDocumentText(new Uint8Array(await download.data!.arrayBuffer()),doc.original_name);
+    const saved=await db.from('study_document_extractions').upsert({document_id:doc.id,syllabus_id:syllabusId,user_id:userId,
+      parser_version:1,extraction_json:{version:1,text:extracted},extracted_at:new Date().toISOString()},{onConflict:'document_id'});
+    check(saved.error);
+  }
+  const parsed=parseExtractedDocumentText(extracted,doc.id,doc.original_name,legacy);
   const nodes=processSyllabus([parsed],legacy);
   if(!nodes.length || offset>=nodes.length)throw new Error('No readable material at this document position');
   const limit=offset===0?2:PAGE;
@@ -100,14 +115,15 @@ export async function compileStep(userId:string, syllabusId:string, action:strin
       fingerprint:createHash('sha256').update(n.title+'\n'+n.notes).digest('hex')}}));
   check((await db.from('syllabus_concept_nodes').upsert(concepts,{ignoreDuplicates:true})).error);
   signal.throwIfAborted();
-  const chunks=page.map((n,i)=>({...scope,id:id('chunk/'+(offset+i)),document_id:doc.id,concept_node_id:concepts[i].id,
-    source_file:doc.original_name,page_number:n.chunk.pageNumber,chunk_text:n.chunk.text}));
+  const chunks=page.flatMap((n,i)=>n.chunks.map((chunk,j)=>({...scope,id:id('chunk/'+(offset+i)+'/'+j),document_id:doc.id,concept_node_id:concepts[i].id,
+    source_file:chunk.sourceFile,page_number:chunk.pageNumber,chunk_text:chunk.text})));
   check((await db.from('document_atomic_chunks').upsert(chunks,{ignoreDuplicates:true})).error);
   const next=offset+page.length;
   if(next<nodes.length)return {done:false,next,ids:concepts.map(n=>n.id)};
   const counted=await db.from('document_atomic_chunks').select('id',{head:true,count:'exact'}).match(scope).eq('document_id',doc.id);
   check(counted.error);
-  if(counted.count!==nodes.length)throw new Error('Document checkpoint missing. Resume parsing from the first page.');
+  const expectedChunks=nodes.reduce((count,node)=>count+node.chunks.length,0);
+  if(counted.count!==expectedChunks)throw new Error('Document checkpoint missing. Resume parsing from the first page.');
   check((await db.from('study_documents').update({status:'indexed'}).eq('id',doc.id).eq('user_id',userId).eq('status','uploaded')).error);
   return {done:true,ids:concepts.map(n=>n.id)};
 }

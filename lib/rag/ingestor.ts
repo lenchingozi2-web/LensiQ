@@ -73,13 +73,22 @@ export function parseDocumentSections(text: string, documentId: string, fileName
   return { sections, characters: text.length, source: fileName };
 }
 
-export async function parseUploadedDocument(bytes: Uint8Array, documentId: string, fileName: string, legacy=false): Promise<ParsedDocument> {
+export async function extractUploadedDocumentText(bytes: Uint8Array, fileName: string): Promise<string> {
   const extension = getLectureFileExtension(fileName);
   if (!extension) throw new Error('Unsupported lecture document');
   const file = new File([new Uint8Array(bytes)], fileName, { type: normalizeLectureMimeType(fileName) });
   const extracted = await extractLectureText(file, { requireCompleteText: true });
   if (!extracted.trim()) throw new Error('The document contained no readable content');
+  return extracted;
+}
+
+export function parseExtractedDocumentText(extracted: string, documentId: string, fileName: string, legacy=false): ParsedDocument {
+  if (!extracted.trim()) throw new Error('The document contained no readable content');
   return parseDocumentSections(extracted, documentId, fileName, legacy);
+}
+
+export async function parseUploadedDocument(bytes: Uint8Array, documentId: string, fileName: string, legacy=false): Promise<ParsedDocument> {
+  return parseExtractedDocumentText(await extractUploadedDocumentText(bytes, fileName), documentId, fileName, legacy);
 }
 
 export type AtomicChunk = { text: string; sourceFile: string; pageNumber: number | null; documentId: string };

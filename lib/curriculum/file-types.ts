@@ -67,7 +67,7 @@ export function normalizeStudyDocumentFile(file: File): File | null {
  * Inspect only the first KiB; the full parser remains responsible for PDF validity.
  */
 export async function identifyStudyDocumentFile(file: File): Promise<File | null> {
-  const header = new Uint8Array(await file.slice(0, 1024).arrayBuffer());
+  const header = new Uint8Array(await file.slice(0, 262144).arrayBuffer());
   const marker = [0x25, 0x50, 0x44, 0x46, 0x2d]; // %PDF-
   const isPdf = header.some((_, index) =>
     index + marker.length <= header.length && marker.every((byte, offset) => header[index + offset] === byte));
@@ -75,6 +75,18 @@ export async function identifyStudyDocumentFile(file: File): Promise<File | null
     const trimmed = file.name.trim().replace(/[. ]+$/, '');
     const name = /\.pdf$/i.test(trimmed) ? trimmed : (trimmed || 'lecture-material') + '.pdf';
     return normalizeStudyDocumentFile(new File([file], name, { type: 'application/pdf', lastModified: file.lastModified }));
+  }
+  // Android providers often report an extensionless OOXML file as application/octet-stream.
+  // The local ZIP member names are present near the start of normal DOCX/PPTX packages.
+  const bytes = header;
+  const isOle = bytes.length >= 8 && [0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1].every((byte,index)=>bytes[index]===byte);
+  const memberNames = new TextDecoder('latin1').decode(bytes);
+  const detected = isOle ? 'doc' : memberNames.includes('word/document.xml') ? 'docx'
+    : memberNames.includes('ppt/presentation.xml') ? 'pptx' : '';
+  if (detected) {
+    const trimmed = file.name.trim().replace(/[. ]+$/, '');
+    const name = new RegExp(`\\.${detected}$`, 'i').test(trimmed) ? trimmed : `${trimmed || 'lecture-material'}.${detected}`;
+    return new File([file], name, { type: MIME_BY_EXTENSION[detected], lastModified: file.lastModified });
   }
   return normalizeStudyDocumentFile(file);
 }

@@ -69,7 +69,9 @@ class WorkerTests(IsolatedAsyncioTestCase):
         messages=[c.args[0] for c in tutor.publish.call_args_list]
         self.assertEqual([m['cue_index'] for m in messages if m['type']=='SYNC_VISUAL_STAGE'],[0,1])
         self.assertEqual(messages[-1]['type'],'LESSON_COMPLETED')
-        tutor.api.assert_awaited_once_with('/api/live-class/orchestrate',{'action':'node_complete','stateVersion':2,'conceptNodeId':'concept'})
+        calls=[call.args[1]['action'] for call in tutor.api.await_args_list]
+        self.assertEqual(calls,['checkpoint','checkpoint','node_complete'])
+        self.assertEqual(tutor.api.await_args_list[-1].args[1],{'action':'node_complete','stateVersion':2,'conceptNodeId':'concept'})
 
     async def test_returning_to_browser_cancels_server_expiry(self):
         tutor=self.tutor()

@@ -40,10 +40,13 @@ export async function extractLectureText(file:File,options:{requireCompleteText?
   const parsed=await pdfParse(new Uint8Array(buffer),{pagerender:async(page:{pageNumber?:number;getTextContent:(options:Record<string,boolean>)=>Promise<{items:PdfItem[]}>})=>{
    const content=await page.getTextContent({normalizeWhitespace:false,disableCombineTextItems:false});pageNumber++;const actualPage=page.pageNumber??pageNumber;rendered.add(actualPage);let text='',last:PdfItem|undefined;
    for(const item of content.items){if(!item.str)continue;if(last){const newLine=Math.abs(item.transform[5]-last.transform[5])>2;const gap=item.transform[4]-(last.transform[4]+(last.width??0));text+=newLine?'\n':gap>15?'\t':gap>1?' ':'';}text+=item.str;last=item;}
-   if(!text.trim())unreadable.push(actualPage);return `[Page ${actualPage}]\n`+text;
+   if(!text.trim())unreadable.push(actualPage);return `[Page ${actualPage}]\n`+(text.trim()?text:'[Image-only visual page]');
   }});
   for(let n=1;n<=parsed.numpages;n++)if(!rendered.has(n))unreadable.push(n);
-  if(options.requireCompleteText&&(unreadable.length||parsed.numrender<parsed.numpages))throw new Error('Lecture contains pages without readable text: '+unreadable.join(', ')+'. Use a searchable/OCR PDF so the tutor does not skip those pages.');
+  // Individual image-only slides are common in medical decks. Preserve their page
+  // markers so text from the rest of the file remains usable; fail only when the
+  // entire PDF has no extractable text rather than discarding a mixed deck.
+  if(options.requireCompleteText&&unreadable.length>=parsed.numpages)throw new Error('Lecture contains no pages with readable text. Use a searchable/OCR PDF or add text to the image-only deck.');
   return clampText(parsed.text);
  }
  if(extension==='doc')return extractLegacyWord(buffer);

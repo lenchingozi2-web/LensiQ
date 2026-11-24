@@ -1,7 +1,7 @@
 export type TutorTask='teach'|'barge_in';
 export type ModelSelection={model:string;provider:'groq'|'gemini'};
 export function selectModelForTask(task:TutorTask,env:Record<string,string|undefined>=process.env):ModelSelection{
-  return {provider:'groq',model:(task==='barge_in'?env.GROQ_CLASS_ANSWER_MODEL:undefined)||env.GROQ_CLASS_MOUTH_MODEL||'qwen/qwen3.8-27b'};
+  return {provider:'groq',model:(task==='barge_in'?env.GROQ_CLASS_ANSWER_MODEL:undefined)||env.GROQ_CLASS_MOUTH_MODEL||'openai/gpt-oss-20b'};
 }
 export type RouterOptions={env?:Record<string,string|undefined>;fetcher?:typeof fetch;firstTokenMs?:number};
 export type RoutedSpeech={provider:'groq'|'gemini';model:string;text:string;fallback:boolean};
