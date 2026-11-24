@@ -9,6 +9,7 @@ import { authorTeachingPacket, cachedLesson } from '@/lib/live-class/lesson-auth
 import { isTeachable } from '@/lib/live-class/teaching-content';
 import { relatedBankQuestion } from '@/lib/live-class/bank-question';
 import { purgeSessionMaterialsOnEnd } from '@/lib/rag/ephemeral-cleanup';
+import { compileConceptEmbeddings } from '@/lib/rag/concept-embeddings';
 
 import type { VisualSnapshot } from '@/lib/live-class/visual-protocol';
 
@@ -97,10 +98,12 @@ export async function POST(request:Request){
     async function packetFor(state:LessonState){
       if(state.phase!=='TEACHING_NODE'||!state.current_node_id)return null;
       const {data,error}=await admin!.from('syllabus_concept_nodes')
-        .select('id,title,consolidated_notes,key_details_json,source_citations_json,visual_spec_json')
+        .select('id,title,generation,consolidated_notes,key_details_json,source_citations_json,visual_spec_json')
         .eq('id',state.current_node_id).eq('syllabus_id',record.syllabus_id).eq('user_id',user!.id).single();
       if(error||!data)throw new Error('Concept lookup failed');
       const concept=data as ConceptRecord;
+      const vectors=compileConceptEmbeddings(admin!,{syllabus_id:record.syllabus_id,user_id:user!.id,generation:Number(concept.generation)},concept.id)
+        .catch(error=>console.warn('Optional concept vectors unavailable',error instanceof Error?error.name:'unknown'));
       const question=state.cursor%3===1?await relatedBankQuestion(admin!,session?.course_name||'',concept.title):null;
       const ids=state.nodes.slice(Math.max(0,state.cursor-12),state.cursor);
       const prior=ids.length?await admin!.from('syllabus_concept_nodes').select('title').in('id',ids).eq('syllabus_id',record.syllabus_id).eq('user_id',user!.id):{data:[] as {title:string}[]};
@@ -110,6 +113,7 @@ export async function POST(request:Request){
         current_concept:concept.title,upcoming_concept:state.nodes[state.cursor+1]||null,
         recent_questions:Array.isArray(memory.recent_questions)?memory.recent_questions.slice(-5):[],
       }});
+      await vectors;
       const spec=(concept.visual_spec_json||{}) as Record<string,unknown>;
       if(JSON.stringify(spec.authored)!==JSON.stringify(cachedLesson(packet,concept,question))){
         const saved=await admin!.from('syllabus_concept_nodes').update({visual_spec_json:{...spec,authored:cachedLesson(packet,concept,question)}})
@@ -216,6 +220,8 @@ export async function POST(request:Request){
     return NextResponse.json({ok:true,state:next,packet,lookahead,restoredVisual:restored,purge});
   }catch(error){
     console.error('Live Class orchestration failed',error instanceof Error?error.message:'unknown');
-    return NextResponse.json({error:'The tutor could not prepare this explanation. Your lecture is saved; retry the lesson.',retryable:true},{status:503});
+    const retryAfterMs=(error as {retryAfterMs?:unknown})?.retryAfterMs;
+    const headers=typeof retryAfterMs==='number'&&retryAfterMs>0?{'retry-after':String(Math.ceil(retryAfterMs/1000))}:undefined;
+    return NextResponse.json({error:'The tutor could not prepare this explanation. Your lecture is saved; retry the lesson.',retryable:true},{status:503,headers});
   }
 }

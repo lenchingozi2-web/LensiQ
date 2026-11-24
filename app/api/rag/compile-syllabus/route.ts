@@ -34,6 +34,8 @@ export async function POST(request: Request) {
     return Response.json(await compileStep(user.id, syllabusId, action, itemId, offset, AbortSignal.any([request.signal,AbortSignal.timeout(42000)])));
   } catch (error) {
     console.warn('Syllabus preparation failed',{action,reason:error instanceof Error?error.message:'unknown'});
-    return Response.json({error:error instanceof Error ? error.message : 'Compilation step failed'},{status:503});
+    const retryAfterMs=(error as {retryAfterMs?:unknown})?.retryAfterMs;
+    const headers=typeof retryAfterMs==='number'&&retryAfterMs>0?{'retry-after':String(Math.ceil(retryAfterMs/1000))}:undefined;
+    return Response.json({error:error instanceof Error ? error.message : 'Compilation step failed'},{status:503,headers});
   }
 }

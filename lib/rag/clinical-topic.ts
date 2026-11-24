@@ -46,8 +46,8 @@ export function isLectureCredit(value:string):boolean{
     /^(?=.{3,100}$)[A-Z][A-Za-z'’-]+(?:[., ]+[A-Z][A-Za-z'’-]+){0,3}[,\s]+(?:MBBS|MBChB|FWACP|FMCPath|PhD|FMCP|FRCPath|FWACS)(?:[.,\s]+(?:MBBS|MBChB|FWACP|FMCPath|PhD|FMCP|FRCPath|FWACS))*[.]?$/i.test(text);
 }
 export function isDocumentCoverHeading(value:string):boolean{
-  const text=value.trim().replace(/^#{1,5}\s+/,'');
-  return /^(?:mb(?:bs)?\s+exam(?:ination)?\s*[/&|–-]\s*rebuilt notes|rebuilt notes|lecture-based study notes(?:\s*·.*)?|course revision|main concepts and examinable details.*)$/i.test(text)||/^(?:anatomical pathology|anatomic pathology|chemical pathology|pharmacology|medical microbiology|microbiology|haematology|hematology|immunology)(?:\s*[/&|–-]\s*(?:immunology|haematology|hematology|mb(?:bs)?\s+exam(?:ination)?\s+notes|lecture notes|study notes|revision notes))*$/i.test(text)||
+  const text=value.trim().replace(/^#{1,5}\s+/, '');
+  return /^(?:mb(?:bs)?\s+exam(?:ination)?\s*[/&|–-]\s*rebuilt notes|rebuilt notes|lecture-based study notes(?:\s*·.*)?|lecture-based,? concept[- ]organi[sz]ed revision copy|course revision|main concepts and examinable details.*|foundation to clinical application|editing notes?|source lectures?|selected visual references?)$/i.test(text)||/^(?:anatomical pathology|anatomic pathology|chemical pathology|pharmacology|medical microbiology|microbiology|haematology|hematology|immunology)(?:\s*[/&|–-]\s*(?:immunology|haematology|hematology|mb(?:bs)?\s+exam(?:ination)?\s+notes|lecture notes|study notes|revision notes))*$/i.test(text)||
     /^(?:mb(?:bs)?\s+exam(?:ination)?\s+notes|lecture notes|study notes|revision notes|course notes|medical mastery notes|university of port harcourt)$/i.test(text);
 }
 export function normalizedClinicalHeading(value:string):string{

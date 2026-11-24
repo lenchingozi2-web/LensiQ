@@ -69,9 +69,14 @@ jobs:
           Path('worker/lensiq-voice-tutor/livekit.toml').write_text(text)
           print('Validated production worker ID, LiveKit host and Study Hub Supabase project')
           PY
+      - name: Probe configured lesson providers before worker deployment
+        timeout-minutes: 2
+        run: python3 scripts/probe-live-providers.py
       - name: Check Python worker syntax
         run: |
+          python3 -m unittest scripts.test_probe_live_providers -v
           python3 -m py_compile worker/lensiq-voice-tutor/agent.py
+          python3 -m py_compile scripts/probe-live-providers.py scripts/verify-syllabus-class.py
           python3 -m venv "$RUNNER_TEMP/worker-tests"
           "$RUNNER_TEMP/worker-tests/bin/pip" install --disable-pip-version-check -r worker/lensiq-voice-tutor/requirements.txt
           "$RUNNER_TEMP/worker-tests/bin/python" -m unittest discover -s worker/lensiq-voice-tutor -p 'test_*.py' -v
@@ -119,8 +124,15 @@ jobs:
           retention-days: 7
 
       - name: Verify production syllabus progression and session cleanup
-        timeout-minutes: 5
+        timeout-minutes: 15
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq espeak-ng
           "$RUNNER_TEMP/tutor-probe/bin/python" scripts/verify-syllabus-class.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: medical-notes-classroom-validation
+          path: syllabus-class-validation.json
+          if-no-files-found: ignore
+          retention-days: 7

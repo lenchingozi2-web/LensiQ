@@ -12,11 +12,20 @@ globalThis.__clinicalParserTest={
   getLectureFileExtension:()=>'.pdf',
   normalizeLectureMimeType:()=> 'application/pdf',
   extractLectureText:async()=>'',
-  chunkFacts(facts){
-    if(!facts.length)return [];
-    return [{text:facts.map(f=>f.text).join('\n'),sourceFile:facts[0].sourceFile,pageNumber:facts[0].pageNumber,documentId:facts[0].documentId}];
+  chunkFacts(facts,maxCharacters=1500){
+    const chunks=[];let pending=null;
+    const flush=()=>{if(pending)chunks.push(pending);pending=null;};
+    for(const fact of facts){
+      for(let offset=0;offset<fact.text.length;offset+=maxCharacters){
+        const text=fact.text.slice(offset,offset+maxCharacters);
+        if(pending&&(pending.documentId!==fact.documentId||pending.pageNumber!==fact.pageNumber||pending.text.length+text.length+1>maxCharacters))flush();
+        if(!pending)pending={text,sourceFile:fact.sourceFile,pageNumber:fact.pageNumber,documentId:fact.documentId};
+        else pending.text+='\n'+text;
+      }
+    }
+    flush();return chunks;
   },
-  compileCanonicalConcept(title,facts){return {title,facts,sourceFacts:facts,notes:facts.map(f=>f.text).join('\n'),citations:[]};},
+  compileCanonicalConcept(title,facts){return {title,facts,sourceFacts:facts,notes:facts.map(f=>f.text).join('\n'),citations:[...new Map(facts.map(f=>[`${f.sourceFile}:${f.pageNumber}:${f.documentId}`,{file_name:f.sourceFile,page_number:f.pageNumber,document_id:f.documentId}])).values()]};},
   ...teaching,
 };
 const ingestorSource=(await read('../lib/rag/ingestor.ts')).replace(/^import .*;\n/gm,'');
@@ -56,4 +65,28 @@ test('title-style pathology headings are parsed as separate teachable concepts, 
 test('numbered clinical headings and common etiology subsections normalize consistently',()=>{
   assert.equal(clinical.normalizedClinicalHeading('01 Cellular adaptation'),'Cellular adaptation');
   assert.equal(clinical.clinicalSectionCategory('Causes and risk factors'),'Etiology');
+});
+
+test('pathology-note cover and editorial headings are metadata, not classroom concepts',()=>{
+  for(const title of ['Editing note','Source lectures','Lecture-based, concept-organised revision copy','Foundation to clinical application']){
+    assert.equal(clinical.isDocumentCoverHeading(title),true,title);
+    assert.equal(teaching.isTeachingMetadata(title),true,title);
+  }
+  assert.equal(teaching.isTeachingMetadata('System pathology: heart, lung, gut, kidney, CNS and reproductive organs'),true);
+});
+
+test('large deterministic headings split into bounded concepts without losing cited source chunks',()=>{
+  const facts=Array.from({length:10},(_,index)=>({
+    text:`Fact ${index+1}: `+'clinical evidence '.repeat(55),sourceFile:'AnathPathNotes.pdf',pageNumber:index+1,documentId:'doc-1',
+  }));
+  const concepts=processor.processSyllabus([{source:'AnathPathNotes.pdf',characters:11_000,sections:[{heading:'Cell injury',module:'General',topic:'Overview',facts}]}]);
+  assert.deepEqual(concepts.map(concept=>concept.chunks.length),[4,4,2]);
+  assert.deepEqual(concepts.map(concept=>concept.title),['Cell injury · Part 1','Cell injury · Part 2','Cell injury · Part 3']);
+  assert.equal(concepts.flatMap(concept=>concept.chunks).length,10);
+  for(const concept of concepts){
+    assert.ok(concept.notes.length<=4*1150+10);
+    assert.equal(concept.citations.length,concept.chunks.length);
+  }
+  const retained=concepts.flatMap(concept=>concept.facts).map(fact=>fact.text).join('\n');
+  for(const fact of facts)assert.ok(retained.includes(fact.text));
 });

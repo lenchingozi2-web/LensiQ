@@ -37,6 +37,9 @@ export async function purgeSyllabusMaterials(admin:SupabaseClient,userId:string,
   const {error:chunksError}=await admin.from('document_atomic_chunks').delete()
     .eq('syllabus_id',syllabusId).eq('user_id',userId);
   errorIf(chunksError,'Delete session vectors');
+  const {error:extractionError}=await admin.from('study_document_extractions').delete()
+    .eq('syllabus_id',syllabusId).eq('user_id',userId);
+  errorIf(extractionError,'Delete cached source extractions');
   const {error:nodesError}=await admin.from('syllabus_concept_nodes').delete()
     .eq('syllabus_id',syllabusId).eq('user_id',userId);
   errorIf(nodesError,'Delete large compiled notes');

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { extractUploadedDocumentText, parseExtractedDocumentText } from './ingestor';
 import { processSyllabus } from './process-syllabus';
-import { embedStudyText } from './embeddings';
+import { compileConceptEmbeddings } from './concept-embeddings';
 import {authorTeachingPacket,cachedLesson} from '@/lib/live-class/lesson-author';
 import { matchCuratedClassVisual } from '@/lib/live-class/model-matcher';
 
@@ -42,23 +42,7 @@ export async function compileStep(userId:string, syllabusId:string, action:strin
   }
   if(action==='node'){
     if(!['ready','compiling'].includes(syllabus.status))throw new Error('Source index is not ready');
-    const row=await db.from('syllabus_concept_nodes').select('title,visual_spec_json').match(scope).eq('id',itemId).eq('node_type','concept').single();
-    check(row.error);
-    if(row.data?.visual_spec_json?.compiled)return {done:true,lexical:row.data.visual_spec_json.lexical};
-    const result=await db.from('document_atomic_chunks').select('id,chunk_text').match(scope).eq('concept_node_id',itemId).order('id').limit(24);
-    check(result.error);
-    const chunks=result.data||[];
-    const layout=/→|->/.test(chunks.map(chunk=>chunk.chunk_text).join('\n'))?'flow':chunks.some(chunk=>chunk.chunk_text.includes('\t'))?'comparison':'notes';
-    let lexical=true;
-    for(const chunk of chunks){
-      const vector=await embedStudyText(chunk.chunk_text,{taskType:'RETRIEVAL_DOCUMENT',timeoutMs:2200});
-      if(vector.values){lexical=false;check((await db.from('document_atomic_chunks').update({embedding:'['+vector.values.join(',')+']'}).match(scope).eq('id',chunk.id)).error);}
-    }
-    const latest=await db.from('syllabus_concept_nodes').select('visual_spec_json').match(scope).eq('id',itemId).single();
-    check(latest.error);
-    const spec={...latest.data!.visual_spec_json,layout,compiled:true,lexical};
-    check((await db.from('syllabus_concept_nodes').update({visual_spec_json:spec}).match(scope).eq('id',itemId)).error);
-    return {done:true,lexical};
+    return {done:true,...await compileConceptEmbeddings(db,scope,itemId)};
   }
   const documents=await db.from('study_documents').select('id,status,original_name,storage_path')
     .eq('syllabus_id',syllabusId).eq('user_id',userId).order('created_at').order('id');
@@ -80,6 +64,13 @@ export async function compileStep(userId:string, syllabusId:string, action:strin
   if(doc.status==='indexed')return {done:true};
   const id=(key:string)=>stableId(syllabusId+'/'+generation+'/'+doc.id+'/'+key);
   const moduleId=id('module');
+  if(offset===0){
+    // Offset zero is the explicit restart checkpoint. Remove only this owner's
+    // rows for this document in the current staging generation; the module FK
+    // cascades to its topic and concept descendants.
+    check((await db.from('document_atomic_chunks').delete().match(scope).eq('document_id',doc.id)).error);
+    check((await db.from('syllabus_concept_nodes').delete().match(scope).eq('id',moduleId)).error);
+  }
   const prior=await db.from('syllabus_concept_nodes').select('visual_spec_json').match(scope).eq('id',moduleId).maybeSingle();
   check(prior.error);
   // Documents already partly indexed retain identical node offsets.
