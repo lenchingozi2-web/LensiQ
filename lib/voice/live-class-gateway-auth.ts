@@ -52,7 +52,7 @@ export function verifyLiveClassGatewayToken(
   }
   const now = Math.floor(Date.now() / 1000);
   if (claims.v !== 1 ||
-      typeof claims.room !== 'string' || !/^lensiq-voice-[a-z0-9-]{12,100}$/.test(claims.room) ||
+      typeof claims.room !== 'string' || !/^lensiq-(?:voice|open)-[a-z0-9-]{12,100}$/.test(claims.room) ||
       typeof claims.session !== 'string' || !/^[0-9a-f-]{36}$/i.test(claims.session) ||
       typeof claims.user !== 'string' || !/^[0-9a-f-]{36}$/i.test(claims.user) ||
       typeof claims.expires !== 'number' ||

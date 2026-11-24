@@ -37,3 +37,14 @@ test('expired and excessively long permissions cannot be issued', () => {
     ...details, expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
   }));
 });
+
+
+test('signed open-access rooms authenticate after subscriptions are paused, without allowing other room namespaces', () => {
+  const details = {sessionId,userId,expiresAt:new Date(Date.now()+60_000).toISOString()};
+  const openRoom = 'lensiq-open-12345678-abcdefab-1234-4123-8123-abcdef123456';
+  const token=issueLiveClassGatewayToken(secret,{...details,roomName:openRoom});
+  assert.deepEqual(verifyLiveClassGatewayToken(secret,'Bearer '+token)?.room,openRoom);
+  assert.equal(verifyLiveClassGatewayToken('other-secret','Bearer '+token),null);
+  const invalid=issueLiveClassGatewayToken(secret,{...details,roomName:'unrelated-room-123456789012'});
+  assert.equal(verifyLiveClassGatewayToken(secret,'Bearer '+invalid),null);
+});

@@ -5,6 +5,10 @@ on:
     paths:
       - '.github/workflows/verify-classroom-production.yml'
       - 'lib/live-class/lesson-author.ts'
+      - 'lib/voice/live-class-gateway-auth.ts'
+      - 'lib/subscription-runtime.ts'
+      - 'app/api/voice/token/route.ts'
+      - 'scripts/validate_live_class_student.py'
       - 'lib/live-class/visual-protocol.ts'
       - 'lib/rag/syllabus-compiler.ts'
       - 'app/api/live-class/orchestrate/route.ts'

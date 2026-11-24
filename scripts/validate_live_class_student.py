@@ -108,8 +108,12 @@ class StudentValidation:
         await self.http('/rest/v1/profiles?on_conflict=id',profile,service=True,headers={'Prefer':'resolution=merge-duplicates,return=representation'})
         form=urllib.parse.urlencode({'email':email,'password':password,'next':'/subscription'}).encode()
         page=await self.http('/auth/password',raw=form,headers={'Content-Type':'application/x-www-form-urlencoded'})
-        if 'Subscription active' not in page or 'Mastery' not in page:raise RuntimeError('Paid access did not reflect after actual sign-in')
-        self.check('REAL_SIGNIN_AND_ACTIVE_PAID_SUBSCRIPTION')
+        if 'Full Access Enabled' in page and 'Included · Full Access' in page:
+            self.check('REAL_SIGNIN_AND_OPEN_CLASS_ACCESS')
+        elif 'Subscription active' in page and 'Mastery' in page:
+            self.check('REAL_SIGNIN_AND_ACTIVE_PAID_SUBSCRIPTION')
+        else:
+            raise RuntimeError('Classroom entitlement did not reflect after actual sign-in')
     async def upload_sources(self):
         self.urls=[];self.maps=[];self.names=[]
         chapters=json.loads((Path(__file__).resolve().parents[1]/'tests/fixtures/live-class-lessons.json').read_text())
