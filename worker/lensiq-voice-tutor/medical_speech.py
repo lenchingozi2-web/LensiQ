@@ -58,6 +58,15 @@ def medical_speech(text: str) -> str:
         text = re.sub(r'\b'+term+r'\b', lambda _: pronunciation, text, flags=re.I)
     return text
 
+def spoken_sentence_list(text: str) -> list[str]:
+    """Normalize clinical wording first, then split at conservative sentence boundaries.
+
+    The whitespace-plus-capital boundary avoids splitting decimal values and common
+    lower-case abbreviations such as e.g. and i.e. into separate spoken fragments.
+    """
+    cleaned = medical_speech(text)
+    return [part.strip() for part in re.split(r'(?<=[.!?])\s+(?=[A-Z0-9])', cleaned) if part.strip()]
+
 async def spoken_sentences(source: AsyncIterator[str]) -> AsyncIterator[str]:
     """Keep medical words intact across model token boundaries without waiting for the full answer."""
     pending = ''

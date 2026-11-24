@@ -15,12 +15,13 @@ import type { VisualSnapshot } from '@/lib/live-class/visual-protocol';
 export const runtime='nodejs';export const dynamic='force-dynamic';export const maxDuration=60;
 const UUID=/^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i;
 type LessonRow={session_id:string;syllabus_id:string;user_id:string;phase:LessonState['phase'];state_version:number;
-  nodes_json:unknown;cursor:number;current_node_id:string|null;previous_phase:LessonState['previous_phase'];visual_stack_json:unknown};
+  nodes_json:unknown;cursor:number;current_node_id:string|null;previous_phase:LessonState['previous_phase'];visual_stack_json:unknown;
+  session_memory_json?:Record<string,unknown>;delivered_checkpoint_json?:Record<string,unknown>|null};
 function toState(row:LessonRow):LessonState{
   return {phase:row.phase,state_version:Number(row.state_version),nodes:Array.isArray(row.nodes_json)?row.nodes_json.filter((v):v is string=>typeof v==='string'):[],
     cursor:row.cursor,current_node_id:row.current_node_id,previous_phase:row.previous_phase};
 }
-const allowedActions=new Set(['bootstrap','start','next','jump','pause','resume','barge_in','interrupt_done','node_complete','prepare_next','end','state']);
+const allowedActions=new Set(['bootstrap','start','next','jump','pause','resume','barge_in','interrupt_done','node_complete','prepare_next','end','state','checkpoint','remember_question']);
 export async function POST(request:Request){
   const body=await request.json().catch(()=>null);
   const action=typeof body?.action==='string'?body.action:'';
@@ -30,7 +31,7 @@ export async function POST(request:Request){
   const client=await createClient();
   const {data:{user}}=gateway?{data:{user:{id:gateway.user}}}:await client.auth.getUser();
   if(!user || (gateway&&gateway.session!==sessionId))return NextResponse.json({error:'Unauthorized'},{status:401});
-  if((action==='node_complete'||action==='interrupt_done'||action==='prepare_next')&&!gateway)
+  if((action==='node_complete'||action==='interrupt_done'||action==='prepare_next'||action==='checkpoint'||action==='remember_question')&&!gateway)
     return NextResponse.json({error:'Only the verified tutor worker may acknowledge spoken delivery'},{status:403});
   const admin=createAdminClient();
   if(!admin)return NextResponse.json({error:'Lesson database unavailable'},{status:503});
@@ -101,7 +102,14 @@ export async function POST(request:Request){
       if(error||!data)throw new Error('Concept lookup failed');
       const concept=data as ConceptRecord;
       const question=state.cursor%3===1?await relatedBankQuestion(admin!,session?.course_name||'',concept.title):null;
-      const packet=await authorTeachingPacket(sessionId,record.syllabus_id,state.state_version,concept,{question});
+      const ids=state.nodes.slice(Math.max(0,state.cursor-12),state.cursor);
+      const prior=ids.length?await admin!.from('syllabus_concept_nodes').select('title').in('id',ids).eq('syllabus_id',record.syllabus_id).eq('user_id',user!.id):{data:[] as {title:string}[]};
+      const memory=record.session_memory_json||{};
+      const packet=await authorTeachingPacket(sessionId,record.syllabus_id,state.state_version,concept,{question,sessionBrief:{
+        course:session?.course_name||'',syllabus_outline:state.nodes.length,already_taught:(prior.data||[]).map((n:{title:string})=>n.title).slice(-12),
+        current_concept:concept.title,upcoming_concept:state.nodes[state.cursor+1]||null,
+        recent_questions:Array.isArray(memory.recent_questions)?memory.recent_questions.slice(-5):[],
+      }});
       const spec=(concept.visual_spec_json||{}) as Record<string,unknown>;
       if(JSON.stringify(spec.authored)!==JSON.stringify(cachedLesson(packet,concept,question))){
         const saved=await admin!.from('syllabus_concept_nodes').update({visual_spec_json:{...spec,authored:cachedLesson(packet,concept,question)}})
@@ -115,7 +123,30 @@ export async function POST(request:Request){
       if(id)await packetFor({...current,phase:'TEACHING_NODE',current_node_id:id,cursor:current.cursor+1});
       return NextResponse.json({ok:true,state:current});
     }
-    if(action==='state')return NextResponse.json({ok:true,state:current,...(gateway||body.withPacket===true?{packet:await packetFor(current)}:{})});
+    if(action==='state')return NextResponse.json({ok:true,state:current,checkpoint:record.delivered_checkpoint_json||null,...(gateway||body.withPacket===true?{packet:await packetFor(current)}:{})});
+
+    if(action==='checkpoint'||action==='remember_question'){
+      const version=Number(body.stateVersion);
+      if(!Number.isSafeInteger(version)||version!==current.state_version)return NextResponse.json({error:'Stale lesson state',state:current},{status:409});
+      if(action==='checkpoint'){
+        const cueIndex=Number(body.cueIndex),sentenceIndex=Number(body.sentenceIndex),nodeId=String(body.conceptNodeId||'');
+        if(nodeId!==current.current_node_id||!Number.isSafeInteger(cueIndex)||cueIndex<0||cueIndex>64||!Number.isSafeInteger(sentenceIndex)||sentenceIndex<0||sentenceIndex>200)
+          return NextResponse.json({error:'Invalid spoken checkpoint'},{status:400});
+        const checkpoint={concept_node_id:nodeId,cue_index:cueIndex,sentence_index:sentenceIndex,spoken_checkpoint:String(body.spokenCheckpoint||'').slice(0,240),state_version:version};
+        const saved=await admin.from('live_class_lessons').update({delivered_checkpoint_json:checkpoint,updated_at:new Date().toISOString()})
+          .eq('session_id',sessionId).eq('user_id',user.id).eq('state_version',version).eq('current_node_id',nodeId).select('session_id').maybeSingle();
+        if(saved.error)throw saved.error;
+        if(!saved.data)return NextResponse.json({error:'Checkpoint conflicted with a lesson update'},{status:409});
+        return NextResponse.json({ok:true,checkpoint});
+      }
+      const text=typeof body.question==='string'?body.question.trim().slice(0,600):'';
+      if(!text)return NextResponse.json({error:'Question required'},{status:400});
+      const recent=Array.isArray(record.session_memory_json?.recent_questions)?record.session_memory_json!.recent_questions as string[]:[];
+      const updated=await admin.from('live_class_lessons').update({session_memory_json:{...(record.session_memory_json||{}),recent_questions:[...recent,text].slice(-5)}})
+        .eq('session_id',sessionId).eq('user_id',user.id).eq('state_version',version).select('session_id').maybeSingle();
+      if(updated.error)throw updated.error;
+      return NextResponse.json({ok:true});
+    }
 
     const version=Number(body.stateVersion);
     if(!Number.isSafeInteger(version)||version!==current.state_version)
@@ -151,22 +182,32 @@ export async function POST(request:Request){
     }
     const next=transitionLessonState(current,event);
     if(next===current)return NextResponse.json({ok:true,stale:true,state:current});
+    // The preparation cursor is not the delivered cursor. Validate the packet
+    // first; an upstream model failure must leave the persisted lesson state
+    // pointing at the last concept the student actually heard.
+    const packet=await packetFor(next);
     const stack=Array.isArray(record.visual_stack_json)?[...record.visual_stack_json]:[];
     if(event.type==='STUDENT_BARGE_IN')stack.push(event.visual_snapshot);
     const restored=event.type==='INTERRUPT_ANSWER_COMPLETE' ? stack.pop() ?? null:null;
     if(event.type==='END')stack.length=0;
+    const oldCheckpoint=record.delivered_checkpoint_json;
+    const deliveredCheckpoint=event.type==='INTERRUPT_ANSWER_COMPLETE'&&oldCheckpoint?.concept_node_id===next.current_node_id
+      ? {...oldCheckpoint,state_version:next.state_version}:next.current_node_id===current.current_node_id?oldCheckpoint:null;
+    const memory={...(record.session_memory_json||{})};
+    if(event.type==='NODE_DELIVERY_COMPLETE')memory.taught_titles=[...(Array.isArray(memory.taught_titles)?memory.taught_titles as string[]:[]),String(body.conceptNodeId||'')].slice(-30);
     const {data:changed,error:writeError}=await admin.from('live_class_lessons').update({
       phase:next.phase,state_version:next.state_version,nodes_json:next.nodes,cursor:next.cursor,
       current_node_id:next.current_node_id,previous_phase:next.previous_phase,
-      visual_stack_json:stack,updated_at:new Date().toISOString(),
+      visual_stack_json:stack,delivered_checkpoint_json:event.type==='END'?null:deliveredCheckpoint,
+      session_memory_json:memory,updated_at:new Date().toISOString(),
     }).eq('session_id',sessionId).eq('user_id',user.id)
       .eq('state_version',current.state_version).select('session_id').maybeSingle();
     if(writeError)throw writeError;
     if(!changed)return NextResponse.json({error:'Concurrent state change; refresh lesson state'},{status:409});
     const upcoming=next.phase==='TEACHING_NODE'?next.nodes[next.cursor+1]:null;
-    const [packet,following]=await Promise.all([packetFor(next),upcoming?
-      admin.from('syllabus_concept_nodes').select('id,title').eq('id',upcoming).eq('syllabus_id',record.syllabus_id)
-        .eq('user_id',user.id).maybeSingle():null]);
+    const following=upcoming?
+      await admin.from('syllabus_concept_nodes').select('id,title').eq('id',upcoming).eq('syllabus_id',record.syllabus_id)
+        .eq('user_id',user.id).maybeSingle():null;
     const lookahead=following?.data?{conceptNodeId:following.data.id,title:following.data.title}:null;
     let purge=null;
     if(action==='end'){

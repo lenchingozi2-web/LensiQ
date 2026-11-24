@@ -31,7 +31,7 @@ test('authored explanations protect source coverage, dosage, units, and qualific
  const missing=structuredClone(lesson);missing.beats[1].fact_ids=[];
  assert.throws(()=>validateAuthoredLesson(missing,record),/detail/);
  const dose=structuredClone(lesson);dose.beats[0].speech=dose.beats[0].speech.replace('5 mg','a low amount');
- assert.throws(()=>validateAuthoredLesson(dose,record),/number/);
+	 assert.throws(()=>validateAuthoredLesson(dose,record),/source quantity or unit/);
  const unit=structuredClone(lesson);unit.beats[0].speech=unit.beats[0].speech.replace('5 mg','5 g');
  assert.throws(()=>validateAuthoredLesson(unit,record),/quantity or unit/);
  const neg=structuredClone(lesson);neg.beats[1].speech='Use this medicine when eGFR falls below 15 mL/min. This threshold guides the decision about renal clearance and safety.';
@@ -84,7 +84,7 @@ test('lesson planner uses supported current model and thinking parameters',async
  let calls=0;
  await generateTeachingJson('JSON only',{}, {env:{GEMINI_API_KEY:'fixture',GROQ_API_KEY:'fixture'},fetcher:async(url,init)=>{
    if(++calls===1)return new Response(null,{status:429});
-   const body=JSON.parse(init.body);assert.equal(body.model,'qwen/qwen3.8-27b');assert.equal(body.reasoning_effort,'none');assert.equal(body.include_reasoning,false);
+   const body=JSON.parse(init.body);assert.equal(body.model,'openai/gpt-oss-20b');assert.equal(body.reasoning_effort,'low');
    return new Response(JSON.stringify({choices:[{message:{content:'{}'}}]}));
  }});
  assert.equal(calls,2);
@@ -123,9 +123,9 @@ test('a paragraph qualification is preserved across beats without mechanically r
 
 test('sentence punctuation does not turn a preserved number into a missing medical number',()=>{
  const r={...record,consolidated_notes:'There are 2 major types.\nThe incidence is 1,000 cases.'};
- const raw={title:'Types and incidence',beats:[{speech:'There are 2. The distinction matters because the categories help us organize and understand the clinical presentation.',notes:['Two categories'],fact_ids:[0]}, {speech:'The source describes 1000. Consider that value in the context of the population being discussed rather than assuming it applies everywhere.',notes:['Incidence in context'],fact_ids:[1]}]};
+ const raw={title:'Types and incidence',beats:[{speech:'There are 2. The distinction matters because the categories help us organize and understand the clinical presentation.',notes:['Two categories'],fact_ids:[0]}, {speech:'The incidence is 1000 cases. Consider that value in the context of the population being discussed rather than assuming it applies everywhere.',notes:['Incidence in context'],fact_ids:[1]}]};
  assert.equal(validateAuthoredLesson(raw,r).beats.length,2);
- const changed=structuredClone(raw);changed.beats[0].speech=changed.beats[0].speech.replace('2.','2.5.');
+ const changed=structuredClone(raw);changed.beats[1].speech=changed.beats[1].speech.replace('1000','1001');
  assert.throws(()=>validateAuthoredLesson(changed,r),/number/);
 });
 test('persistent invalid generation never falls back to raw reading',async()=>{

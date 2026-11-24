@@ -40,7 +40,7 @@ async function checkTutor(): Promise<Probe> {
 async function checkGroq(): Promise<Probe> {
   const key = process.env.GROQ_API_KEY?.trim();
   if (!key) return { reachable: false, detail: 'Groq Mouth credentials are not configured.' };
-  const model = process.env.GROQ_CLASS_MOUTH_MODEL?.trim() || 'qwen/qwen3.8-27b';
+  const model = process.env.GROQ_CLASS_MOUTH_MODEL?.trim() || 'openai/gpt-oss-20b';
   try {
     // Read-only model listing, no generated tokens or per-class charges.
     const response = await fetch('https://api.groq.com/openai/v1/models', {

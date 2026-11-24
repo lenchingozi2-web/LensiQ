@@ -6,10 +6,9 @@ import json
 import logging
 import os
 import time
-import re
 from typing import Any, AsyncIterator
 
-from medical_speech import spoken_sentences
+from medical_speech import spoken_sentences, spoken_sentence_list
 
 import httpx
 from dotenv import load_dotenv
@@ -154,7 +153,7 @@ class SyllabusVoiceTutor:
                         })
                 # The authored beat has already passed coverage and recitation checks.
                 # Synthesize it directly to preserve detail and avoid another model round trip.
-                sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+(?=[A-Z])', cue["spoken_text"]) if s.strip()]
+                sentences = spoken_sentence_list(str(cue["spoken_text"]))
                 for sentence_index in range(sentence_begin if index == begin else 0, len(sentences)):
                     if self.interrupting:
                         return
@@ -168,6 +167,11 @@ class SyllabusVoiceTutor:
                     if self.interrupting or handle.interrupted:
                         return
                     self.sentence_index = sentence_index + 1
+                    await self.api("/api/live-class/orchestrate", {
+                        "action":"checkpoint", "stateVersion":self.state_version,
+                        "conceptNodeId":packet["concept_node_id"], "cueIndex":index,
+                        "sentenceIndex":sentence_index + 1, "spokenCheckpoint":sentences[sentence_index],
+                    })
                 await asyncio.sleep(0.55 if cue["mode"] == "whiteboard" else 1.8)
                 while time.monotonic() < self.visual_focus_until and not self.interrupting:
                     await asyncio.sleep(0.2)
@@ -264,6 +268,9 @@ class SyllabusVoiceTutor:
             return
         try:
             data = await self.api("/api/live-class/interrupt-rag", {"query": question})
+            await self.api("/api/live-class/orchestrate", {
+                "action":"remember_question", "stateVersion":self.state_version, "question":question[:600],
+            })
             matches = data.get("matches", [])[:5]
             references = []
             budget = 1500
@@ -347,7 +354,12 @@ class SyllabusVoiceTutor:
             if self.speech_task:
                 await self.stop_speech()
             same_concept = self.packet and self.packet.get('concept_node_id') == packet.get('concept_node_id')
-            resume_cue, resume_sentence = (self.cue_index, self.sentence_index) if same_concept else (0, 0)
+            checkpoint=result.get("checkpoint") or {}
+            durable_same=checkpoint.get("concept_node_id")==packet.get("concept_node_id")
+            if durable_same:
+                resume_cue,resume_sentence=int(checkpoint.get("cue_index",0)),int(checkpoint.get("sentence_index",0))
+            else:
+                resume_cue, resume_sentence = (self.cue_index, self.sentence_index) if same_concept else (0, 0)
             self.packet = packet
             self.state_version = packet["state_version"]
             self.interrupting = False

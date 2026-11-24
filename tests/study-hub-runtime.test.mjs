@@ -131,8 +131,8 @@ test('Groq Mouth remains primary, Gemini remains the lesson brain and quota fall
 
   assert.match(gateway, /process\.env\.GROQ_API_KEY/);
   assert.match(gateway, /https:\/\/api\.groq\.com\/openai\/v1\/chat\/completions/);
-  assert.match(gateway, /qwen\/qwen3\.8-27b/);
-  assert.match(gateway, /reasoning_effort: 'none'/);
+  assert.match(gateway, /openai\/gpt-oss-20b/);
+  assert.doesNotMatch(gateway, /qwen\/qwen3\.8-27b/);
   assert.match(gateway, /provider = 'gemini'/);
   assert.match(gateway, /selectVoiceContext\(messages\)/);
   assert.match(gateway, /systems\.slice\(1\)\.slice\(-6\)/);

@@ -99,9 +99,9 @@ export async function POST(request: Request) {
   const requestedLimit = Number(payload.max_completion_tokens ?? payload.max_tokens ?? 900);
   const maxTokens = Number.isFinite(requestedLimit)
     ? Math.max(180, Math.min(1300, Math.floor(requestedLimit))) : 900;
-  const groqModel = process.env.GROQ_CLASS_MOUTH_MODEL?.trim() || 'qwen/qwen3.8-27b';
+  const groqModel = process.env.GROQ_CLASS_MOUTH_MODEL?.trim() || 'openai/gpt-oss-20b';
   const geminiModel = process.env.GEMINI_CLASS_VERBALIZER_MODEL?.trim() || 'gemini-3.8-flash';
-  if (!/^(?:qwen\/qwen3\.8-27b|openai\/gpt-oss-20b|openai\/gpt-oss-120b)$/.test(groqModel)
+  if (!/^(?:openai\/gpt-oss-20b|openai\/gpt-oss-120b)$/.test(groqModel)
     || !/^gemini-[a-z0-9.-]+$/.test(geminiModel)) {
     return NextResponse.json({ error: 'Invalid voice model configuration.' }, { status: 503 });
   }
@@ -125,9 +125,6 @@ export async function POST(request: Request) {
           model: groqModel, messages: recent, stream,
           ...(stream?{stream_options:{include_usage:true}}:{}),
           max_completion_tokens: maxTokens, temperature: temp,
-          // Qwen instruct mode saves reasoning tokens and lowers spoken latency.
-          ...(groqModel === 'qwen/qwen3.8-27b'
-            ? { reasoning_effort: 'none', include_reasoning: false } : {}),
         }),
       }, { timeoutMs: 3500, stream, onEmpty: emptyUsage('groq', groqModel) });
     } catch (error) {
@@ -196,4 +193,3 @@ export async function POST(request: Request) {
     },
   });
 }
-

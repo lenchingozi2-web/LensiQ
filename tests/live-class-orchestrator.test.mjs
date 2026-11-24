@@ -5,7 +5,7 @@ import { stripTypeScriptTypes } from 'node:module';
 import { VisualStateStack, parseTeachingPacket, syncVisualStage } from '../lib/live-class/visual-protocol.ts';
 import { LookaheadBuffer } from '../lib/live-class/lookahead-buffer.ts';
 import { selectModelForTask, routeSpokenTurn } from '../lib/live-class/model-router.ts';
-import { purgeSessionMaterialsOnEnd } from '../lib/rag/ephemeral-cleanup.ts';
+import { purgeRawFilesAfterCompile, purgeSessionMaterialsOnEnd } from '../lib/rag/ephemeral-cleanup.ts';
 
 const SRC = new URL('../lib/live-class/orchestrator.ts', import.meta.url);
 const source = await readFile(SRC, 'utf8');
@@ -22,8 +22,8 @@ const b='22222222-2222-4222-8222-222222222222';
 const c='33333333-3333-4333-8333-333333333333';
 const cue=(mode,title)=>({id:title,mode,title,spoken_text:'Explain '+title,steps:['Evidence','Interpretation'],citations:[{file_name:'notes.pdf',page_number:3}]});
 test('Groq routing honors current mouth and an optional short-answer override',()=>{
-  assert.equal(selectModelForTask('teach').model,'qwen/qwen3.8-27b');
-  assert.equal(selectModelForTask('barge_in').model,'qwen/qwen3.8-27b');
+  assert.equal(selectModelForTask('teach').model,'openai/gpt-oss-20b');
+  assert.equal(selectModelForTask('barge_in').model,'openai/gpt-oss-20b');
   assert.equal(selectModelForTask('barge_in',{GROQ_CLASS_ANSWER_MODEL:'openai/gpt-oss-20b'}).model,'openai/gpt-oss-20b');
 });
 test('Groq rate limit fails over to Gemini Flash with no dropped turn',async()=>{
@@ -36,7 +36,7 @@ test('Groq rate limit fails over to Gemini Flash with no dropped turn',async()=>
   for await (const chunk of routeSpokenTurn('How does glomerular filtration work?', 'barge_in',{
     env:{GROQ_API_KEY:'test-groq',GEMINI_API_KEY:'test-gemini'},fetcher,firstTokenMs:200,
   }))chunks.push(chunk);
-  assert.equal(groqCalls,2);assert.equal(geminiCalls,1);
+  assert.equal(groqCalls,1);assert.equal(geminiCalls,1);
   assert.equal(chunks.length,1);assert.equal(chunks[0].provider,'gemini');
   assert.match(chunks[0].text,/renal answer/);
 });
@@ -89,14 +89,15 @@ test('lookahead warms the next concept once and preserves the cached result',asy
 function mockCleanupClient(failStorage=false){
   const state={
     syllabi:[{id:a,user_id:c,session_id:b,status:'ready',reserved_bytes:123,used_bytes:123,active_generation:1}],
-    documents:[{id:'d',user_id:c,syllabus_id:a,storage_path:c+'/'+a+'/'+b+'.pdf'}],
+    documents:[{id:'d',user_id:c,syllabus_id:a,status:'uploaded',storage_path:c+'/'+a+'/'+b+'.pdf'}],
+    extractions:[{document_id:'d',user_id:c,syllabus_id:a,extraction_json:{text:'private source text'}}],
     nodes:[{syllabus_id:a,user_id:c}],chunks:[{syllabus_id:a,user_id:c}],
-    lessons:[{syllabus_id:a,user_id:c,visual_stack_json:['fixture source text']}],removed:[],
+    lessons:[{syllabus_id:a,user_id:c,visual_stack_json:['fixture source text'],session_memory_json:{recent_questions:['sensitive question'],taught_titles:['topic']},delivered_checkpoint_json:{spoken_checkpoint:'sensitive sentence'}}],removed:[],
   };
-  const tableMap={live_class_lessons:'lessons',study_syllabi:'syllabi',study_documents:'documents',syllabus_concept_nodes:'nodes',document_atomic_chunks:'chunks'};
+  const tableMap={live_class_lessons:'lessons',study_syllabi:'syllabi',study_documents:'documents',study_document_extractions:'extractions',syllabus_concept_nodes:'nodes',document_atomic_chunks:'chunks'};
   const from=table=>{
     const q={filters:[],kind:'select',values:null,
-      select(){return this},eq(key,value){this.filters.push(r=>r[key]===value);return this},
+      select(){return this},eq(key,value){this.filters.push(r=>r[key]===value);return this},in(key,values){this.filters.push(r=>values.includes(r[key]));return this},
       neq(key,value){this.filters.push(r=>r[key]!==value);return this},
       update(values){this.kind='update';this.values=values;return this},
       delete(){this.kind='delete';return this},
@@ -104,7 +105,10 @@ function mockCleanupClient(failStorage=false){
       then(resolve,reject){
         let rows=state[tableMap[table]].filter(r=>this.filters.every(fn=>fn(r)));
         if(this.kind==='update')rows.forEach(row=>Object.assign(row,this.values));
-        if(this.kind==='delete')state[tableMap[table]]=state[tableMap[table]].filter(r=>!rows.includes(r));
+        if(this.kind==='delete'){
+          state[tableMap[table]]=state[tableMap[table]].filter(r=>!rows.includes(r));
+          if(table==='study_documents')state.extractions=state.extractions.filter(r=>!rows.some(doc=>doc.id===r.document_id));
+        }
         return Promise.resolve({data:rows,error:null}).then(resolve,reject);
       },
     };
@@ -121,6 +125,7 @@ test('class completion permanently wipes raw files, vectors, notes and releases 
   assert.equal(result.length,1);assert.equal(result[0].deletedFiles,1);
   assert.equal(state.removed.length,1);assert.equal(state.chunks.length,0);
   assert.equal(state.nodes.length,0);assert.equal(state.documents.length,0);assert.deepEqual(state.lessons[0].visual_stack_json,[]);
+  assert.deepEqual(state.lessons[0].session_memory_json,{recent_questions:[],taught_titles:[]});assert.equal(state.lessons[0].delivered_checkpoint_json,null);
   assert.equal(state.syllabi[0].status,'purged');assert.equal(state.syllabi[0].used_bytes,0);
   assert.equal(state.syllabi[0].reserved_bytes,0);
 });
@@ -130,6 +135,12 @@ test('failed Storage deletion does not falsely clear syllabus quotas or heavy ve
   assert.equal(state.syllabi[0].status,'purging');
   assert.equal(state.syllabi[0].used_bytes,123);
   assert.equal(state.chunks.length,1);
+});
+test('purging compiled binaries also purges persisted extracted source text',async()=>{
+  const {client,state}=mockCleanupClient();
+  assert.equal(await purgeRawFilesAfterCompile(client,c,a),1);
+  assert.equal(state.extractions.length,0);assert.equal(state.documents[0].status,'removed');
+  assert.equal(state.syllabi[0].used_bytes,0);assert.equal(state.syllabi[0].reserved_bytes,0);
 });
 test('worker and purge SQL schema protect session-scoped lookup and in-flight writes',async()=>{
   const sql=await readFile(new URL('../supabase/migrations/20261116183000_live_class_orchestration.sql',import.meta.url),'utf8');
