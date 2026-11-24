@@ -25,6 +25,7 @@ APP = "https://www.lenxiq.online"
 DB = "https://hixvbcrrklyajhkyliay.supabase.co"
 BUCKET = "study-documents"
 PROTOCOL = "lensiq-syllabus-v2"
+PARSER_VERSION = 2
 SOURCE_DOCUMENT_ID = "bef16e4e-afc8-4e46-abd8-80cc4f74a05d"
 SOURCE_SYLLABUS_ID = "3c2f9cbd-73da-4277-81e2-486f7d060b93"
 
@@ -91,8 +92,8 @@ class Fixture:
         cached = await self.http("/rest/v1/study_document_extractions?select=parser_version,extraction_json&document_id=eq." +
                                  SOURCE_DOCUMENT_ID + "&syllabus_id=eq." + SOURCE_SYLLABUS_ID + "&limit=1", service=True)
         extraction = cached[0].get("extraction_json", {}).get("text", "") if cached else ""
-        if len(cached) != 1 or cached[0].get("parser_version") != 1 or len(extraction) < 500_000:
-            raise RuntimeError("The saved parser-version-1 medical-note extraction is unavailable or incomplete")
+        if len(cached) != 1 or cached[0].get("parser_version") != PARSER_VERSION or len(extraction) < 500_000:
+            raise RuntimeError("The saved current-version medical-note extraction is unavailable or incomplete")
         email = "lenxiq-syllabus-check-" + uuid.uuid4().hex + "@example.invalid"
         password = secrets.token_urlsafe(40)
         user = await self.http("/auth/v1/admin/users", {
@@ -130,7 +131,7 @@ class Fixture:
         self.paths.append(self.marker_path)
         await self.http("/rest/v1/study_document_extractions", {
             "document_id": self.document, "syllabus_id": self.syllabus, "user_id": self.user,
-            "parser_version": 1, "extraction_json": {"version": 1, "text": extraction},
+            "parser_version": PARSER_VERSION, "extraction_json": {"version": PARSER_VERSION, "text": extraction},
         }, service=True, headers={"Prefer": "return=minimal"})
         async def step(action, **kwargs):
             return await self.http("/api/rag/compile-syllabus", {"syllabusId": self.syllabus, "action": action, **kwargs})
@@ -158,8 +159,8 @@ class Fixture:
                 break
             offset = part["next"]
         self.report["conceptCount"] = count
-        if count < 10 or count > 500:
-            raise RuntimeError("The medical-note consolidated concept count fell outside the expected sane range")
+        if count < 10 or count > 500 or count > 1000:
+            raise RuntimeError("The medical-note consolidated concept count fell outside the expected sane range and 1,000-row cap")
         await step("publish")
         nodes = await self.all_service_rows("/rest/v1/syllabus_concept_nodes?select=id,title&syllabus_id=eq." + self.syllabus +
             "&user_id=eq." + self.user + "&generation=eq.1&node_type=eq.concept&order=sort_order")
@@ -170,6 +171,8 @@ class Fixture:
         self.report["outlineNodeCount"] = len(nodes)
         if len(nodes) != count:
             raise RuntimeError("The persisted deterministic outline differs from the parsed concept count")
+        if len(nodes) > 1000:
+            raise RuntimeError("The persisted outline exceeded the 1,000-row concept cap")
         chunks = await self.all_service_rows("/rest/v1/document_atomic_chunks?select=concept_node_id&syllabus_id=eq." + self.syllabus +
             "&user_id=eq." + self.user + "&generation=eq.1")
         per_concept = {}

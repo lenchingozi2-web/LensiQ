@@ -7,6 +7,7 @@ import {authorTeachingPacket,cachedLesson} from '@/lib/live-class/lesson-author'
 import { matchCuratedClassVisual } from '@/lib/live-class/model-matcher';
 
 const PAGE = 32;
+const PARSER_VERSION = 2;
 function stableId(key: string) {
   const h = createHash('sha256').update(key).digest('hex');
   return [h.slice(0,8), h.slice(8,12), '4'+h.slice(13,16), '8'+h.slice(17,20), h.slice(20,32)].join('-');
@@ -28,12 +29,26 @@ export async function compileStep(userId:string, syllabusId:string, action:strin
   let syllabus=(await scoped()).data;
   if(!syllabus || !['draft','compiling','ready','failed'].includes(syllabus.status) || Date.parse(syllabus.expires_at)<=Date.now())
     throw new Error('This syllabus expired or is no longer available');
+  if(action==='prepare' && syllabus.status==='ready'){
+    const activeModules=await db.from('syllabus_concept_nodes').select('visual_spec_json')
+      .match({syllabus_id:syllabusId,user_id:userId,generation:syllabus.active_generation}).eq('node_type','module');
+    check(activeModules.error);
+    const stale=!activeModules.data?.length||activeModules.data.some(row=>row.visual_spec_json?.parserVersion!==PARSER_VERSION);
+    if(stale){
+      check((await db.from('study_syllabi').update({status:'compiling',staging_generation:syllabus.active_generation+1})
+        .eq('id',syllabusId).eq('user_id',userId).eq('status','ready')).error);
+      check((await db.from('study_documents').update({status:'uploaded'}).eq('syllabus_id',syllabusId)
+        .eq('user_id',userId).eq('status','indexed')).error);
+      syllabus=(await scoped()).data;
+    }
+  }
+  if(!syllabus)throw new Error('Syllabus unavailable');
   if(action==='prepare' && ['draft','failed'].includes(syllabus.status)){
     const claim=await db.from('study_syllabi').update({status:'compiling',staging_generation:syllabus.active_generation+1})
       .eq('id',syllabusId).eq('user_id',userId).in('status',['draft','failed']);
     check(claim.error);syllabus=(await scoped()).data;
+    if(!syllabus)throw new Error('Syllabus unavailable');
   }
-  if(!syllabus)throw new Error('Syllabus unavailable');
   const generation=syllabus.staging_generation ?? syllabus.active_generation;
   const scope={syllabus_id:syllabusId,user_id:userId,generation};
   if(action==='lesson'){
@@ -79,18 +94,18 @@ export async function compileStep(userId:string, syllabusId:string, action:strin
   const prior=await db.from('syllabus_concept_nodes').select('visual_spec_json').match(scope).eq('id',moduleId).maybeSingle();
   check(prior.error);
   // Documents already partly indexed retain identical node offsets.
-  const legacy=Boolean(prior.data&&prior.data.visual_spec_json?.parserVersion!==2);
+  const legacy=Boolean(prior.data&&prior.data.visual_spec_json?.parserVersion!==PARSER_VERSION);
   const cached=await db.from('study_document_extractions').select('parser_version,extraction_json')
     .eq('document_id',doc.id).eq('user_id',userId).eq('syllabus_id',syllabusId).maybeSingle();
   check(cached.error);
-  let extracted=typeof cached.data?.extraction_json?.text==='string'&&cached.data?.parser_version===1
+  let extracted=typeof cached.data?.extraction_json?.text==='string'&&cached.data?.parser_version===PARSER_VERSION
     ?cached.data.extraction_json.text:'';
   if(!extracted){
     const download=await db.storage.from('study-documents').download(doc.storage_path);
     check(download.error);
     extracted=await extractUploadedDocumentText(new Uint8Array(await download.data!.arrayBuffer()),doc.original_name);
     const saved=await db.from('study_document_extractions').upsert({document_id:doc.id,syllabus_id:syllabusId,user_id:userId,
-      parser_version:1,extraction_json:{version:1,text:extracted},extracted_at:new Date().toISOString()},{onConflict:'document_id'});
+      parser_version:PARSER_VERSION,extraction_json:{version:PARSER_VERSION,text:extracted},extracted_at:new Date().toISOString()},{onConflict:'document_id'});
     check(saved.error);
   }
   const parsed=parseExtractedDocumentText(extracted,doc.id,doc.original_name,legacy);
@@ -99,7 +114,7 @@ export async function compileStep(userId:string, syllabusId:string, action:strin
   const limit=offset===0?2:PAGE;
   const page=nodes.slice(offset,offset+limit);
   const order=index*10_000_000+offset;
-  const parents=[{...scope,id:moduleId,parent_id:null as string|null,node_type:'module',title:doc.original_name,sort_order:order-offset,visual_spec_json:{parserVersion:legacy?1:2} as Record<string,unknown>}];
+  const parents=[{...scope,id:moduleId,parent_id:null as string|null,node_type:'module',title:doc.original_name,sort_order:order-offset,visual_spec_json:{parserVersion:PARSER_VERSION} as Record<string,unknown>}];
   for(const [i,n] of page.entries()){
     const topicId=id('topic/'+n.topic);
     if(!parents.some(p=>p.id===topicId))parents.push({...scope,id:topicId,parent_id:moduleId,node_type:'topic',title:n.topic,sort_order:order+i,visual_spec_json:{}});

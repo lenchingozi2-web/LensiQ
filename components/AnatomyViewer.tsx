@@ -14,10 +14,14 @@ type ModelProps = {
   onReady?: () => void;
 };
 
+function isMeshNode(child: THREE.Object3D): child is THREE.Mesh {
+  return Boolean((child as THREE.Mesh).isMesh);
+}
+
 type AnatomyModelErrorBoundaryProps = {
   modelUrl: string;
   children: ReactNode;
-  onFailure: () => void;
+  onFailure: (error: unknown) => void;
 };
 
 class AnatomyModelErrorBoundary extends Component<AnatomyModelErrorBoundaryProps, { failed: boolean }> {
@@ -27,8 +31,9 @@ class AnatomyModelErrorBoundary extends Component<AnatomyModelErrorBoundaryProps
     return { failed: true };
   }
 
-  componentDidCatch() {
-    this.props.onFailure();
+  componentDidCatch(error: unknown, info: { componentStack: string }) {
+    console.error('[AnatomyViewer] GLTF/WebGL render failure', { url: this.props.modelUrl, error, componentStack: info.componentStack });
+    this.props.onFailure(error);
   }
 
   render() {
@@ -42,7 +47,7 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor, vie
     const clonedScene = sourceScene.clone(true);
     let meshCount = 0;
     clonedScene.traverse((child) => {
-      if (!(child instanceof THREE.Mesh)) return;
+      if (!isMeshNode(child)) return;
       meshCount += 1;
       const cloneMaterial = (material: THREE.Material) => {
         const clonedMaterial = material.clone();
@@ -50,8 +55,9 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor, vie
         clonedMaterial.needsUpdate = true;
         return clonedMaterial;
       };
+      if (!child.material) return;
       child.material = Array.isArray(child.material)
-        ? child.material.map(cloneMaterial)
+        ? child.material.filter(Boolean).map(cloneMaterial)
         : cloneMaterial(child.material);
     });
     if (meshCount === 0) throw new Error('The medical model contains no renderable geometry.');
@@ -89,7 +95,7 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor, vie
   const materialState = useMemo(() => {
     const baseline = new Map<THREE.Material, { opacity: number; transparent: boolean; depthWrite: boolean }>();
     scene.traverse(child => {
-      if (!(child instanceof THREE.Mesh)) return;
+      if (!isMeshNode(child)) return;
       for (const material of Array.isArray(child.material) ? child.material : [child.material]) {
         baseline.set(material, { opacity: material.opacity, transparent: material.transparent, depthWrite: material.depthWrite });
       }
@@ -100,7 +106,7 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor, vie
   useEffect(() => {
     const target = highlightStructure?.trim().toLowerCase();
     scene.traverse(child => {
-      if (!(child instanceof THREE.Mesh)) return;
+      if (!isMeshNode(child)) return;
       const label = structureName(child).toLowerCase();
       const selected = Boolean(target && (label === target || label.includes(target) || child.name.toLowerCase().includes(target)));
       child.visible = viewMode !== 'isolate' || !target || selected;
@@ -120,7 +126,7 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor, vie
   const originalEmissive = useMemo(() => {
     const baseline = new Map<THREE.Material, { color: THREE.Color; intensity: number }>();
     scene.traverse((child) => {
-      if (!(child instanceof THREE.Mesh)) return;
+      if (!isMeshNode(child)) return;
       const materials = Array.isArray(child.material) ? child.material : [child.material];
       materials.forEach((material) => {
         if (material instanceof THREE.MeshStandardMaterial) {
@@ -134,7 +140,7 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor, vie
   useEffect(() => {
     const target = highlightStructure?.trim().toLowerCase();
     scene.traverse((child) => {
-      if (!(child instanceof THREE.Mesh)) return;
+      if (!isMeshNode(child)) return;
       const label = structureName(child).toLowerCase();
       const matches = Boolean(target && (label === target || label.includes(target) || child.name.toLowerCase().includes(target)));
       const materials = Array.isArray(child.material) ? child.material : [child.material];
@@ -150,7 +156,7 @@ function Model({ url, onStructureSelect, highlightStructure, highlightColor, vie
 
   useEffect(() => () => {
     scene.traverse((child) => {
-      if (!(child instanceof THREE.Mesh)) return;
+      if (!isMeshNode(child)) return;
       const materials = Array.isArray(child.material) ? child.material : [child.material];
       materials.forEach((material) => material.dispose());
     });
@@ -179,9 +185,14 @@ export type AnatomyViewerProps = {
 export default function AnatomyViewer({ modelUrl, onStructureSelect, highlightStructure, highlightColor, viewMode = 'normal' }: AnatomyViewerProps) {
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [failureMessage, setFailureMessage] = useState('');
   const [attempt, setAttempt] = useState(0);
   const markReady = useCallback(() => { setReady(true); setFailed(false); }, []);
-  const markFailed = useCallback(() => { setFailed(true); setReady(false); }, []);
+  const markFailed = useCallback((error: unknown) => {
+    setFailed(true);
+    setReady(false);
+    setFailureMessage(error instanceof Error ? error.message : 'Unknown GLTF/WebGL loader error');
+  }, []);
   useGLTF.preload(modelUrl);
 
   return (
@@ -207,6 +218,7 @@ export default function AnatomyViewer({ modelUrl, onStructureSelect, highlightSt
           <div className="max-w-[min(80vw,22rem)] rounded-2xl border border-white/10 bg-[#101827] px-5 py-4 text-center shadow-2xl">
             <p role="alert" className="text-xs font-black uppercase tracking-[0.16em] text-[#ffd68d]">3D model unavailable</p>
             <p className="mt-2 text-xs leading-5 text-white/70">The tutor can continue without this model. Check your connection or try again.</p>
+            {failureMessage && <p className="mt-2 break-words text-[10px] text-white/45" data-testid="model-error-detail">{failureMessage}</p>}
             <button type="button" onClick={() => { useGLTF.clear(modelUrl); setFailed(false); setReady(false); setAttempt(x => x + 1); }} className="mt-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-[10px] font-bold text-white transition hover:bg-white/15">
               Retry model
             </button>

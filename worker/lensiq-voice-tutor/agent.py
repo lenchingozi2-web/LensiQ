@@ -5,14 +5,20 @@ import asyncio
 import json
 import logging
 import os
+import io
+import subprocess
 import time
 from typing import Any, AsyncIterator
+import uuid
+import wave
 
 from medical_speech import spoken_sentences, spoken_sentence_list
 
 import httpx
 from dotenv import load_dotenv
-from livekit.agents import Agent, AgentServer, AgentSession, JobContext, cli, inference
+from livekit.agents import APIConnectOptions, Agent, AgentServer, AgentSession, JobContext, cli
+from livekit.agents import tts as agent_tts
+from livekit.plugins import groq, silero
 
 load_dotenv()
 log = logging.getLogger("lensiq.voice.tutor")
@@ -502,12 +508,67 @@ class SyllabusVoiceTutor:
         await self.http.aclose()
 
 
+class LocalEspeakStream(agent_tts.ChunkedStream):
+    async def _run(self, output_emitter: agent_tts.AudioEmitter) -> None:
+        request_id = uuid.uuid4().hex
+        output_emitter.initialize(request_id=request_id, sample_rate=self._tts.sample_rate,
+                                  num_channels=self._tts.num_channels, mime_type="audio/pcm",
+                                  frame_size_ms=20)
+        proc = await asyncio.create_subprocess_exec(
+            "espeak-ng", "--stdin", "--stdout", "-v", "en-us", "-s", "158", "-p", "42",
+            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await proc.communicate(self._input_text.encode("utf-8"))
+        if proc.returncode != 0:
+            raise RuntimeError("Local espeak-ng synthesis failed")
+        with wave.open(io.BytesIO(stdout), "rb") as rendered:
+            if rendered.getsampwidth() != 2 or rendered.getnchannels() != 1:
+                raise RuntimeError("Local TTS returned non-PCM audio")
+            pcm = rendered.readframes(rendered.getnframes())
+            rate = rendered.getframerate()
+        if rate != self._tts.sample_rate:
+            raise RuntimeError(f"Local TTS sample rate {rate} did not match {self._tts.sample_rate}")
+        frame_bytes = self._tts.sample_rate // 50 * 2
+        for offset in range(0, len(pcm), frame_bytes):
+            output_emitter.push(pcm[offset:offset + frame_bytes])
+
+
+class LocalEspeakTTS(agent_tts.TTS):
+    def __init__(self, pace: float = 0.94):
+        super().__init__(capabilities=agent_tts.TTSCapabilities(streaming=False), sample_rate=22050, num_channels=1)
+        self.pace = pace
+
+    @property
+    def model(self) -> str:
+        return "espeak-ng-local"
+
+    @property
+    def provider(self) -> str:
+        return "local-cpu"
+
+    def synthesize(self, text: str, *, conn_options: APIConnectOptions = APIConnectOptions()) -> agent_tts.ChunkedStream:
+        return LocalEspeakStream(tts=self, input_text=text, conn_options=conn_options)
+
+    def update_options(self, *, extra_kwargs: dict[str, Any] | None = None) -> None:
+        if extra_kwargs and "speed" in extra_kwargs:
+            self.pace = float(extra_kwargs["speed"])
+
+
+def build_stt():
+    if os.getenv("DEEPGRAM_API_KEY"):
+        from livekit.plugins import deepgram
+        return deepgram.STT(model="nova-3", language="en-US", api_key=os.environ["DEEPGRAM_API_KEY"],
+                            interim_results=True, endpointing_ms=80, punctuate=True, smart_format=True)
+    return groq.STT(model="whisper-large-v3-turbo", language="en", api_key=os.getenv("GROQ_API_KEY"))
+
+
 def build_tts(pace: float = 0.94, *, http_session=None):
-    return inference.TTS(model="cartesia/sonic-3.6",http_session=http_session,
-                          voice="b24f41fd-00a3-4cd8-992a-a0c9f13f3ef1", language="en", sample_rate=24000,
-                          extra_kwargs={"speed":pace,
-                                        "volume":0.88,"emotion":"calm","max_buffer_delay_ms":400},
-                          disable_system_default_fallback=True)
+    if os.getenv("CARTESIA_API_KEY"):
+        from livekit.plugins import cartesia
+        return cartesia.TTS(api_key=os.environ["CARTESIA_API_KEY"], model="sonic-3.6", http_session=http_session,
+                            voice="b24f41fd-00a3-4cd8-992a-a0c9f13f3ef1", language="en", sample_rate=24000,
+                            speed=pace, volume=0.88, emotion="calm")
+    return LocalEspeakTTS(pace)
 
 
 async def play_opening_greeting(session: AgentSession) -> None:
@@ -522,11 +583,11 @@ async def entrypoint(ctx: JobContext) -> None:
     if any(not isinstance(metadata.get(key), str) or not metadata[key] for key in expected):
         raise RuntimeError("Signed LenxiQ lesson worker dispatch metadata missing")
     session = AgentSession(
-        vad=None,
+        vad=silero.VAD.load(),
         tts_text_transforms=[spoken_sentences],
         turn_handling={"turn_detection": "manual", "interruption": {"enabled": False},
                        "preemptive_generation": {"enabled": False}},
-        stt=inference.STT(model=os.getenv("LENXIQ_STT_MODEL", "deepgram/nova-3"), language="en",extra_kwargs={"interim_results":True,"endpointing":80,"punctuate":True,"smart_format":True,"no_delay":True}),
+        stt=build_stt(),
         tts=build_tts(max(0.8,min(1.15,float(metadata.get("teachingPace",0.94))))),
     )
     tutor = SyllabusVoiceTutor(ctx, session, metadata)
