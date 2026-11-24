@@ -160,3 +160,36 @@ test('six lecture files keep source-map slots and extracted text never silently 
   assert.match(mapping, /content,visual:visualFor\(title,content\)/);
   assert.match(materials, /parseError\.message\.startsWith\('Lecture text exceeds'\)/);
 });
+
+
+test('Live Class normalizes Android document names and MIME before reserving or uploading', async () => {
+  const ts = await import('typescript');
+  const source = await read('lib/curriculum/file-types.ts');
+  const { outputText } = ts.default.transpileModule(source, { compilerOptions: { module: ts.default.ModuleKind.ESNext } });
+  const { normalizeStudyDocumentFile, LECTURE_FILE_ACCEPT } = await import('data:text/javascript;base64,' + Buffer.from(outputText).toString('base64'));
+  const cases = [
+    ['Pharmacology', 'application/pdf', 'Pharmacology.pdf', 'application/pdf'],
+    ['Lecture.PDF', '', 'Lecture.PDF', 'application/pdf'],
+    ['Lecture.pdf ', 'application/octet-stream', 'Lecture.pdf', 'application/pdf'],
+    ['Lecture.docx', '', 'Lecture.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+    ['Lecture.pptx', 'application/octet-stream', 'Lecture.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+    ['Lecture.txt', 'text/plain', 'Lecture.txt', 'text/plain'],
+    ['Lecture.doc', 'application/x-msword', 'Lecture.doc', 'application/msword'],
+  ];
+  for (const [name, type, expectedName, expectedType] of cases) {
+    const original = new File(['example'], name, { type, lastModified: 123 });
+    const normalized = normalizeStudyDocumentFile(original);
+    assert.equal(normalized.name, expectedName);
+    assert.equal(normalized.type, expectedType);
+    assert.equal(normalized.lastModified, 123);
+    assert.equal(await normalized.text(), 'example');
+  }
+  const long = normalizeStudyDocumentFile(new File(['example'], 'a'.repeat(200), { type: 'application/pdf' }));
+  assert.equal(long.name.length, 180);
+  assert.ok(long.name.endsWith('.pdf'));
+  assert.equal(normalizeStudyDocumentFile(new File(['x'], 'image.jpg', { type: 'image/jpeg' })), null);
+  assert.equal(normalizeStudyDocumentFile(new File(['x'], 'unknown', { type: 'application/octet-stream' })), null);
+  assert.ok(LECTURE_FILE_ACCEPT.includes('application/pdf'));
+  assert.match(await read('hooks/useHybridStudyRAG.ts'), /normalizeStudyDocumentFile\(original\)/);
+  assert.match(await read('components/voice/StudySyllabusUploader.tsx'), /accept=\{LECTURE_FILE_ACCEPT\}/);
+});

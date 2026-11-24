@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { uploadStudyDocumentToSignedUrl } from '@/lib/rag/signed-upload';
+import { normalizeStudyDocumentFile } from '@/lib/curriculum/file-types';
 
 import { isTeachable } from '@/lib/live-class/teaching-content';
 import { inPool, retryStep } from '@/lib/rag/compile-pool';
@@ -15,7 +16,6 @@ export type SyllabusTreeNode={
 };
 export type StudyRAGProgress={stage:string;current:number;total:number;detail?:string};
 type SearchHit={id:string;text:string;source:{fileName:string;pageOrSlide:number|null};score:number};
-const supported=/\.(?:pdf|doc|docx|pptx|txt)$/i;
 async function postJson(url:string,value:Record<string,unknown>, signal?:AbortSignal){
   const response=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(value),cache:'no-store',signal});
   const payload=await response.json().catch(()=>null);
@@ -45,10 +45,13 @@ export function useHybridStudyRAG(){
     if(old)void postJson('/api/rag/cleanup',{action:'purge-syllabus',syllabusId:old}).catch(()=>undefined);
   },[]);
   const addFiles=useCallback((incoming:File[])=>{
+    if(!incoming.length)return;
     const seen=new Set(files.map(file=>[file.name,file.size,file.lastModified].join(':')));
     const next=[...files];
-    for(const file of incoming){
-      if(!supported.test(file.name)){setError('Use PDF, DOC, DOCX, PPTX or TXT documents.');return;}
+    for(const original of incoming){
+      const file=normalizeStudyDocumentFile(original);
+      if(!file){setError(`Cannot recognize "${original.name || 'this file'}". Select a PDF, DOC, DOCX, PPTX or TXT document.`);return;}
+      if(!file.size){setError(`"${file.name}" is empty. Select the original document again.`);return;}
       const key=[file.name,file.size,file.lastModified].join(':');
       if(!seen.has(key)){next.push(file);seen.add(key);}
     }
@@ -57,7 +60,7 @@ export function useHybridStudyRAG(){
     }
     invalidate();setFiles(next);setStatus('idle');setError('');setSyllabusId(null);setTree([]);
   },[files,invalidate]);
-  const removeFile=useCallback((index:number)=>{invalidate();setFiles(current=>current.filter((_,i)=>i!==index));setStatus('idle');setSyllabusId(null);setTree([]);},[invalidate]);
+  const removeFile=useCallback((index:number)=>{invalidate();setFiles(current=>current.filter((_,i)=>i!==index));setStatus('idle');setSyllabusId(null);setTree([]);setError('');},[invalidate]);
   const clear=useCallback(()=>{jobRef.current?.abort();jobRef.current=null;busyRef.current=false;
     checkpoint.current=null;sessionStorage.removeItem('lensiq.pending-syllabus');setResumeId(null);setFlagged([]);setReady(false);setFiles([]);setSyllabusId(null);setTree([]);setStatus('idle');setProgress(null);setError('');},[]);
   const discard=useCallback(()=>{

@@ -46,3 +46,19 @@ export function normalizeLectureFileName(fileName: string, mimeType = '') {
 export function isLegacyWordDocument(fileName: string, mimeType = '') {
   return getLectureFileExtension(fileName, mimeType) === 'doc';
 }
+
+/** Keep the extension and canonical MIME consistent with the syllabus reservation and private storage bucket. */
+export function normalizeStudyDocumentFile(file: File): File | null {
+  const originalName = file.name.trim();
+  const extension = getLectureFileExtension(originalName, file.type);
+  if (!extension) return null;
+  const normalizedName = normalizeLectureFileName(originalName, file.type);
+  const suffix = `.${extension}`;
+  // The ingest endpoint and reservation RPC cap original_name at 180 characters.
+  const name = normalizedName.length > 180
+    ? normalizedName.slice(0, 180 - suffix.length) + suffix
+    : normalizedName;
+  const type = normalizeLectureMimeType(name, file.type);
+  if (name === file.name && type === file.type) return file;
+  return new File([file], name, { type, lastModified: file.lastModified });
+}

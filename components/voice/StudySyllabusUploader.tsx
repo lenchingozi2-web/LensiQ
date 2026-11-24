@@ -1,6 +1,7 @@
 'use client';
 
 import type { ChangeEvent } from 'react';
+import { LECTURE_FILE_ACCEPT } from '@/lib/curriculum/file-types';
 import { STUDY_RAG_MAX_BYTES, STUDY_RAG_MAX_FILES, useHybridStudyRAG } from '@/hooks/useHybridStudyRAG';
 
 type HookValue=ReturnType<typeof useHybridStudyRAG>;
@@ -21,7 +22,7 @@ export default function StudySyllabusUploader({rag,focusText,onFocusTextChange}:
     <p className="text-xs leading-5 text-white/65">Upload your lecture notes once. LenxiQ builds a private, cited topic tree and keeps repeated facts only once. Raw files and compiled vectors are erased after your class.</p>
     <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-[#E8A23D]/50 bg-[#E8A23D]/[0.07] px-4 py-4 text-center text-sm font-bold text-[#FFE2A8] hover:bg-[#E8A23D]/15">
       Choose PDF, DOC, DOCX, PPTX or TXT files
-      <input type="file" multiple accept=".pdf,.doc,.docx,.pptx,.txt" onChange={onChoose}
+      <input type="file" multiple accept={LECTURE_FILE_ACCEPT} onChange={onChoose}
         disabled={!rag.interactive||working||rag.ready||Boolean(rag.resumeId)} className="sr-only" aria-label="Choose study documents" />
     </label>
     {rag.files.length>0 && <div className="max-h-32 space-y-1 overflow-y-auto rounded-xl bg-black/25 p-2">
