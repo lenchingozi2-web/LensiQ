@@ -1,6 +1,8 @@
 import importlib.util
+import os
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 SCRIPT = Path(__file__).with_name("probe-live-providers.py")
 SPEC = importlib.util.spec_from_file_location("provider_probe", SCRIPT)
@@ -9,6 +11,11 @@ SPEC.loader.exec_module(PROBE)
 
 
 class ProviderProbeClassificationTests(unittest.TestCase):
+    def test_verified_groq_models_are_probed_before_unavailable_gemini_models(self):
+        with patch.dict(os.environ, {}, clear=True):
+            models = PROBE.candidates()
+        self.assertEqual(models[:2], [("groq", "openai/gpt-oss-20b"), ("groq", "openai/gpt-oss-120b")])
+
     def test_success_and_model_availability(self):
         self.assertEqual(PROBE.classify("gemini", 200, b"{}"), "success")
         self.assertEqual(PROBE.classify("groq", 404, b'{"error":"model_not_found"}'), "unavailable_model")

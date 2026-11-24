@@ -9,8 +9,6 @@ type ProcessedConcept = CanonicalConcept & {
   chunk: AtomicChunk;
   chunks: AtomicChunk[];
 };
-const MAX_CONCEPT_CHUNKS=4;
-
 function legacyProcess(document: ParsedDocument): ProcessedConcept[] {
   const labels = legacyClinicalTopicLabels(document.sections.map(section => section.heading));
   return document.sections.flatMap((section, sectionIndex) => {
@@ -65,17 +63,11 @@ export function processSyllabus(documents: ParsedDocument[], legacy=false): Proc
     return [...groups.values()].flatMap(group => {
       const chunks = chunkFacts(group.facts, 1150);
       if (!chunks.length) return [];
-      const batches:Array<typeof chunks>=[];
-      for(let index=0;index<chunks.length;index+=MAX_CONCEPT_CHUNKS)
-        batches.push(chunks.slice(index,index+MAX_CONCEPT_CHUNKS));
-      return batches.map((batch,index)=>{
-        const facts: CitedAtomicFact[]=batch.map(chunk=>({
+      const facts: CitedAtomicFact[]=chunks.map(chunk=>({
           text:chunk.text,sourceFile:chunk.sourceFile,pageNumber:chunk.pageNumber,documentId:chunk.documentId,
-        }));
-        const title=batches.length>1?`${group.title} · Part ${index+1}`:group.title;
-        const concept=compileCanonicalConcept(title,facts);
-        return{...concept,module:document.source,topic:group.topic,chunk:batch[0],chunks:batch};
-      });
+      }));
+      const concept=compileCanonicalConcept(group.title,facts);
+      return[{...concept,module:document.source,topic:group.topic,chunk:chunks[0],chunks}];
     });
   });
 }

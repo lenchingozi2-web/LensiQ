@@ -22,6 +22,7 @@ async def main():
     listeners = set()
     heard = set()
     verified = set()
+    agent_identities = set()
     start = time.monotonic()
 
     async def listen(track, identity):
@@ -43,6 +44,7 @@ async def main():
     @room.on("track_subscribed")
     def track_subscribed(track, publication, participant):
         if track.kind == rtc.TrackKind.KIND_AUDIO and participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_AGENT:
+            agent_identities.add(participant.identity)
             task = asyncio.create_task(listen(track, participant.identity))
             listeners.add(task)
 
@@ -51,8 +53,10 @@ async def main():
         if packet.topic == "lk-lesson-state" and packet.participant and packet.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_AGENT:
             data = json.loads(packet.data)
             if data.get("type") == "WORKER_READY" and data.get("session_id") == session and data.get("protocol") == "lensiq-syllabus-v2":
+                agent_identities.add(packet.participant.identity)
                 verified.add(packet.participant.identity)
                 handshake.set()
+                print("Verified worker handshake from " + packet.participant.identity, flush=True)
                 if packet.participant.identity in heard:
                     audible.set()
 
@@ -72,7 +76,13 @@ async def main():
                     await room.local_participant.publish_data(json.dumps({"type":"HELLO","session_id":session}).encode(), reliable=True, topic="lk-lesson-state")
                     await asyncio.sleep(0.75)
             listeners.add(asyncio.create_task(ask_ready()))
-            await asyncio.wait_for(asyncio.gather(handshake.wait(),audible.wait()),timeout=45)
+            try:
+                await asyncio.wait_for(asyncio.gather(handshake.wait(),audible.wait()),timeout=45)
+            except asyncio.TimeoutError:
+                print("Audio probe timed out: handshake=" + str(handshake.is_set())
+                      + ", audible=" + str(audible.is_set())
+                      + ", agent identities=" + str(sorted(agent_identities)), flush=True)
+                raise
             print("Verified named worker, session-specific handshake and decoded remote audio")
         finally:
             await room.disconnect()

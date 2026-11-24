@@ -510,6 +510,11 @@ def build_tts(pace: float = 0.94, *, http_session=None):
                           disable_system_default_fallback=True)
 
 
+async def play_opening_greeting(session: AgentSession) -> None:
+    handle = session.say("Welcome to class. Let's begin.", allow_interruptions=True)
+    await handle.wait_for_playout()
+
+
 @server.rtc_session(agent_name="lensiq-syllabus-tutor-v2")
 async def entrypoint(ctx: JobContext) -> None:
     metadata = json.loads(ctx.job.metadata or "{}")
@@ -597,7 +602,7 @@ async def entrypoint(ctx: JobContext) -> None:
     await asyncio.sleep(0.45)
     try:
         if not tutor.syllabus_id:
-            session.say("Welcome to class. Let's begin.", allow_interruptions=True)
+            await play_opening_greeting(session)
     except Exception:
         log.exception("Opening greeting could not be queued")
     if tutor.syllabus_id:

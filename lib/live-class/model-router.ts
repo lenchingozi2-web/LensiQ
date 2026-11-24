@@ -33,7 +33,7 @@ export async function* routeSpokenTurn(packet:string,task:TutorTask,options:Rout
   const firstTokenMs=Math.max(100,Math.min(5000,options.firstTokenMs??1200));
   let spoken='';
   const selected=selectModelForTask(task,env);
-  for(const model of env.GROQ_API_KEY?[...new Set([selected.model,'openai/gpt-oss-20b'])]:[]){
+  for(const model of env.GROQ_API_KEY?[...new Set([selected.model,'openai/gpt-oss-20b','openai/gpt-oss-120b'])]:[]){
     const controller=new AbortController();
     const firstTokenDeadline=setTimeout(()=>controller.abort('first token budget exceeded'),firstTokenMs);
     let firstTokenReceived=false;

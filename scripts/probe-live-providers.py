@@ -15,10 +15,10 @@ USER_AGENT = "LenxiQ-Live-Class-Provider-Probe/1.0"
 
 def candidates():
     items = [
-        ("gemini", os.getenv("GEMINI_SYLLABUS_MODEL") or os.getenv("GEMINI_CLASS_BRAIN_MODEL") or "gemini-3.8-flash"),
         ("groq", os.getenv("GROQ_CLASS_MOUTH_MODEL") or "openai/gpt-oss-20b"),
-        ("gemini", os.getenv("GEMINI_FALLBACK_MODEL") or "gemini-3.6-flash"),
         ("groq", "openai/gpt-oss-120b"),
+        ("gemini", os.getenv("GEMINI_SYLLABUS_MODEL") or os.getenv("GEMINI_CLASS_BRAIN_MODEL") or "gemini-3.8-flash"),
+        ("gemini", os.getenv("GEMINI_FALLBACK_MODEL") or "gemini-3.6-flash"),
     ]
     seen = set()
     result = []

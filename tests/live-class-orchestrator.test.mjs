@@ -26,7 +26,7 @@ test('Groq routing honors current mouth and an optional short-answer override',(
   assert.equal(selectModelForTask('barge_in').model,'openai/gpt-oss-20b');
   assert.equal(selectModelForTask('barge_in',{GROQ_CLASS_ANSWER_MODEL:'openai/gpt-oss-20b'}).model,'openai/gpt-oss-20b');
 });
-test('Groq rate limit fails over to Gemini Flash with no dropped turn',async()=>{
+test('Groq model rate limits fail over to Gemini Flash with no dropped turn',async()=>{
   let groqCalls=0,geminiCalls=0;
   const fetcher=async(url,init)=>{
     if(String(url).includes('api.groq.com')){groqCalls++;assert.match(init.headers.authorization,/Bearer test-groq/);return {ok:false,status:429};}
@@ -36,17 +36,35 @@ test('Groq rate limit fails over to Gemini Flash with no dropped turn',async()=>
   for await (const chunk of routeSpokenTurn('How does glomerular filtration work?', 'barge_in',{
     env:{GROQ_API_KEY:'test-groq',GEMINI_API_KEY:'test-gemini'},fetcher,firstTokenMs:200,
   }))chunks.push(chunk);
-  assert.equal(groqCalls,1);assert.equal(geminiCalls,1);
+  assert.equal(groqCalls,2);assert.equal(geminiCalls,1);
   assert.equal(chunks.length,1);assert.equal(chunks[0].provider,'gemini');
   assert.match(chunks[0].text,/renal answer/);
 });
+test('Q&A tries verified Groq 120B before Gemini when Groq 20B is unavailable',async()=>{
+ const calls=[];
+ const fetcher=async(url,init)=>{
+  if(String(url).includes('api.groq.com')){
+   const body=JSON.parse(init.body);calls.push(body.model);
+   if(calls.length===1)return {ok:false,status:503};
+   return new Response('data: {"choices":[{"delta":{"content":"Grounded answer."}}]}\n\ndata: [DONE]\n\n');
+  }
+  assert.fail('Gemini should not be used when Groq 120B succeeds');
+ };
+ const chunks=[];
+ for await(const chunk of routeSpokenTurn('Question','barge_in',{env:{GROQ_API_KEY:'fixture'},fetcher}))chunks.push(chunk);
+ assert.deepEqual(calls,['openai/gpt-oss-20b','openai/gpt-oss-120b']);
+ assert.equal(chunks[0].provider,'groq');assert.equal(chunks[0].fallback,true);
+});
 test('deterministic visual cue order interswitches 3D and returns to the whiteboard',()=>{
   const packet=parseTeachingPacket({type:'TEACHING_PACKET',session_id:a,syllabus_id:b,state_version:5,concept_node_id:c,
-    title:'Heart',visual_cues:[cue('whiteboard','Anatomy'),cue('anatomy_3d','Heart chambers'),cue('whiteboard','Summary')]});
+    title:'Heart',visual_cues:[cue('whiteboard','Anatomy'),cue('anatomy_3d','Heart chambers'),cue('whiteboard','Summary')],segment_cue_counts:[3]});
+  assert.deepEqual(packet.segment_cue_counts,[3]);
   assert.equal(syncVisualStage(packet,0).cue.mode,'whiteboard');
   assert.equal(syncVisualStage(packet,1).cue.mode,'anatomy_3d');
   assert.equal(syncVisualStage(packet,2).cue.mode,'whiteboard');
   assert.throws(()=>syncVisualStage(packet,9),/checkpoint/i);
+  assert.throws(()=>parseTeachingPacket({type:'TEACHING_PACKET',session_id:a,syllabus_id:b,state_version:5,concept_node_id:c,
+    title:'Heart',visual_cues:[cue('whiteboard','Anatomy')],segment_cue_counts:[2]}),/segment checkpoints/i);
 });
 test('barge-in scratchpad pushes exact cue and pops the original visual state',()=>{
   const initial={active_mode:'anatomy_3d',concept_node_id:a,cue_index:1,whiteboard_snapshot:['Causes','Mechanism'],

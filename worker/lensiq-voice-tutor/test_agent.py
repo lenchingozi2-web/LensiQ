@@ -3,9 +3,16 @@ import asyncio
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, patch
-from agent import SyllabusVoiceTutor
+from agent import SyllabusVoiceTutor, play_opening_greeting
 
 class WorkerTests(IsolatedAsyncioTestCase):
+    async def test_opening_greeting_keeps_the_worker_alive_until_playout(self):
+        wait_for_playout = AsyncMock()
+        session = SimpleNamespace(say=Mock(return_value=SimpleNamespace(wait_for_playout=wait_for_playout)))
+        await play_opening_greeting(session)
+        session.say.assert_called_once_with("Welcome to class. Let's begin.", allow_interruptions=True)
+        wait_for_playout.assert_awaited_once()
+
     def tutor(self):
         session = SimpleNamespace(interrupt=AsyncMock(), clear_user_turn=lambda:None,
             commit_user_turn=AsyncMock(return_value='Why does this happen?'))

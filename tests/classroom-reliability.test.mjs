@@ -45,6 +45,19 @@ test('compiled concepts keep the disease context and all source passages',async(
  assert.deepEqual(nodes.map(n=>n.citations[0].page_number),[1,2,3,4]);
 });
 
+test('textbook disease concepts retain all atomic chunks without creating four-chunk fragments',async()=>{
+ const {processSyllabus}=await load('../lib/rag/process-syllabus.ts',{
+  clinicalTopicLabels,isTeachingMetadata,compileCanonicalConcept,
+  chunkFacts:facts=>facts.map((fact,index)=>({text:fact.text,sourceFile:fact.sourceFile,pageNumber:fact.pageNumber,documentId:fact.documentId,index}))
+ });
+ const facts=Array.from({length:24},(_,index)=>({text:`Evidence ${index} remains intact.`,sourceFile:'Textbook.pdf',pageNumber:index+1,documentId:ids[0]}));
+ const sections=Array.from({length:12},(_,index)=>({heading:index%2?'Morphology':'Tuberculosis',facts:facts.slice(index*2,index*2+2)}));
+ const nodes=processSyllabus([{source:'Textbook.pdf',characters:400_000,sections}]);
+ assert.equal(nodes.length,1);
+ assert.equal(nodes[0].chunks.length,24);
+ assert.equal(nodes[0].sourceFacts.length,24);
+});
+
 test('generic headings can stage relevant models using substantive lecture context',async()=>{
  const {matchCuratedClassVisual}=await load('../lib/live-class/model-matcher.ts',{
   LIVE_CLASS_MODEL_CATALOG:[{topics:['prostate anatomy'],modelUrl:'https://fixture.test/prostate.glb',title:'Reference prostate',source:'Verified reference anatomy'}],LIVE_CLASS_MOLECULE_CATALOG:[]

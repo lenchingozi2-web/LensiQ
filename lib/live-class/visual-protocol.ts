@@ -25,6 +25,7 @@ export type TeachingPacket = {
   concept_node_id: string;
   title: string;
   visual_cues: VisualCue[];
+  segment_cue_counts?: number[];
   teaching_version?: number;
   source_fallback?: boolean;
   practice_question_id?: string;
@@ -90,10 +91,20 @@ export function parseTeachingPacket(value: unknown): TeachingPacket {
     ||typeof version!=='number'||!Number.isSafeInteger(version)||version<1
     ||!Array.isArray(v.visual_cues)||v.visual_cues.length<1||v.visual_cues.length>64) throw new Error('Malformed teaching packet');
   const cues=v.visual_cues.map(parseVisualCue);
+  const segmentCueCounts=Array.isArray(v.segment_cue_counts)
+    ?v.segment_cue_counts.map((count)=>{
+      if(typeof count!=='number'||!Number.isSafeInteger(count)||count<2||count>5)
+        throw new Error('Invalid teaching segment checkpoint count');
+      return count;
+    })
+    :undefined;
+  if(segmentCueCounts&&segmentCueCounts.length&&segmentCueCounts.reduce((sum,count)=>sum+count,0)!==cues.length)
+    throw new Error('Teaching segment checkpoints do not match the packet');
   const ids=new Set(cues.map(c=>c.id));
   if (ids.size!==cues.length) throw new Error('Cue IDs must be unique');
   return {type:'TEACHING_PACKET',session_id:session,syllabus_id:syllabus,
     state_version:version,concept_node_id:concept,title:safeText(v.title,200),visual_cues:cues,
+    segment_cue_counts:segmentCueCounts?.length?segmentCueCounts:undefined,
     teaching_version:v.teaching_version===3?3:undefined,source_fallback:v.source_fallback===true?true:undefined,practice_question_id:safeText(v.practice_question_id,100)||undefined};
 }
 export function syncVisualStage(packet: TeachingPacket, index: number): SyncVisualStage {

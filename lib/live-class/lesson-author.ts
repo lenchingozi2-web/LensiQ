@@ -7,10 +7,84 @@ import { matchCuratedClassVisual } from './model-matcher';
 import { parseRetryAfterMs } from '@/lib/http/retry-after';
 
 export type BankQuestion={id:string;question:string;answer:string};
-type AuthorOptions={env?:Record<string,string|undefined>;fetcher?:typeof fetch;question?:BankQuestion|null;schema?:Record<string,unknown>;maxTokens?:number;signal?:AbortSignal;sessionBrief?:Record<string,unknown>};
+type AuthorOptions={env?:Record<string,string|undefined>;fetcher?:typeof fetch;question?:BankQuestion|null;schema?:Record<string,unknown>;maxTokens?:number;signal?:AbortSignal;sessionBrief?:Record<string,unknown>;validate?:(value:unknown)=>unknown};
 export const TEACHING_VERSION=3;
-const AUTHOR_REVISION=2;
+const AUTHOR_REVISION=3;
 export function teachingFingerprint(record:ConceptRecord){return createHash('sha256').update(record.title+'\n'+record.consolidated_notes).digest('hex');}
+const MAX_SEGMENT_CHARS=1150*4;
+const MAX_SEGMENT_FACTS=24;
+type SourceFact={text:string;sourceFile?:string;pageNumber?:number|null};
+type TeachingSegment={start:number;facts:SourceFact[]};
+type AuthoredPlan=ReturnType<typeof validateAuthoredLesson>;
+
+function geminiEndpoint(model:string,key:string){
+  return key.startsWith('AQ.')
+    ? 'https://aiplatform.googleapis.com/v1/publishers/google/models/'+model+':generateContent'
+    : 'https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent';
+}
+
+function teachingSegments(record:ConceptRecord):TeachingSegment[]{
+  const details=Array.isArray(record.key_details_json)?record.key_details_json:[];
+  const source:SourceFact[]=details.flatMap((item:unknown)=>{
+    if(!item||typeof item!=='object'||typeof (item as SourceFact).text!=='string')return [];
+    const fact=item as SourceFact;
+    return teachingLines(record.title,fact.text).map(text=>({...fact,text}));
+  });
+  const facts=source.length?source:teachingLines(record.title,record.consolidated_notes).map(text=>({text}));
+  const splitLongFact=(text:string):string[]=>{
+    const parts:string[]=[];
+    let remaining=text;
+    while(remaining.length>MAX_SEGMENT_CHARS){
+      let split=remaining.lastIndexOf(' ',MAX_SEGMENT_CHARS);
+      if(split<1)split=MAX_SEGMENT_CHARS;
+      parts.push(remaining.slice(0,split));
+      remaining=remaining.slice(split).trimStart();
+    }
+    if(remaining)parts.push(remaining);
+    return parts;
+  };
+  const segments:TeachingSegment[]=[];
+  let current:SourceFact[]=[],characters=0,start=0;
+  const flush=()=>{
+    if(!current.length)return;
+    segments.push({start,facts:current});
+    start+=current.length;current=[];characters=0;
+  };
+  for(const fact of facts)for(const text of splitLongFact(fact.text)){
+    if(current.length&&(characters+text.length>MAX_SEGMENT_CHARS||current.length>=MAX_SEGMENT_FACTS))flush();
+    current.push({...fact,text});
+    characters+=text.length;
+  }
+  flush();
+  return segments;
+}
+
+function segmentRecord(record:ConceptRecord,segment:TeachingSegment):ConceptRecord{
+  const citations=segment.facts.flatMap(fact=>fact.sourceFile
+    ?[{file_name:fact.sourceFile,page_number:fact.pageNumber??null}]
+    :[]);
+  const uniqueCitations=citations.filter((citation,index)=>citations.findIndex(item=>
+    item.file_name===citation.file_name&&item.page_number===citation.page_number)===index);
+  return {...record,consolidated_notes:segment.facts.map(fact=>fact.text).join('\n'),
+    key_details_json:segment.facts,source_citations_json:uniqueCitations.length?uniqueCitations:record.source_citations_json};
+}
+
+function normalizeTeachingPlan(raw:unknown):Record<string,unknown>{
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Teaching explanation missing');
+  const value=raw as Record<string,unknown>;
+  let beats=value.beats;
+  if(typeof beats==='string'){
+    try{beats=JSON.parse(beats);}catch{/* validation below reports the malformed sequence */}
+  }
+  if(beats&&typeof beats==='object'&&!Array.isArray(beats)){
+    const entries=Object.entries(beats as Record<string,unknown>);
+    if(entries.length&&entries.every(([key])=>/^\d+$/.test(key)))
+      beats=entries.sort(([a],[b])=>Number(a)-Number(b)).map(([,beat])=>beat);
+    else beats=[beats];
+  }
+  return {...value,beats};
+}
+
 function groqCompatibleSchema(schema:Record<string,unknown>):Record<string,unknown>{
   const stripCardinality=(value:unknown):unknown=>{
     if(Array.isArray(value))return value.map(stripCardinality);
@@ -27,14 +101,11 @@ export async function generateTeachingJson(instruction:string,data:unknown,optio
   const key=env.GEMINI_API_KEY||env.GOOGLE_GENERATIVE_AI_API_KEY;
   const maxTokens=options.maxTokens??1900;
   const signal=options.signal??AbortSignal.timeout(28000);
-  const messages=[{role:'system',content:instruction},{role:'user',content:JSON.stringify(data)}];
   const primary=env.GEMINI_SYLLABUS_MODEL||env.GEMINI_CLASS_BRAIN_MODEL||'gemini-3.8-flash';
   const mouth=env.GROQ_CLASS_MOUTH_MODEL||'openai/gpt-oss-20b';
   let retryAfterMs=0;
-  const candidates=[...(key?[{provider:'gemini',model:primary}]:[]),
-    ...(env.GROQ_API_KEY?[{provider:'groq',model:mouth}]:[]),
-    ...(key?[{provider:'gemini',model:env.GEMINI_FALLBACK_MODEL||'gemini-3.6-flash'}]:[]),
-    ...(env.GROQ_API_KEY?[{provider:'groq',model:'openai/gpt-oss-120b'}]:[])];
+  const candidates=[...(env.GROQ_API_KEY?[{provider:'groq',model:mouth},{provider:'groq',model:'openai/gpt-oss-20b'},{provider:'groq',model:'openai/gpt-oss-120b'}]:[]),
+    ...(key?[{provider:'gemini',model:primary},{provider:'gemini',model:env.GEMINI_FALLBACK_MODEL||'gemini-3.6-flash'}]:[])];
   const seen=new Set<string>();
   for(const {provider,model} of candidates){
     const id=provider+'/'+model;
@@ -43,15 +114,16 @@ export async function generateTeachingJson(instruction:string,data:unknown,optio
       try{const health=await import('./provider-health');if(await health.providerIsCoolingDown(id))continue;}catch{/* advisory only */}
     }
     seen.add(id);signal.throwIfAborted();
-    try{
+    const request=async(prompt:string,payloadData:unknown):Promise<unknown|undefined>=>{
       const common={method:'POST',cache:'no-store' as RequestCache,signal:AbortSignal.any([signal,AbortSignal.timeout(7000)])};
-      const response=provider==='gemini'?await fetcher('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{
+      const response=provider==='gemini'?await fetcher(geminiEndpoint(model,key!),{
         ...common,headers:{'content-type':'application/json','x-goog-api-key':key!},
-        body:JSON.stringify({systemInstruction:{parts:[{text:instruction}]},contents:[{role:'user',parts:[{text:JSON.stringify(data)}]}],
+        body:JSON.stringify({systemInstruction:{parts:[{text:prompt}]},contents:[{role:'user',parts:[{text:JSON.stringify(payloadData)}]}],
           generationConfig:{responseMimeType:'application/json',...(options.schema?{responseJsonSchema:options.schema}:{}),maxOutputTokens:maxTokens,thinkingConfig:{thinkingLevel:'LOW'}}}),
       }):await fetcher('https://api.groq.com/openai/v1/chat/completions',{
         ...common,headers:{'content-type':'application/json',authorization:'Bearer '+env.GROQ_API_KEY},
-        body:JSON.stringify({model,...(model.startsWith('qwen/')?{reasoning_effort:'none',include_reasoning:false}:{reasoning_effort:'low'}),messages,
+        body:JSON.stringify({model,...(model.startsWith('qwen/')?{reasoning_effort:'none',include_reasoning:false}:{reasoning_effort:'low'}),messages:[
+          {role:'system',content:prompt},{role:'user',content:JSON.stringify(payloadData)}],
           response_format:options.schema?{type:'json_schema',json_schema:{name:'medical_lesson',strict:true,schema:groqCompatibleSchema(options.schema)}}:{type:'json_object'},temperature:0.35,max_completion_tokens:maxTokens}),
       });
       if(!response.ok){
@@ -62,14 +134,33 @@ export async function generateTeachingJson(instruction:string,data:unknown,optio
         if(!options.fetcher){
           try{const health=await import('./provider-health');await health.recordProviderResult(id,response.status,retryAfter);}catch{/* advisory only */}
         }
-        await response.body?.cancel().catch(()=>undefined);continue;
+        await response.body?.cancel().catch(()=>undefined);
+        return undefined;
       }
       if(!options.fetcher){
         try{const health=await import('./provider-health');await health.recordProviderResult(id,response.status);}catch{/* advisory only */}
       }
       const payload=await response.json();
       const result=payload.candidates?.[0]?.content?.parts?.filter((p:{thought?:boolean})=>!p.thought).map((p:{text?:string})=>p.text||'').join('')||payload.choices?.[0]?.message?.content;
-      if(result)return JSON.parse(result.replace(/^```(?:json)?\s*|\s*```$/g,''));
+      return result?JSON.parse(result.replace(/^```(?:json)?\s*|\s*```$/g,'')):undefined;
+    };
+    try{
+      const result=await request(instruction,data);
+      if(result===undefined)continue;
+      if(!options.validate)return result;
+      try{return options.validate(normalizeTeachingPlan(result));}
+      catch(error){
+        const message=error instanceof Error?error.message:'Invalid structured teaching sequence';
+        try{
+          const repaired=await request(instruction+' Repair this rejected plan. Validation error: '+message+
+            '. Return the same required JSON structure with 2-5 ordered teaching beats, preserving all source facts, numbers and qualifications.',
+          {...(data&&typeof data==='object'?data as Record<string,unknown>:{value:data}),rejected_plan:result});
+          if(repaired!==undefined)return options.validate(normalizeTeachingPlan(repaired));
+        }catch(repairError){
+          console.warn('Lesson planner repair rejected',{provider,model,kind:repairError instanceof Error?repairError.name:'unknown'});
+        }
+        console.warn('Lesson planner returned an invalid structured sequence',{provider,model});
+      }
     }catch(error){
       if(!options.fetcher){try{const health=await import('./provider-health');await health.recordProviderResult(id,null);}catch{/* advisory only */}}
       console.warn('Lesson planner unavailable',{provider,model,kind:error instanceof Error?error.name:'unknown'});
@@ -117,8 +208,7 @@ function typedClinicalQuantities(text:string):string[]{
   return [...found];
 }
 export function validateAuthoredLesson(raw:unknown,record:ConceptRecord,question?:BankQuestion|null):{title:string;beats:Array<{speech:string;notes:string[];fact_ids:number[];use_model:boolean;activity:string}>}{
-  if(!raw||typeof raw!=='object')throw new Error('Teaching explanation missing');
-  const value=raw as Record<string,unknown>,facts=teachingLines(record.title,record.consolidated_notes);
+  const value=normalizeTeachingPlan(raw),facts=teachingLines(record.title,record.consolidated_notes);
   if(!Array.isArray(value.beats)||value.beats.length<2||value.beats.length>5)throw new Error('Expected a short teaching sequence');
   const covered=new Set<number>();
   const beats=value.beats.map((item:unknown)=>{
@@ -154,31 +244,41 @@ export function validateAuthoredLesson(raw:unknown,record:ConceptRecord,question
 }
 export async function authorTeachingPacket(sessionId:string,syllabusId:string,version:number,record:ConceptRecord,options:AuthorOptions={}):Promise<TeachingPacket>{
   options={...options,signal:options.signal??AbortSignal.timeout(35000),schema:teachingSchema(options.question?.id)};
-  const facts=teachingLines(record.title,record.consolidated_notes);
-  if(!facts.length)throw new Error('This source section contains no teachable content');
+  const segments=teachingSegments(record);
+  if(!segments.length)throw new Error('This source section contains no teachable content');
   const spec=(record.visual_spec_json||{}) as Record<string,unknown>;
   const clinicalTitle=cleanClinicalTitle(record.title);
   const sourceName=Array.isArray(record.source_citations_json)?String(record.source_citations_json[0]?.file_name||''):'';
   const context=/prostat|colon|cardiac|renal|kidney|receptor|pharmac|carcinoma|inflamm/i.test(sourceName)?sourceName.replace(/\.[a-z0-9]+$/i,'').replace(/[_-]+/g,' ').replace(/\b(?:lecture|slides?|year\s*\d+)\b/gi,'').trim():'';
   let visual=matchCuratedClassVisual(clinicalTitle,record.consolidated_notes+' '+context)||(['anatomy_3d','molecule_3d','physiology_sim','source_diagram'].includes(String(spec.mode))?spec:null);
-  const cache=spec.authored as {version?:number;revision?:number;fingerprint?:string;lesson?:unknown;questionId?:string;sourceFallback?:boolean;fallbackUntil?:number}|undefined;
-  let lesson:ReturnType<typeof validateAuthoredLesson>|undefined;
+  const cache=spec.authored as {version?:number;revision?:number;fingerprint?:string;lesson?:{segments?:unknown};questionId?:string;sourceFallback?:boolean;fallbackUntil?:number}|undefined;
+  let lessons:AuthoredPlan[]=[];
   const cacheMatches=cache?.version===TEACHING_VERSION&&cache.revision===AUTHOR_REVISION&&cache.fingerprint===teachingFingerprint(record)&&cache.questionId===(options.question?.id||'');
-  if(cacheMatches&&!cache?.sourceFallback){
-    try{lesson=validateAuthoredLesson(cache?.lesson,record,options.question);}
-    catch{ /* regenerate stale or rejected explanations */ }
-  }
-  if(!lesson){
-  const input={title:clinicalTitle,source_topic_context:context,facts:facts.map((text,id)=>({id,text})),approved_visual:visual,bank_question:options.question||null,
-    session_brief:options.sessionBrief||null};
-    // Reserve time for source recovery and cache writes inside the 42s compiler budget.
-    const planning={...options,signal:AbortSignal.any([options.signal!,AbortSignal.timeout(26000)])};
+  if(cacheMatches&&!cache?.sourceFallback&&Array.isArray(cache.lesson?.segments)&&cache.lesson.segments.length===segments.length){
     try{
-      const raw=await generateTeachingJson(INSTRUCTION,input,planning);
-      try{lesson=validateAuthoredLesson(raw,record,options.question);}
-      catch(error){
-        const repaired=await generateTeachingJson(INSTRUCTION+' Repair this rejected plan. Validation error: '+(error instanceof Error?error.message:'Invalid plan')+'. Keep exact source numbers, units and qualifications in context.',{...input,rejected_plan:raw},planning);
-        lesson=validateAuthoredLesson(repaired,record,options.question);
+      lessons=cache.lesson.segments.map((raw,index)=>{
+        if(!raw||typeof raw!=='object')throw new Error('Cached teaching segment missing');
+        const segment=raw as Record<string,unknown>;
+        return validateAuthoredLesson({title:segment.title,bank_question_id:index===0?options.question?.id||'':'',beats:segment.beats},
+          segmentRecord(record,segments[index]),index===0?options.question:null);
+      });
+    }catch{lessons=[];}
+  }
+  if(!lessons.length){
+    const planningSignal=AbortSignal.any([options.signal!,AbortSignal.timeout(26000)]);
+    try{
+      for(const [index,segment] of segments.entries()){
+        const part=segmentRecord(record,segment);
+        const question=index===0?options.question:null;
+        const input={title:clinicalTitle,source_topic_context:context,
+          facts:segment.facts.map((fact,id)=>({id,text:fact.text})),
+          approved_visual:index===0?visual:null,bank_question:question||null,
+          session_brief:{...(options.sessionBrief||{}),teaching_segment:index+1,teaching_segment_count:segments.length}};
+        const lesson=await generateTeachingJson(INSTRUCTION,input,{
+          ...options,signal:planningSignal,schema:teachingSchema(question?.id),
+          validate:raw=>validateAuthoredLesson(raw,part,question),
+        }) as AuthoredPlan;
+        lessons.push(lesson);
       }
     }catch(error){
       options.signal!.throwIfAborted();
@@ -189,22 +289,41 @@ export async function authorTeachingPacket(sessionId:string,syllabusId:string,ve
       throw unavailable;
     }
   }
-  lesson.title=cleanClinicalTitle(lesson.title);
-  visual ||= matchCuratedClassVisual(lesson.title,record.consolidated_notes+' '+context);
-  const refs:Citation[]=Array.isArray(record.source_citations_json)?record.source_citations_json.filter(r=>typeof r?.file_name==='string'):[];
+  const title=cleanClinicalTitle(lessons[0].title);
+  visual ||= matchCuratedClassVisual(title,record.consolidated_notes+' '+context);
+  const segmentCueCounts=lessons.map(lesson=>lesson.beats.length);
+  const totalCues=segmentCueCounts.reduce((sum,count)=>sum+count,0);
   let modelShown=false;
-  const cues:VisualCue[]=lesson.beats.map((beat,index)=>{
-    const show=Boolean(visual&&!modelShown&&index<lesson.beats.length-1&&(beat.use_model||index===lesson.beats.length-2));
-    if(show)modelShown=true;
-    const activity=show?(beat.activity||(visual!.mode==='physiology_sim'?'Try adjusting one slider and watch how the result changes.':visual!.mode==='source_diagram'?'Look at how these structures connect in this diagram.':'You can rotate or zoom this reference anatomy while we connect it to the explanation.')):'';
-    return{id:record.id+'-lesson-'+index,mode:(show?visual!.mode:'whiteboard') as VisualCue['mode'],title:lesson.title,
-      spoken_text:beat.speech+(activity?' '+activity:''),learning_activity:activity,steps:beat.notes,source_fact_ids:beat.fact_ids,
-      ...(show?{asset_url:typeof visual!.asset_url==='string'?visual!.asset_url:undefined,structure_id:typeof visual!.structure_id==='string'?visual!.structure_id:undefined}:{}),citations:refs.slice(0,4)};
+  let cueIndex=0;
+  const cues:VisualCue[]=lessons.flatMap((lesson,segmentIndex)=>{
+    const sourceRefs=segmentRecord(record,segments[segmentIndex]).source_citations_json;
+    const refs:Citation[]=Array.isArray(sourceRefs)?sourceRefs
+      .filter((ref):ref is Record<string,unknown>=>Boolean(ref)&&typeof ref==='object'&&typeof (ref as Record<string,unknown>).file_name==='string')
+      .map(ref=>({file_name:String(ref.file_name),page_number:typeof ref.page_number==='number'?ref.page_number:null})):[];
+    return lesson.beats.map(beat=>{
+      const index=cueIndex++;
+      const show=Boolean(visual&&!modelShown&&index<totalCues-1&&(beat.use_model||index===totalCues-2));
+      if(show)modelShown=true;
+      const activity=show?(beat.activity||(visual!.mode==='physiology_sim'?'Try adjusting one slider and watch how the result changes.':visual!.mode==='source_diagram'?'Look at how these structures connect in this diagram.':'You can rotate or zoom this reference anatomy while we connect it to the explanation.')):'';
+      return{id:record.id+'-lesson-'+index,mode:(show?visual!.mode:'whiteboard') as VisualCue['mode'],title:lesson.title,
+        spoken_text:beat.speech+(activity?' '+activity:''),learning_activity:activity,steps:beat.notes,source_fact_ids:beat.fact_ids,
+        ...(show?{asset_url:typeof visual!.asset_url==='string'?visual!.asset_url:undefined,structure_id:typeof visual!.structure_id==='string'?visual!.structure_id:undefined}:{}),citations:refs.slice(0,4)};
+    });
   });
   // Expose only authored speech/notes. Raw source remains server-side in the cited index.
-  return parseTeachingPacket({type:'TEACHING_PACKET',session_id:sessionId,syllabus_id:syllabusId,state_version:version,concept_node_id:record.id,title:lesson.title,visual_cues:cues,teaching_version:TEACHING_VERSION,source_fallback:false,practice_question_id:options.question?.id});
+  return parseTeachingPacket({type:'TEACHING_PACKET',session_id:sessionId,syllabus_id:syllabusId,state_version:version,concept_node_id:record.id,title,visual_cues:cues,
+    segment_cue_counts:segmentCueCounts,teaching_version:TEACHING_VERSION,source_fallback:false,practice_question_id:options.question?.id});
 }
 export function cachedLesson(packet:TeachingPacket,record:ConceptRecord,question?:BankQuestion|null){
-  return{version:TEACHING_VERSION,revision:AUTHOR_REVISION,fingerprint:teachingFingerprint(record),questionId:question?.id||'',lesson:{title:packet.title,bank_question_id:question?.id||'',
-    beats:packet.visual_cues.map(c=>({speech:c.learning_activity&&c.spoken_text.endsWith(' '+c.learning_activity)?c.spoken_text.slice(0,-c.learning_activity.length-1):c.spoken_text,notes:c.steps,fact_ids:c.source_fact_ids||[],use_model:c.mode!=='whiteboard',activity:c.learning_activity||''}))}};
+  const segments=teachingSegments(record);
+  const counts=packet.segment_cue_counts?.length===segments.length?packet.segment_cue_counts:[packet.visual_cues.length];
+  let offset=0;
+  const lessons=counts.map(count=>{
+    const cues=packet.visual_cues.slice(offset,offset+count);
+    offset+=count;
+    return{title:packet.title,beats:cues.map(c=>({speech:c.learning_activity&&c.spoken_text.endsWith(' '+c.learning_activity)?c.spoken_text.slice(0,-c.learning_activity.length-1):c.spoken_text,
+      notes:c.steps,fact_ids:c.source_fact_ids||[],use_model:c.mode!=='whiteboard',activity:c.learning_activity||''}))};
+  });
+  return{version:TEACHING_VERSION,revision:AUTHOR_REVISION,fingerprint:teachingFingerprint(record),questionId:question?.id||'',
+    lesson:{title:packet.title,segments:lessons}};
 }

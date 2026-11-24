@@ -58,7 +58,7 @@ try{
   releaseIndex();
   await page.getByText(/Ready to enter/).waitFor({timeout:20000});
   assert.equal(await enter.isEnabled(),true);
-  assert.equal(published,false);assert.ok(treeReads>=1);
+  assert.equal(published,true);assert.ok(treeReads>=1);
   await page.getByText('Source index ready',{exact:false}).waitFor({timeout:45000});
   assert.equal(attempts.size,68);assert.equal(attempts.get('concept-2'),2);assert.equal(attempts.get('concept-11'),3);
   assert.ok(peak<=3&&peak>1);assert.equal(await enter.isEnabled(),true);
