@@ -18,6 +18,11 @@ function check(error: {message:string} | null) {
 export async function compileStep(userId:string, syllabusId:string, action:string, itemId:string, offset:number, signal:AbortSignal) {
   const db=createAdminClient(signal);
   if(!db)throw new Error('Study database unavailable');
+  const upsertBatched=async(table:'syllabus_concept_nodes'|'document_atomic_chunks',rows:object[])=>{
+    for(let from=0;from<rows.length;from+=200){
+      check((await db.from(table).upsert(rows.slice(from,from+200),{ignoreDuplicates:true})).error);
+    }
+  };
   const scoped=()=>db.from('study_syllabi').select('status,active_generation,staging_generation,expires_at')
     .eq('id',syllabusId).eq('user_id',userId).single();
   let syllabus=(await scoped()).data;
@@ -99,16 +104,16 @@ export async function compileStep(userId:string, syllabusId:string, action:strin
     const topicId=id('topic/'+n.topic);
     if(!parents.some(p=>p.id===topicId))parents.push({...scope,id:topicId,parent_id:moduleId,node_type:'topic',title:n.topic,sort_order:order+i,visual_spec_json:{}});
   }
-  check((await db.from('syllabus_concept_nodes').upsert(parents,{ignoreDuplicates:true})).error);
+  await upsertBatched('syllabus_concept_nodes',parents);
   const concepts=page.map((n,i)=>({...scope,id:id('node/'+(offset+i)),parent_id:id('topic/'+n.topic),node_type:'concept',
     title:n.title,sort_order:order+i,consolidated_notes:n.notes,key_details_json:n.facts,source_citations_json:n.citations,
     visual_spec_json:{...(matchCuratedClassVisual(n.title)||{mode:'whiteboard'}),
       fingerprint:createHash('sha256').update(n.title+'\n'+n.notes).digest('hex')}}));
-  check((await db.from('syllabus_concept_nodes').upsert(concepts,{ignoreDuplicates:true})).error);
+  await upsertBatched('syllabus_concept_nodes',concepts);
   signal.throwIfAborted();
   const chunks=page.flatMap((n,i)=>n.chunks.map((chunk,j)=>({...scope,id:id('chunk/'+(offset+i)+'/'+j),document_id:doc.id,concept_node_id:concepts[i].id,
     source_file:chunk.sourceFile,page_number:chunk.pageNumber,chunk_text:chunk.text})));
-  check((await db.from('document_atomic_chunks').upsert(chunks,{ignoreDuplicates:true})).error);
+  await upsertBatched('document_atomic_chunks',chunks);
   const next=offset+page.length;
   if(next<nodes.length)return {done:false,next,ids:concepts.map(n=>n.id)};
   const counted=await db.from('document_atomic_chunks').select('id',{head:true,count:'exact'}).match(scope).eq('document_id',doc.id);

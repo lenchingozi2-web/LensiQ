@@ -10,6 +10,7 @@ import urllib.error
 import urllib.request
 
 TIMEOUT_SECONDS = 12
+USER_AGENT = "LenxiQ-Live-Class-Provider-Probe/1.0"
 
 
 def candidates():
@@ -57,13 +58,18 @@ def classify(provider, status, body):
 
 def request(provider, model, key):
     if provider == "gemini":
-        url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent"
-        headers = {"content-type": "application/json", "x-goog-api-key": key}
+        if key.startswith("AQ."):
+            url = "https://aiplatform.googleapis.com/v1/publishers/google/models/" + model + ":generateContent"
+        else:
+            url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent"
+        headers = {"content-type": "application/json", "accept": "application/json",
+                   "user-agent": USER_AGENT, "x-goog-api-key": key}
         body = {"contents": [{"role": "user", "parts": [{"text": "Reply with OK."}]}],
                 "generationConfig": {"maxOutputTokens": 8}}
     else:
         url = "https://api.groq.com/openai/v1/chat/completions"
-        headers = {"content-type": "application/json", "authorization": "Bearer " + key}
+        headers = {"content-type": "application/json", "accept": "application/json",
+                   "user-agent": USER_AGENT, "authorization": "Bearer " + key}
         body = {"model": model, "messages": [{"role": "user", "content": "Reply with OK."}],
                 "max_completion_tokens": 8, "temperature": 0}
     req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers, method="POST")

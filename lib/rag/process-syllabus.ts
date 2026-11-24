@@ -39,15 +39,19 @@ export function processSyllabus(documents: ParsedDocument[], legacy=false): Proc
       if (normalized.length >= 8 && normalized.length <= 140) counts.set(normalized, (counts.get(normalized) || 0) + 1);
     }
     const groups = new Map<string, { title: string; topic: string; facts: CitedAtomicFact[] }>();
+    const consolidateByTopic = document.characters >= 200_000 || document.sections.length >= 250;
     document.sections.forEach((section, sectionIndex) => {
       const label = labels[sectionIndex] || 'General concepts';
       const metadataSection = /^(?:source attribution|document information)$/i.test(section.heading.trim());
       if (metadataSection || isTeachingMetadata(section.heading)) return;
       const topic = label.split(' · ')[0] || 'General concepts';
-      // Keep clinical sub-sections distinct, but merge slide fragments that share
-      // the same named concept or clinical sub-section.
-      const key = label.toLowerCase();
-      const group = groups.get(key) || { title: label, topic, facts: [] };
+      // Keep retrieval chunks granular, but on textbook-scale documents
+      // consolidate related clinical subsections under their named topic so
+      // slide fragments do not become hundreds of micro-concepts. Small
+      // documents retain their precise section-level outline.
+      const key = (consolidateByTopic ? topic : label).toLowerCase();
+      const title = consolidateByTopic ? topic : label;
+      const group = groups.get(key) || { title, topic, facts: [] };
       for (const fact of section.facts) {
         const text = fact.text.trim();
         const normalized = text.replace(/\s+/g, ' ').toLowerCase();

@@ -1,5 +1,5 @@
 export type RetryableFailure = Error & { retryAfterMs?: number };
-const MAX_CONCURRENCY = 2;
+const MAX_CONCURRENCY = 3;
 const MAX_RETRY_WAIT_MS = 30_000;
 
 export async function inPool<T>(items: T[], work: (item:T,index:number)=>Promise<void>, concurrency=2) {

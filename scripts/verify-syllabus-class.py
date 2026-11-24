@@ -72,6 +72,17 @@ class Fixture:
     async def http(self, *args, **kwargs):
         return await asyncio.to_thread(self.request, *args, **kwargs)
 
+    async def all_service_rows(self, path, page_size=500):
+        rows = []
+        offset = 0
+        while True:
+            separator = '&' if '?' in path else '?'
+            page = await self.http(path + separator + f"limit={page_size}&offset={offset}", service=True)
+            rows.extend(page)
+            if len(page) < page_size:
+                return rows
+            offset += page_size
+
     async def setup(self):
         source = await self.http("/rest/v1/study_documents?select=id,syllabus_id,original_name&id=eq." +
                                  SOURCE_DOCUMENT_ID + "&limit=1", service=True)
@@ -147,11 +158,11 @@ class Fixture:
                 break
             offset = part["next"]
         self.report["conceptCount"] = count
-        if count < 500 or count > 2_000:
-            raise RuntimeError("The medical-note deterministic concept count fell outside the expected sane range")
+        if count < 10 or count > 500:
+            raise RuntimeError("The medical-note consolidated concept count fell outside the expected sane range")
         await step("publish")
-        nodes = await self.http("/rest/v1/syllabus_concept_nodes?select=id,title&syllabus_id=eq." + self.syllabus +
-            "&user_id=eq." + self.user + "&generation=eq.1&node_type=eq.concept&order=sort_order&limit=5000", service=True)
+        nodes = await self.all_service_rows("/rest/v1/syllabus_concept_nodes?select=id,title&syllabus_id=eq." + self.syllabus +
+            "&user_id=eq." + self.user + "&generation=eq.1&node_type=eq.concept&order=sort_order")
         bad_titles = ("editing note", "source lectures", "selected visual references", "foundation to clinical application",
                       "lecture-based, concept-organised revision copy", "system pathology: heart, lung, gut, kidney, cns and reproductive organs")
         if any(any(label in row["title"].strip().lower() for label in bad_titles) for row in nodes):
@@ -159,8 +170,8 @@ class Fixture:
         self.report["outlineNodeCount"] = len(nodes)
         if len(nodes) != count:
             raise RuntimeError("The persisted deterministic outline differs from the parsed concept count")
-        chunks = await self.http("/rest/v1/document_atomic_chunks?select=concept_node_id&syllabus_id=eq." + self.syllabus +
-            "&user_id=eq." + self.user + "&generation=eq.1&limit=10000", service=True)
+        chunks = await self.all_service_rows("/rest/v1/document_atomic_chunks?select=concept_node_id&syllabus_id=eq." + self.syllabus +
+            "&user_id=eq." + self.user + "&generation=eq.1")
         per_concept = {}
         for chunk in chunks:
             per_concept[chunk["concept_node_id"]] = per_concept.get(chunk["concept_node_id"], 0) + 1

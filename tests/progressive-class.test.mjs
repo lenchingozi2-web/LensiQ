@@ -12,9 +12,9 @@ test('42 concepts run with at most three requests; one lost response retries the
         await new Promise(r=>setTimeout(r,1));active--;
         if(id===11||id===1&&attempt<3)throw new Error('504');
         done.push(id);
-      },new AbortController().signal,1);
+      },new AbortController().signal,2);
     }catch{flagged.push(id);}
-  });
+  },3);
   assert.equal(peak,3);assert.deepEqual(flagged,[11]);assert.equal(attempts.get(1),3);
   assert.equal(new Set(done).size,41);assert.equal(attempts.get(11),3);
 });

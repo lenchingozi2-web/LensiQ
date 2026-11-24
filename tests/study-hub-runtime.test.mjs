@@ -106,7 +106,7 @@ test('compilation limits concurrency and honors Retry-After without retrying ear
   await inPool(Array.from({length:7},(_,index)=>index),async()=>{
     active++;maximum=Math.max(maximum,active);await new Promise(resolve=>setTimeout(resolve,4));active--;
   },5);
-  assert.equal(maximum,2);
+  assert.equal(maximum,3);
   assert.equal(parseRetryAfterMs('2',0),2000);
   assert.equal(parseRetryAfterMs(new Date(3000).toUTCString(),0),3000);
   assert.equal(parseRetryAfterMs('nonsense',0),null);
