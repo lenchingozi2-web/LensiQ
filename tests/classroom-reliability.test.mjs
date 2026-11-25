@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {stripTypeScriptTypes} from 'node:module';
 import {parseTeachingPacket,parseVisualCue} from '../lib/live-class/visual-protocol.ts';
 import {clinicalTopicLabels,legacyClinicalTopicLabels,isLectureCredit,isDocumentCoverHeading,clinicalSectionCategory,normalizedClinicalHeading} from '../lib/rag/clinical-topic.ts';
-import {isTeachable,isTeachingMetadata} from '../lib/live-class/teaching-content.ts';
+import {isTeachable,isTeachingMetadata,hasClinicalSubstance} from '../lib/live-class/teaching-content.ts';
 import {compileCanonicalConcept} from '../lib/rag/deduplicator.ts';
 
 const load=async(path,deps)=>{
@@ -34,7 +34,7 @@ test('multi-beat teaching retains every numeric qualification and returns to not
 });
 test('compiled concepts keep the disease context and all source passages',async()=>{
  const {processSyllabus}=await load('../lib/rag/process-syllabus.ts',{
-  clinicalTopicLabels,isTeachingMetadata,compileCanonicalConcept,
+  clinicalTopicLabels,legacyClinicalTopicLabels,isTeachingMetadata,hasClinicalSubstance,compileCanonicalConcept,
   chunkFacts:facts=>facts.map(f=>({text:f.text,sourceFile:f.sourceFile,pageNumber:f.pageNumber,documentId:f.documentId}))
  });
  const headings=['Tuberculosis','Morphology','Pneumonia','Morphology'];
@@ -47,7 +47,7 @@ test('compiled concepts keep the disease context and all source passages',async(
 
 test('textbook disease concepts retain all atomic chunks without creating four-chunk fragments',async()=>{
  const {processSyllabus}=await load('../lib/rag/process-syllabus.ts',{
-  clinicalTopicLabels,isTeachingMetadata,compileCanonicalConcept,
+  clinicalTopicLabels,legacyClinicalTopicLabels,isTeachingMetadata,hasClinicalSubstance,compileCanonicalConcept,
   chunkFacts:facts=>facts.map((fact,index)=>({text:fact.text,sourceFile:fact.sourceFile,pageNumber:fact.pageNumber,documentId:fact.documentId,index}))
  });
  const facts=Array.from({length:24},(_,index)=>({text:`Evidence ${index} remains intact.`,sourceFile:'Textbook.pdf',pageNumber:index+1,documentId:ids[0]}));
@@ -70,7 +70,7 @@ test('generic headings can stage relevant models using substantive lecture conte
 
 test('compiled exam PDFs keep credits and title-page furniture out of teachable topics while preserving source facts',async()=>{
  const {parseDocumentSections,chunkFacts}=await load('../lib/rag/ingestor.ts',{isLectureCredit,isDocumentCoverHeading,clinicalSectionCategory,normalizedClinicalHeading});
- const {processSyllabus}=await load('../lib/rag/process-syllabus.ts',{clinicalTopicLabels,legacyClinicalTopicLabels,isTeachingMetadata,compileCanonicalConcept,chunkFacts});
+ const {processSyllabus}=await load('../lib/rag/process-syllabus.ts',{clinicalTopicLabels,legacyClinicalTopicLabels,isTeachingMetadata,hasClinicalSubstance,compileCanonicalConcept,chunkFacts});
  const source='[Page 1]\nANATOMICAL PATHOLOGY / MB EXAM NOTES\nDr. Jane Example\nACUTE INFLAMMATION\nDefinition\nAcute inflammation is a protective tissue response.\n[Page 2]\nANATOMICAL PATHOLOGY / MB EXAM NOTES\nMorphology\nNeutrophils move into injured tissue.\n1. Neutrophils are recruited in early inflammation.\nDose is 0.5 mg only in this example.\n[Page 3]\nDr. Jane Example\nClinical features\nRedness and swelling occur.\nPNEUMONIA\nMorphology\nAlveolar spaces contain inflammatory cells.';
  const parsed=parseDocumentSections(source,ids[0],'Notes.pdf');
  const nodes=processSyllabus([parsed]);

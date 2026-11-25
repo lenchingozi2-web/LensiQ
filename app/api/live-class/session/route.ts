@@ -8,12 +8,13 @@ import { purgeSessionMaterialsOnEnd } from '@/lib/rag/ephemeral-cleanup';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
+  try {
   const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Sign in to start Live Class.' }, { status: 401 });
   const body = await request.json().catch(() => ({}));
   const admin = createAdminClient();
-  if (!admin) return NextResponse.json({ error: 'Class service unavailable.' }, { status: 503 });
+  if (!admin) { console.error('Session route: Supabase admin client unavailable'); return NextResponse.json({ error: 'Session route HTTP 503: Supabase admin client unavailable' }, { status: 503 }); }
   if (subscriptionsEnabled()) {
     await db.rpc('refresh_my_subscription');
     const { data: profile } = await db.from('profiles').select('role,plan,plan_expires_at').eq('id', user.id).maybeSingle();
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
     ? await reserveOpenClass(admin, user.id, roomName, courseName, typeof body.conversationId === 'string' ? body.conversationId : null)
     : await db.rpc('reserve_live_class_session', { p_room_name: roomName, p_course_name: courseName, p_conversation_id: body.conversationId || null });
   const quota = Array.isArray(reservation.data) ? reservation.data[0] : reservation.data;
-  if (reservation.error || !quota) return NextResponse.json({ error: 'Unable to reserve a Live Class session.' }, { status: 503 });
+  if (reservation.error || !quota) { console.error('Session reservation failed', reservation.error?.code, reservation.error?.message); return NextResponse.json({ error: 'Session route HTTP 503: reservation failed' + (reservation.error?.code ? ' (database ' + reservation.error.code + ')' : '') }, { status: 503 }); }
   if (!quota.allowed) return NextResponse.json({ error: 'live_class_limit', message: 'Your Live Class allowance is unavailable right now.', quota }, { status: 403 });
   const sessionId = String(quota.session_id);
   const maxDurationSeconds = Math.min(90 * 60, Math.max(60, Number(quota.max_duration_seconds ?? 90 * 60)));
@@ -38,10 +39,15 @@ export async function POST(request: Request) {
     if (linked.error || !linked.data) {
       if (subscriptionsEnabled()) await db.rpc('charge_live_class_session', { p_session_id: sessionId, p_duration_seconds: 0, p_end: true });
       else await updateOpenClass(admin, user.id, sessionId, true);
-      return NextResponse.json({ error: 'syllabus_unavailable', resetSyllabus: true }, { status: 409 });
+      console.error('Session syllabus link failed', linked.error?.code, linked.error?.message);
+      return NextResponse.json({ error: 'syllabus_unavailable', message: 'Session route HTTP 409: syllabus unavailable or already linked', resetSyllabus: true }, { status: 409 });
     }
   }
   return NextResponse.json({ ok: true, sessionId, roomName, expiresAt, quota: { ...quota, maxDurationSeconds, expiresAt } });
+  } catch (error) {
+    console.error('Session route HTTP 500', error);
+    return NextResponse.json({ error: 'Session route HTTP 500: unable to create the classroom; check server logs' }, { status: 500 });
+  }
 }
 
 export async function DELETE(request: Request) {

@@ -9,7 +9,7 @@ import { parseRetryAfterMs } from '@/lib/http/retry-after';
 export type BankQuestion={id:string;question:string;answer:string};
 type AuthorOptions={env?:Record<string,string|undefined>;fetcher?:typeof fetch;question?:BankQuestion|null;schema?:Record<string,unknown>;maxTokens?:number;signal?:AbortSignal;sessionBrief?:Record<string,unknown>;validate?:(value:unknown)=>unknown};
 export const TEACHING_VERSION=3;
-const AUTHOR_REVISION=3;
+const AUTHOR_REVISION=4;
 export function teachingFingerprint(record:ConceptRecord){return createHash('sha256').update(record.title+'\n'+record.consolidated_notes).digest('hex');}
 const MAX_SEGMENT_CHARS=1150*4;
 const MAX_SEGMENT_FACTS=24;
@@ -67,6 +67,22 @@ function segmentRecord(record:ConceptRecord,segment:TeachingSegment):ConceptReco
     item.file_name===citation.file_name&&item.page_number===citation.page_number)===index);
   return {...record,consolidated_notes:segment.facts.map(fact=>fact.text).join('\n'),
     key_details_json:segment.facts,source_citations_json:uniqueCitations.length?uniqueCitations:record.source_citations_json};
+}
+
+/** A direct HTTPS request authors only one ordered segment. The full unit stays indexed. */
+export async function authorDirectTeachingSegment(sessionId:string,syllabusId:string,version:number,record:ConceptRecord,index:number,options:AuthorOptions={}){
+  const segments=teachingSegments(record);
+  if(!Number.isSafeInteger(index)||index<0||index>=segments.length)throw new Error('Teaching segment is unavailable');
+  const spec=(record.visual_spec_json||{}) as Record<string,unknown>;
+  const cache=spec.authoredSegments as Record<string,unknown>|undefined;
+  const part=segmentRecord(record,segments[index]);
+  const selected={...part,visual_spec_json:{...spec,authored:cache?.[String(index)]}};
+  const question=index===0?options.question:null;
+  const packet=await authorTeachingPacket(sessionId,syllabusId,version,selected,{...options,question,
+    sessionBrief:{...(options.sessionBrief||{}),unit_segment:index+1,unit_segment_count:segments.length}});
+  return {packet:{...packet,segment_index:index,segment_count:segments.length,
+      visual_cues:packet.visual_cues.map(cue=>({...cue,id:cue.id+'-s'+index}))},
+    cached:cachedLesson(packet,selected,question)};
 }
 
 function normalizeTeachingPlan(raw:unknown):Record<string,unknown>{

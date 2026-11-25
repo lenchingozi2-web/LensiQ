@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyLiveClassGatewayToken } from '@/lib/voice/live-class-gateway-auth';
 import { transitionLessonState, initialLessonState, type LessonState, type LessonEvent } from '@/lib/live-class/orchestrator';
 import type { ConceptRecord } from '@/lib/live-class/teaching-packet';
-import { authorTeachingPacket, cachedLesson } from '@/lib/live-class/lesson-author';
+import { authorDirectTeachingSegment, authorTeachingPacket, cachedLesson } from '@/lib/live-class/lesson-author';
 import { isTeachable } from '@/lib/live-class/teaching-content';
 import { relatedBankQuestion } from '@/lib/live-class/bank-question';
 import { purgeSessionMaterialsOnEnd } from '@/lib/rag/ephemeral-cleanup';
@@ -22,7 +22,7 @@ function toState(row:LessonRow):LessonState{
   return {phase:row.phase,state_version:Number(row.state_version),nodes:Array.isArray(row.nodes_json)?row.nodes_json.filter((v):v is string=>typeof v==='string'):[],
     cursor:row.cursor,current_node_id:row.current_node_id,previous_phase:row.previous_phase};
 }
-const allowedActions=new Set(['bootstrap','start','next','jump','pause','resume','barge_in','interrupt_done','node_complete','prepare_next','end','state','checkpoint','remember_question']);
+const allowedActions=new Set(['bootstrap','start','next','jump','pause','resume','barge_in','interrupt_done','node_complete','prepare_next','end','state','checkpoint','remember_question','segment']);
 export async function POST(request:Request){
   const body=await request.json().catch(()=>null);
   const action=typeof body?.action==='string'?body.action:'';
@@ -95,13 +95,26 @@ export async function POST(request:Request){
     if(!lesson)return NextResponse.json({error:'Initialize syllabus before starting the lesson'},{status:409});
     const record=lesson as LessonRow;
     const current=toState(record);
-    async function packetFor(state:LessonState){
+    const direct=!gateway&&body.transport==='direct-deepgram';
+    async function packetFor(state:LessonState,segmentIndex=0){
       if(state.phase!=='TEACHING_NODE'||!state.current_node_id)return null;
       const {data,error}=await admin!.from('syllabus_concept_nodes')
         .select('id,title,generation,consolidated_notes,key_details_json,source_citations_json,visual_spec_json')
         .eq('id',state.current_node_id).eq('syllabus_id',record.syllabus_id).eq('user_id',user!.id).single();
       if(error||!data)throw new Error('Concept lookup failed');
       const concept=data as ConceptRecord;
+      if(direct){
+        const question=segmentIndex===0&&state.cursor%3===1?await relatedBankQuestion(admin!,session?.course_name||'',concept.title):null;
+        const authored=await authorDirectTeachingSegment(sessionId,record.syllabus_id,state.state_version,concept,segmentIndex,{question,sessionBrief:{course:session?.course_name||'',current_concept:concept.title}});
+        const spec=(concept.visual_spec_json||{}) as Record<string,unknown>;
+        const segmentCache=(spec.authoredSegments||{}) as Record<string,unknown>;
+        if(JSON.stringify(segmentCache[String(segmentIndex)])!==JSON.stringify(authored.cached)){
+          const saved=await admin!.from('syllabus_concept_nodes').update({visual_spec_json:{...spec,authoredSegments:{...segmentCache,[String(segmentIndex)]:authored.cached}}})
+            .eq('id',concept.id).eq('syllabus_id',record.syllabus_id).eq('user_id',user!.id);
+          if(saved.error)console.warn('Direct segment cache unavailable');
+        }
+        return authored.packet;
+      }
       const vectors=compileConceptEmbeddings(admin!,{syllabus_id:record.syllabus_id,user_id:user!.id,generation:Number(concept.generation)},concept.id)
         .catch(error=>console.warn('Optional concept vectors unavailable',error instanceof Error?error.name:'unknown'));
       const question=state.cursor%3===1?await relatedBankQuestion(admin!,session?.course_name||'',concept.title):null;
@@ -121,6 +134,12 @@ export async function POST(request:Request){
         if(saved.error)console.warn('Teaching cache unavailable; lesson still delivered');
       }
       return packet;
+    }
+    if(action==='segment'){
+      const index=Number(body.segmentIndex);
+      if(!direct||current.phase!=='TEACHING_NODE'||Number(body.stateVersion)!==current.state_version||!Number.isSafeInteger(index)||index<1)
+        return NextResponse.json({error:'Invalid direct teaching segment or stale state'},{status:409});
+      return NextResponse.json({ok:true,state:current,packet:await packetFor(current,index)});
     }
     if(action==='prepare_next'){
       const id=current.nodes[current.cursor+1];

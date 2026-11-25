@@ -92,6 +92,10 @@ export function useHybridStudyRAG(){
       usable=session.data?.status==='active';
     }
     if(!usable){clear();return false;}
+    if(data?.status==='ready'&&!data.session_id){
+      const plan=await postJson('/api/rag/compile-syllabus',{action:'prepare',syllabusId:id},AbortSignal.timeout(40_000));
+      if(!plan.published){setReady(false);setStatus('idle');setTree([]);throw new Error('Syllabus format updated. Resume indexing to rebuild from your saved document.');}
+    }
     return true;
   },[clear]);
   useEffect(()=>{

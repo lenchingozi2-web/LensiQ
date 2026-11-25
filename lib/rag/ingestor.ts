@@ -24,6 +24,7 @@ function headingOf(line:string):string|null {
   const value=line.trim();
   if(/^#{1,5}\s+\S/.test(value))return normalizedClinicalHeading(value);
   const normalized=normalizedClinicalHeading(value);
+  if (/^(?:lecture\s+)?unit\s+\d+\s*(?:[:.\-–—]\s*|\s+)\S/i.test(normalized)) return normalized;
   if(clinicalSectionCategory(normalized))return normalized;
   if(normalized.length<3||normalized.length>100||normalized.split(/\s+/).length>10||/[.!?]$/.test(normalized)||/\t/.test(value))return null;
   if(/^(?:\d{1,3}\.){1,4}\s+[A-Z]/.test(value)&&!/[\d%]|\b(?:is|are|was|were|has|have|may|can|should|must|causes?|includes?)\b/i.test(normalized))return normalized;
