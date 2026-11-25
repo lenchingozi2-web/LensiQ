@@ -69,6 +69,22 @@ function segmentRecord(record:ConceptRecord,segment:TeachingSegment):ConceptReco
     key_details_json:segment.facts,source_citations_json:uniqueCitations.length?uniqueCitations:record.source_citations_json};
 }
 
+/** A direct HTTPS request authors only one ordered segment. The full unit stays indexed. */
+export async function authorDirectTeachingSegment(sessionId:string,syllabusId:string,version:number,record:ConceptRecord,index:number,options:AuthorOptions={}){
+  const segments=teachingSegments(record);
+  if(!Number.isSafeInteger(index)||index<0||index>=segments.length)throw new Error('Teaching segment is unavailable');
+  const spec=(record.visual_spec_json||{}) as Record<string,unknown>;
+  const cache=spec.authoredSegments as Record<string,unknown>|undefined;
+  const part=segmentRecord(record,segments[index]);
+  const selected={...part,visual_spec_json:{...spec,authored:cache?.[String(index)]}};
+  const question=index===0?options.question:null;
+  const packet=await authorTeachingPacket(sessionId,syllabusId,version,selected,{...options,question,
+    sessionBrief:{...(options.sessionBrief||{}),unit_segment:index+1,unit_segment_count:segments.length}});
+  return {packet:{...packet,segment_index:index,segment_count:segments.length,
+      visual_cues:packet.visual_cues.map(cue=>({...cue,id:cue.id+'-s'+index}))},
+    cached:cachedLesson(packet,selected,question)};
+}
+
 function normalizeTeachingPlan(raw:unknown):Record<string,unknown>{
   if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Teaching explanation missing');
   const value=raw as Record<string,unknown>;

@@ -46,10 +46,10 @@ export function processSyllabus(documents: ParsedDocument[], legacy=false): Proc
       if (metadataSection || isTeachingMetadata(section.heading) || isTeachingMetadata(label)) return;
       const meaningful = section.facts.filter(fact=>!isTeachingMetadata(fact.text));
       const explicitUnit = section.heading.match(unitPattern);
+      if (explicitUnit) unit = explicitUnit[1].trim();
       if (!started && !hasClinicalSubstance(section.heading + '\n' + meaningful.map(fact=>fact.text).join('\n'))) return;
       if (!meaningful.length) return;
       started = true;
-      if (explicitUnit) unit = explicitUnit[1].trim();
       const topic = unit || label.split(' · ')[0] || 'General concepts';
       // Keep retrieval chunks granular, but on textbook-scale documents
       // consolidate related clinical subsections under their named topic so
@@ -74,7 +74,7 @@ export function processSyllabus(documents: ParsedDocument[], legacy=false): Proc
     const bounded = consolidateByTopic && ordered.length > 100
       ? Array.from({length:Math.ceil(ordered.length/Math.ceil(ordered.length/100))},(_,i)=>{
           const size=Math.ceil(ordered.length/100), batch=ordered.slice(i*size,(i+1)*size), first=batch[0]!;
-          return {title:first.title,topic:first.topic,facts:batch.flatMap(group=>group.facts)};
+          return {title:batch.length===1?first.title:first.title+' · related sections',topic:first.topic,facts:batch.flatMap(group=>group.facts)};
         })
       : ordered;
     return bounded.flatMap(group => {

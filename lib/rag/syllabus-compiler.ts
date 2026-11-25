@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { extractUploadedDocumentText, parseExtractedDocumentText } from './ingestor';
 import { processSyllabus } from './process-syllabus';
 import { compileConceptEmbeddings } from './concept-embeddings';
-import {authorTeachingPacket,cachedLesson} from '@/lib/live-class/lesson-author';
+import {authorDirectTeachingSegment,authorTeachingPacket,cachedLesson} from '@/lib/live-class/lesson-author';
 import { matchCuratedClassVisual } from '@/lib/live-class/model-matcher';
 
 const PAGE = 32;
@@ -30,14 +30,14 @@ export async function compileStep(userId:string, syllabusId:string, action:strin
   let syllabus=(await scoped()).data;
   if(!syllabus || !['draft','compiling','ready','failed'].includes(syllabus.status) || Date.parse(syllabus.expires_at)<=Date.now())
     throw new Error('This syllabus expired or is no longer available');
-  if(action==='prepare' && syllabus.status==='ready'){
+  if(action==='prepare' && ['ready','compiling'].includes(syllabus.status)){
     const activeModules=await db.from('syllabus_concept_nodes').select('visual_spec_json')
-      .match({syllabus_id:syllabusId,user_id:userId,generation:syllabus.active_generation}).eq('node_type','module');
+      .match({syllabus_id:syllabusId,user_id:userId,generation:syllabus.staging_generation??syllabus.active_generation}).eq('node_type','module');
     check(activeModules.error);
-    const stale=!activeModules.data?.length||activeModules.data.some(row=>row.visual_spec_json?.parserVersion!==PARSER_VERSION);
+    const stale=(syllabus.status==='ready'&&!activeModules.data?.length)||activeModules.data?.some(row=>row.visual_spec_json?.parserVersion!==PARSER_VERSION);
     if(stale){
-      check((await db.from('study_syllabi').update({status:'compiling',staging_generation:syllabus.active_generation+1})
-        .eq('id',syllabusId).eq('user_id',userId).eq('status','ready')).error);
+      check((await db.from('study_syllabi').update({status:'compiling',staging_generation:Math.max(syllabus.active_generation,syllabus.staging_generation??0)+1})
+        .eq('id',syllabusId).eq('user_id',userId).eq('status',syllabus.status)).error);
       check((await db.from('study_documents').update({status:'uploaded'}).eq('syllabus_id',syllabusId)
         .eq('user_id',userId).eq('status','indexed')).error);
       syllabus=(await scoped()).data;
@@ -56,9 +56,11 @@ export async function compileStep(userId:string, syllabusId:string, action:strin
     const found=await db.from('syllabus_concept_nodes').select('id,title,consolidated_notes,key_details_json,source_citations_json,visual_spec_json').match(scope).eq('id',itemId).eq('node_type','concept').single();
     check(found.error);
     const concept=found.data!;
-    const packet=await authorTeachingPacket(syllabusId,syllabusId,1,concept,{signal});
+    const direct=process.env.NEXT_PUBLIC_LIVE_CLASS_TRANSPORT!=='livekit';
+    const authored=direct?await authorDirectTeachingSegment(syllabusId,syllabusId,1,concept,0,{signal}):null;
+    const packet=authored?.packet??await authorTeachingPacket(syllabusId,syllabusId,1,concept,{signal});
     const latest=await db.from('syllabus_concept_nodes').select('visual_spec_json').match(scope).eq('id',itemId).single();check(latest.error);
-    check((await db.from('syllabus_concept_nodes').update({visual_spec_json:{...latest.data!.visual_spec_json,authored:cachedLesson(packet,concept)}}).match(scope).eq('id',itemId)).error);
+    check((await db.from('syllabus_concept_nodes').update({visual_spec_json:{...latest.data!.visual_spec_json,...(authored?{authoredSegments:{...latest.data!.visual_spec_json?.authoredSegments,0:authored.cached}}:{authored:cachedLesson(packet,concept)})}}).match(scope).eq('id',itemId)).error);
     return{done:true,teachingReady:true};
   }
   if(action==='node'){

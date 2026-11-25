@@ -871,7 +871,7 @@ function VoiceTutorContent() {
     lessonSegmentCompleteRef.current = false;
     const activeSessionId = sessionIdRef.current;
     const activeConversationId = conversationIdRef.current;
-    const durationSeconds = sessionStartedAtRef.current ? Math.max(1, elapsedSecondsRef.current) : 0;
+    const durationSeconds = sessionStartedAtRef.current ? Math.max(1, Math.floor((Date.now()-sessionStartedAtRef.current)/1000)) : elapsedSecondsRef.current;
     if (directTransport) directClass.stop();
     stopMicMonitor();
     audioElementsRef.current.forEach((element) => {
