@@ -7,9 +7,9 @@ import { matchCuratedClassVisual } from './model-matcher';
 import { parseRetryAfterMs } from '@/lib/http/retry-after';
 
 export type BankQuestion={id:string;question:string;answer:string};
-type AuthorOptions={env?:Record<string,string|undefined>;fetcher?:typeof fetch;question?:BankQuestion|null;schema?:Record<string,unknown>;maxTokens?:number;signal?:AbortSignal;sessionBrief?:Record<string,unknown>;validate?:(value:unknown)=>unknown};
+type AuthorOptions={directSegment?:boolean;env?:Record<string,string|undefined>;fetcher?:typeof fetch;question?:BankQuestion|null;schema?:Record<string,unknown>;maxTokens?:number;signal?:AbortSignal;sessionBrief?:Record<string,unknown>;validate?:(value:unknown)=>unknown};
 export const TEACHING_VERSION=3;
-const AUTHOR_REVISION=4;
+const AUTHOR_REVISION=5;
 export function teachingFingerprint(record:ConceptRecord){return createHash('sha256').update(record.title+'\n'+record.consolidated_notes).digest('hex');}
 const MAX_SEGMENT_CHARS=1150*4;
 const MAX_SEGMENT_FACTS=24;
@@ -23,7 +23,7 @@ function geminiEndpoint(model:string,key:string){
     : 'https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent';
 }
 
-function teachingSegments(record:ConceptRecord):TeachingSegment[]{
+function teachingSegments(record:ConceptRecord, maxChars=MAX_SEGMENT_CHARS, maxFacts=MAX_SEGMENT_FACTS):TeachingSegment[]{
   const details=Array.isArray(record.key_details_json)?record.key_details_json:[];
   const source:SourceFact[]=details.flatMap((item:unknown)=>{
     if(!item||typeof item!=='object'||typeof (item as SourceFact).text!=='string')return [];
@@ -34,9 +34,9 @@ function teachingSegments(record:ConceptRecord):TeachingSegment[]{
   const splitLongFact=(text:string):string[]=>{
     const parts:string[]=[];
     let remaining=text;
-    while(remaining.length>MAX_SEGMENT_CHARS){
-      let split=remaining.lastIndexOf(' ',MAX_SEGMENT_CHARS);
-      if(split<1)split=MAX_SEGMENT_CHARS;
+    while(remaining.length>maxChars){
+      let split=remaining.lastIndexOf(' ',maxChars);
+      if(split<1)split=maxChars;
       parts.push(remaining.slice(0,split));
       remaining=remaining.slice(split).trimStart();
     }
@@ -51,7 +51,7 @@ function teachingSegments(record:ConceptRecord):TeachingSegment[]{
     start+=current.length;current=[];characters=0;
   };
   for(const fact of facts)for(const text of splitLongFact(fact.text)){
-    if(current.length&&(characters+text.length>MAX_SEGMENT_CHARS||current.length>=MAX_SEGMENT_FACTS))flush();
+    if(current.length&&(characters+text.length>maxChars||current.length>=maxFacts))flush();
     current.push({...fact,text});
     characters+=text.length;
   }
@@ -71,14 +71,14 @@ function segmentRecord(record:ConceptRecord,segment:TeachingSegment):ConceptReco
 
 /** A direct HTTPS request authors only one ordered segment. The full unit stays indexed. */
 export async function authorDirectTeachingSegment(sessionId:string,syllabusId:string,version:number,record:ConceptRecord,index:number,options:AuthorOptions={}){
-  const segments=teachingSegments(record);
+  const segments=teachingSegments(record,900,5);
   if(!Number.isSafeInteger(index)||index<0||index>=segments.length)throw new Error('Teaching segment is unavailable');
   const spec=(record.visual_spec_json||{}) as Record<string,unknown>;
   const cache=spec.authoredSegments as Record<string,unknown>|undefined;
   const part=segmentRecord(record,segments[index]);
   const selected={...part,visual_spec_json:{...spec,authored:cache?.[String(index)]}};
   const question=index===0?options.question:null;
-  const packet=await authorTeachingPacket(sessionId,syllabusId,version,selected,{...options,question,
+  const packet=await authorTeachingPacket(sessionId,syllabusId,version,selected,{...options,directSegment:true,question,
     sessionBrief:{...(options.sessionBrief||{}),unit_segment:index+1,unit_segment_count:segments.length}});
   return {packet:{...packet,segment_index:index,segment_count:segments.length,
       visual_cues:packet.visual_cues.map(cue=>({...cue,id:cue.id+'-s'+index}))},
@@ -120,14 +120,15 @@ export async function generateTeachingJson(instruction:string,data:unknown,optio
   const primary=env.GEMINI_SYLLABUS_MODEL||env.GEMINI_CLASS_BRAIN_MODEL||'gemini-3.8-flash';
   const mouth=env.GROQ_CLASS_MOUTH_MODEL||'openai/gpt-oss-20b';
   let retryAfterMs=0;
-  const candidates=[...(env.GROQ_API_KEY?[{provider:'groq',model:mouth},{provider:'groq',model:'openai/gpt-oss-20b'},{provider:'groq',model:'openai/gpt-oss-120b'}]:[]),
+  const failures:string[]=[];
+  const candidates=[...(env.GROQ_API_KEY?[{provider:'groq',model:mouth},{provider:'groq',model:'openai/gpt-oss-20b'},...(options.directSegment?[{provider:'groq',model:'qwen/qwen3.8-27b'}]:[]),{provider:'groq',model:'openai/gpt-oss-120b'}]:[]),
     ...(key?[{provider:'gemini',model:primary},{provider:'gemini',model:env.GEMINI_FALLBACK_MODEL||'gemini-3.6-flash'}]:[])];
   const seen=new Set<string>();
   for(const {provider,model} of candidates){
     const id=provider+'/'+model;
     if(seen.has(id))continue;
     if(options.fetcher===undefined){
-      try{const health=await import('./provider-health');if(await health.providerIsCoolingDown(id))continue;}catch{/* advisory only */}
+      try{const health=await import('./provider-health');if(await health.providerIsCoolingDown(id)){failures.push(id+' cooling down');continue;}}catch{/* advisory only */}
     }
     seen.add(id);signal.throwIfAborted();
     const request=async(prompt:string,payloadData:unknown):Promise<unknown|undefined>=>{
@@ -144,6 +145,7 @@ export async function generateTeachingJson(instruction:string,data:unknown,optio
       });
       if(!response.ok){
         console.warn('Lesson planner rejected request',{provider,model,status:response.status});
+        failures.push(id+' HTTP '+response.status);
         const retryAfter=response.headers.get('retry-after');
         const wait=response.status===429||response.status===503?parseRetryAfterMs(retryAfter):null;
         if(wait!==null)retryAfterMs=Math.max(retryAfterMs,wait);
@@ -167,22 +169,24 @@ export async function generateTeachingJson(instruction:string,data:unknown,optio
       try{return options.validate(normalizeTeachingPlan(result));}
       catch(error){
         const message=error instanceof Error?error.message:'Invalid structured teaching sequence';
+        failures.push(id+': '+message);
         try{
           const repaired=await request(instruction+' Repair this rejected plan. Validation error: '+message+
             '. Return the same required JSON structure with 2-5 ordered teaching beats, preserving all source facts, numbers and qualifications.',
           {...(data&&typeof data==='object'?data as Record<string,unknown>:{value:data}),rejected_plan:result});
           if(repaired!==undefined)return options.validate(normalizeTeachingPlan(repaired));
         }catch(repairError){
-          console.warn('Lesson planner repair rejected',{provider,model,kind:repairError instanceof Error?repairError.name:'unknown'});
+          console.warn('Lesson planner repair rejected',{provider,model,reason:repairError instanceof Error?repairError.message:'unknown'});
         }
         console.warn('Lesson planner returned an invalid structured sequence',{provider,model});
       }
     }catch(error){
       if(!options.fetcher){try{const health=await import('./provider-health');await health.recordProviderResult(id,null);}catch{/* advisory only */}}
+      failures.push(id+' '+(error instanceof Error?error.name:'network failure'));
       console.warn('Lesson planner unavailable',{provider,model,kind:error instanceof Error?error.name:'unknown'});
     }
   }
-  const unavailable=new Error('Teaching providers are busy. Your source is saved; retry the lesson shortly.') as Error & {retryAfterMs?:number};
+  const unavailable=new Error('Teaching providers are busy. '+(failures.length?failures.join('; '):'No teaching provider is configured.')+' Your source is saved.') as Error & {retryAfterMs?:number};
   if(retryAfterMs)unavailable.retryAfterMs=retryAfterMs;
   throw unavailable;
 }
@@ -299,7 +303,7 @@ export async function authorTeachingPacket(sessionId:string,syllabusId:string,ve
     }catch(error){
       options.signal!.throwIfAborted();
       console.warn('Conversational teaching plan unavailable',{reason:error instanceof Error?error.message:'unknown'});
-      const unavailable=new Error('The tutor is preparing a verified explanation. Your lecture is saved.') as Error & {retryAfterMs?:number};
+      const unavailable=new Error('The tutor is preparing a verified explanation. '+(error instanceof Error?error.message:'Teaching provider unavailable.')+' Your lecture is saved.') as Error & {retryAfterMs?:number};
       const retryAfterMs=(error as {retryAfterMs?:unknown})?.retryAfterMs;
       if(typeof retryAfterMs==='number'&&retryAfterMs>0)unavailable.retryAfterMs=retryAfterMs;
       throw unavailable;

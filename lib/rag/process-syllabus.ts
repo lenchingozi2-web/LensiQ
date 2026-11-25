@@ -31,6 +31,7 @@ export function processSyllabus(documents: ParsedDocument[], legacy=false): Proc
   return documents.flatMap(document => {
     if (legacy) return legacyProcess(document);
     const labels = clinicalTopicLabels(document.sections.map(section => section.heading));
+    const explicitSourceUnits = document.sections.some(section=>Boolean(section.lectureUnit));
     const counts = new Map<string, number>();
     for (const section of document.sections) for (const fact of section.facts) {
       const normalized = fact.text.replace(/\s+/g, ' ').trim().toLowerCase();
@@ -47,16 +48,16 @@ export function processSyllabus(documents: ParsedDocument[], legacy=false): Proc
       const meaningful = section.facts.filter(fact=>!isTeachingMetadata(fact.text));
       const explicitUnit = section.heading.match(unitPattern);
       if (explicitUnit) { unit = explicitUnit[1].trim(); unitKey = section.heading.trim().toLowerCase(); }
-      if (!started && !hasClinicalSubstance(section.heading + '\n' + meaningful.map(fact=>fact.text).join('\n'))) return;
+      if (!explicitSourceUnits && !started && !hasClinicalSubstance(section.heading + '\n' + meaningful.map(fact=>fact.text).join('\n'))) return;
       if (!meaningful.length) return;
       started = true;
-      const topic = unit || label.split(' · ')[0] || 'General concepts';
+      const topic = section.lectureUnit || unit || label.split(' · ')[0] || 'General concepts';
       // Keep retrieval chunks granular, but on textbook-scale documents
       // consolidate related clinical subsections under their named topic so
       // slide fragments do not become hundreds of micro-concepts. Small
       // documents retain their precise section-level outline.
-      const key = unitKey || (consolidateByTopic ? topic : label).toLowerCase();
-      const title = unit || (consolidateByTopic ? topic : label);
+      const key = section.lectureUnit ? 'source-unit/'+sectionIndex : unitKey || (consolidateByTopic ? topic : label).toLowerCase();
+      const title = section.lectureUnit || unit || (consolidateByTopic ? topic : label);
       const group = groups.get(key) || { title, topic, facts: [] };
       for (const fact of section.facts) {
         const text = fact.text.trim();
@@ -71,7 +72,7 @@ export function processSyllabus(documents: ParsedDocument[], legacy=false): Proc
     const ordered = [...groups.values()];
     // In a large unlabelled bundle, keep all adjacent source groups in order
     // within bounded teaching units rather than promoting every slide heading.
-    const bounded = consolidateByTopic && ordered.length > 100
+    const bounded = !explicitSourceUnits && consolidateByTopic && ordered.length > 100
       ? Array.from({length:Math.ceil(ordered.length/Math.ceil(ordered.length/100))},(_,i)=>{
           const size=Math.ceil(ordered.length/100), batch=ordered.slice(i*size,(i+1)*size), first=batch[0]!;
           return {title:batch.length===1?first.title:first.title+' · related sections',topic:first.topic,facts:batch.flatMap(group=>group.facts)};

@@ -7,7 +7,7 @@ import {authorDirectTeachingSegment,authorTeachingPacket,cachedLesson} from '@/l
 import { matchCuratedClassVisual } from '@/lib/live-class/model-matcher';
 
 const PAGE = 32;
-const PARSER_VERSION = 3;
+const PARSER_VERSION = 4;
 const EXTRACTION_VERSION = 2;
 function stableId(key: string) {
   const h = createHash('sha256').update(key).digest('hex');
