@@ -46,6 +46,9 @@ const COURSES = ['Pharmacology', 'Microbiology', 'Chemical Pathology', 'Anatomic
 const directTransport = process.env.NEXT_PUBLIC_LIVE_CLASS_TRANSPORT !== 'livekit';
 const directApiUrl = (path: string) => typeof window !== 'undefined' && window.location.hostname === 'lenxiq.online' ? `https://www.lenxiq.online${path}` : path;
 
+// Sample wall-clock time only from playback, failure and end-session events.
+function classroomEventTime() { return Date.now(); }
+
 function permissionHelp() {
   if (typeof navigator === 'undefined') return 'Allow microphone access in your browser, then return to LenxiQ AI.';
   if (/Android/i.test(navigator.userAgent)) return 'Open Android Settings → Apps → your browser → Permissions → Microphone → Allow, then return to LenxiQ AI.';
@@ -488,15 +491,16 @@ function VoiceTutorContent() {
     onTranscript: (role, content) => { if (!content.trim()) return; const message: Message = { role, content: content.trim() }; setMessages(previous => [...previous, message]); messagesRef.current = [...messagesRef.current, message]; if (conversationId) void persistMessage(conversationId, message); },
     onPlayback: () => {
       if (endingRef.current) return;
-      if (!sessionStartedAtRef.current) sessionStartedAtRef.current = Date.now() - elapsedSecondsRef.current * 1000;
+      if (!sessionStartedAtRef.current) sessionStartedAtRef.current = classroomEventTime() - elapsedSecondsRef.current * 1000;
       setBoardPending(false); setLiveStarted(true); setStudioOpen(true); setAudioState('playing'); setRuntimeState('TEACHING'); setError('');
     },
     onStatus: setStatus, onError: setError,
   });
 
+  const stopDirectClass = directClass.stop;
   const directFailure = (failure: unknown) => {
     if (endingRef.current) return;
-    if (sessionStartedAtRef.current) elapsedSecondsRef.current = Math.floor((Date.now() - sessionStartedAtRef.current) / 1000);
+    if (sessionStartedAtRef.current) elapsedSecondsRef.current = Math.floor((classroomEventTime() - sessionStartedAtRef.current) / 1000);
     sessionStartedAtRef.current = null;
     setElapsedSeconds(elapsedSecondsRef.current); setLiveStarted(false); setBoardPending(false); setAudioState('waiting');
     setError(failure instanceof Error ? failure.message : 'Direct classroom audio failed');
@@ -871,8 +875,8 @@ function VoiceTutorContent() {
     lessonSegmentCompleteRef.current = false;
     const activeSessionId = sessionIdRef.current;
     const activeConversationId = conversationIdRef.current;
-    const durationSeconds = sessionStartedAtRef.current ? Math.max(1, Math.floor((Date.now()-sessionStartedAtRef.current)/1000)) : elapsedSecondsRef.current;
-    if (directTransport) directClass.stop();
+    const durationSeconds = sessionStartedAtRef.current ? Math.max(1, Math.floor((classroomEventTime()-sessionStartedAtRef.current)/1000)) : elapsedSecondsRef.current;
+    if (directTransport) stopDirectClass();
     stopMicMonitor();
     audioElementsRef.current.forEach((element) => {
       element.pause();
@@ -965,7 +969,7 @@ function VoiceTutorContent() {
     await fetch('/api/voice/materials', { method: 'DELETE' }).catch(() => undefined);
     await loadHistory().catch(() => undefined);
     endingRef.current = false;
-  }, [courseName, loadHistory, stopRecording, topicFocus, finalizeSyllabusLesson, clearRag]);
+  }, [courseName, loadHistory, stopRecording, topicFocus, finalizeSyllabusLesson, clearRag, stopDirectClass]);
   useEffect(() => {
     endSessionRef.current = endSession;
   }, [endSession]);
