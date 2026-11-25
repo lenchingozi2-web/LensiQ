@@ -1,7 +1,7 @@
 import { chunkFacts, type ParsedDocument, type AtomicChunk } from './ingestor';
 import { compileCanonicalConcept, type CanonicalConcept, type CitedAtomicFact } from './deduplicator';
 import { clinicalTopicLabels, legacyClinicalTopicLabels } from './clinical-topic';
-import { isTeachingMetadata } from '@/lib/live-class/teaching-content';
+import { isTeachingMetadata, hasClinicalSubstance } from '@/lib/live-class/teaching-content';
 
 type ProcessedConcept = CanonicalConcept & {
   module: string;
@@ -37,18 +37,26 @@ export function processSyllabus(documents: ParsedDocument[], legacy=false): Proc
       if (normalized.length >= 8 && normalized.length <= 140) counts.set(normalized, (counts.get(normalized) || 0) + 1);
     }
     const groups = new Map<string, { title: string; topic: string; facts: CitedAtomicFact[] }>();
-    const consolidateByTopic = document.characters >= 200_000 || document.sections.length >= 250;
+    const consolidateByTopic = document.characters >= 100_000 || document.sections.length >= 100;
+    const unitPattern = /^(?:lecture\s+)?unit\s+\d+\s*(?:[:.\-–—]\s*|\s+)(.+)$/i;
+    let unit = '', started = false;
     document.sections.forEach((section, sectionIndex) => {
       const label = labels[sectionIndex] || 'General concepts';
       const metadataSection = /^(?:source attribution|document information)$/i.test(section.heading.trim());
-      if (metadataSection || isTeachingMetadata(section.heading)) return;
-      const topic = label.split(' · ')[0] || 'General concepts';
+      if (metadataSection || isTeachingMetadata(section.heading) || isTeachingMetadata(label)) return;
+      const meaningful = section.facts.filter(fact=>!isTeachingMetadata(fact.text));
+      const explicitUnit = section.heading.match(unitPattern);
+      if (!started && !hasClinicalSubstance(section.heading + '\n' + meaningful.map(fact=>fact.text).join('\n'))) return;
+      if (!meaningful.length) return;
+      started = true;
+      if (explicitUnit) unit = explicitUnit[1].trim();
+      const topic = unit || label.split(' · ')[0] || 'General concepts';
       // Keep retrieval chunks granular, but on textbook-scale documents
       // consolidate related clinical subsections under their named topic so
       // slide fragments do not become hundreds of micro-concepts. Small
       // documents retain their precise section-level outline.
-      const key = (consolidateByTopic ? topic : label).toLowerCase();
-      const title = consolidateByTopic ? topic : label;
+      const key = (unit || (consolidateByTopic ? topic : label)).toLowerCase();
+      const title = unit || (consolidateByTopic ? topic : label);
       const group = groups.get(key) || { title, topic, facts: [] };
       for (const fact of section.facts) {
         const text = fact.text.trim();
@@ -60,7 +68,16 @@ export function processSyllabus(documents: ParsedDocument[], legacy=false): Proc
       }
       if (group.facts.length) groups.set(key, group);
     });
-    return [...groups.values()].flatMap(group => {
+    const ordered = [...groups.values()];
+    // In a large unlabelled bundle, keep all adjacent source groups in order
+    // within bounded teaching units rather than promoting every slide heading.
+    const bounded = consolidateByTopic && ordered.length > 100
+      ? Array.from({length:Math.ceil(ordered.length/Math.ceil(ordered.length/100))},(_,i)=>{
+          const size=Math.ceil(ordered.length/100), batch=ordered.slice(i*size,(i+1)*size), first=batch[0]!;
+          return {title:first.title,topic:first.topic,facts:batch.flatMap(group=>group.facts)};
+        })
+      : ordered;
+    return bounded.flatMap(group => {
       const chunks = chunkFacts(group.facts, 1150);
       if (!chunks.length) return [];
       const facts: CitedAtomicFact[]=chunks.map(chunk=>({

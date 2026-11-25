@@ -31,7 +31,7 @@ globalThis.__clinicalParserTest={
 const ingestorSource=(await read('../lib/rag/ingestor.ts')).replace(/^import .*;\n/gm,'');
 const ingestor=await import(dataModule('const {isLectureCredit,isDocumentCoverHeading,clinicalSectionCategory,normalizedClinicalHeading}=globalThis.__clinicalParserTest;\n'+ingestorSource));
 const processSource=(await read('../lib/rag/process-syllabus.ts')).replace(/^import .*;\n/gm,'');
-const processor=await import(dataModule('const {chunkFacts,compileCanonicalConcept,clinicalTopicLabels,legacyClinicalTopicLabels,isTeachingMetadata}=globalThis.__clinicalParserTest;\n'+processSource));
+const processor=await import(dataModule('const {chunkFacts,compileCanonicalConcept,clinicalTopicLabels,legacyClinicalTopicLabels,isTeachingMetadata,hasClinicalSubstance}=globalThis.__clinicalParserTest;\n'+processSource));
 test.after(()=>delete globalThis.__clinicalParserTest);
 
 test('title-style pathology headings are parsed as separate teachable concepts, while document furniture is excluded',()=>{
@@ -75,18 +75,32 @@ test('pathology-note cover and editorial headings are metadata, not classroom co
   assert.equal(teaching.isTeachingMetadata('System pathology: heart, lung, gut, kidney, CNS and reproductive organs'),true);
 });
 
-test('large deterministic headings split into bounded concepts without losing cited source chunks',()=>{
+test('large deterministic headings retain one concept with bounded retrieval chunks',()=>{
   const facts=Array.from({length:10},(_,index)=>({
     text:`Fact ${index+1}: `+'clinical evidence '.repeat(55),sourceFile:'AnathPathNotes.pdf',pageNumber:index+1,documentId:'doc-1',
   }));
   const concepts=processor.processSyllabus([{source:'AnathPathNotes.pdf',characters:11_000,sections:[{heading:'Cell injury',module:'General',topic:'Overview',facts}]}]);
-  assert.deepEqual(concepts.map(concept=>concept.chunks.length),[4,4,2]);
-  assert.deepEqual(concepts.map(concept=>concept.title),['Cell injury · Part 1','Cell injury · Part 2','Cell injury · Part 3']);
+  assert.deepEqual(concepts.map(concept=>concept.chunks.length),[10]);
+  assert.deepEqual(concepts.map(concept=>concept.title),['Cell injury']);
   assert.equal(concepts.flatMap(concept=>concept.chunks).length,10);
   for(const concept of concepts){
-    assert.ok(concept.notes.length<=4*1150+10);
+    assert.ok(concept.chunks.every(chunk=>chunk.text.length<=1150));
     assert.equal(concept.citations.length,concept.chunks.length);
   }
   const retained=concepts.flatMap(concept=>concept.facts).map(fact=>fact.text).join('\n');
   for(const fact of facts)assert.ok(retained.includes(fact.text));
+});
+
+test('bundle front matter is excluded and 49 lecture units retain their ordered source chunks',()=>{
+  const source=['[Page 1]','Lecture bundle','49 files total','Each file is a unit','49 files = organized topics','Table of contents'];
+  for(let unit=1;unit<=49;unit++){
+    source.push('[Page '+(unit+1)+']','Unit '+unit+': Disease topic '+unit,'Cell injury is a response to stress.');
+    for(let section=1;section<=19;section++)source.push('Section '+section+' morphology','Tissue damage in unit '+unit+' has feature '+section+'.');
+  }
+  const parsed=ingestor.parseExtractedDocumentText(source.join('\n'),'doc-1','AnathPathNotes.pdf');
+  const concepts=processor.processSyllabus([parsed]);
+  assert.equal(concepts.length,49);
+  assert.ok(concepts.every(concept=>!/(49 files|each file is a unit|table of contents)/i.test(concept.notes)));
+  assert.match(concepts[0].title,/Disease topic 1$/);
+  assert.match(concepts[48].notes,/unit 49 has feature 19/);
 });

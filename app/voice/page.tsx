@@ -43,6 +43,7 @@ const SOUNDSCAPES: Soundscape[] = [
   { id: 'night-library', label: 'Night Library', description: 'Quiet, slow, grounded ambience for reflective learning.', src: '/audio/live-class-night-library.wav' },
 ];
 const COURSES = ['Pharmacology', 'Microbiology', 'Chemical Pathology', 'Anatomical Pathology', 'Haematology / Immunology'];
+const directTransport = process.env.NEXT_PUBLIC_LIVE_CLASS_TRANSPORT !== 'livekit';
 const directApiUrl = (path: string) => typeof window !== 'undefined' && window.location.hostname === 'lenxiq.online' ? `https://www.lenxiq.online${path}` : path;
 
 function permissionHelp() {
@@ -180,19 +181,19 @@ function VoiceTutorContent() {
     return ()=>{active=false;};
   }, [connected, sessionId, currentLiveRoom, rag.ready, rag.syllabusId, beginSyllabusLesson]);
   useEffect(()=>{
-    if(!connected||!rag.ready||!boardPending||tutorFailure)return;
+    if(directTransport||!connected||!rag.ready||!boardPending||tutorFailure)return;
     const timer=window.setTimeout(()=>setTutorFailure('The lesson has not started yet.'),45000);
     return ()=>window.clearTimeout(timer);
   },[connected,rag.ready,boardPending,tutorFailure]);
   useEffect(()=>{
-    if(!connected||liveStarted||tutorMuted||audioState==='blocked'||tutorFailure||reconnectingTutor)return;
+    if(directTransport||!connected||liveStarted||tutorMuted||audioState==='blocked'||tutorFailure||reconnectingTutor)return;
     const timer=window.setTimeout(()=>setTutorFailure('The tutor audio has not started yet.'),30000);
     return ()=>window.clearTimeout(timer);
   },[connected,liveStarted,tutorMuted,audioState,tutorFailure,reconnectingTutor]);
   const recoveryAttemptsRef=useRef(0);
   const [recoveryAttempts,setRecoveryAttempts]=useState(0);
   const reconnectTutor=useCallback(async()=>{
-    if(!sessionId||!currentLiveRoom||reconnectingTutor)return;
+    if(directTransport||!sessionId||!currentLiveRoom||reconnectingTutor)return;
     setReconnectingTutor(true);
     try{
       setTutorFailure('');setBoardPending(!visualSync.cue);
@@ -324,7 +325,7 @@ function VoiceTutorContent() {
   }, [connected, runtimeState]);
 
   useEffect(() => {
-    if (!connected || studioOpen) return;
+    if (directTransport || !connected || studioOpen) return;
     const timer = window.setTimeout(() => {
       setStudioOpen(true);
       setStatus('Your private studio is open. The tutor is still reconnecting its voice path; tap Enable tutor audio when the room settles.');
@@ -476,7 +477,6 @@ function VoiceTutorContent() {
   const materialContext = materialProfiles.length > 0
     ? { primaryBranch: materialPrimaryBranch, branches: materialBranches, sources: materialProfiles.map((profile) => profile.sourceFileName).slice(0, 20) }
     : null;
-  const directTransport = process.env.NEXT_PUBLIC_LIVE_CLASS_TRANSPORT !== 'livekit';
   const directClass = useDirectDeepgramClass({
     sessionId, syllabusId: rag.ready ? rag.syllabusId : null, conversationId, courseName,
     onVisual: (cue) => {
@@ -486,9 +486,27 @@ function VoiceTutorContent() {
       else updateVisualContext({ type: 'whiteboard', topic: cue.title, markdown: cue.steps.map(step => '- ' + step).join('\n') });
     },
     onTranscript: (role, content) => { if (!content.trim()) return; const message: Message = { role, content: content.trim() }; setMessages(previous => [...previous, message]); messagesRef.current = [...messagesRef.current, message]; if (conversationId) void persistMessage(conversationId, message); },
+    onPlayback: () => {
+      if (endingRef.current) return;
+      if (!sessionStartedAtRef.current) sessionStartedAtRef.current = Date.now() - elapsedSecondsRef.current * 1000;
+      setBoardPending(false); setLiveStarted(true); setStudioOpen(true); setAudioState('playing'); setRuntimeState('TEACHING'); setError('');
+    },
     onStatus: setStatus, onError: setError,
   });
 
+  const directFailure = (failure: unknown) => {
+    if (endingRef.current) return;
+    if (sessionStartedAtRef.current) elapsedSecondsRef.current = Math.floor((Date.now() - sessionStartedAtRef.current) / 1000);
+    sessionStartedAtRef.current = null;
+    setElapsedSeconds(elapsedSecondsRef.current); setLiveStarted(false); setBoardPending(false); setAudioState('waiting');
+    setError(failure instanceof Error ? failure.message : 'Direct classroom audio failed');
+    setStatus('Class paused · retry audio'); setRuntimeState('ERROR'); setConnecting(false);
+  };
+  const retryDirectAudio = async () => {
+    if (startingRef.current) return;
+    startingRef.current = true; setError(''); setBoardPending(true); setStatus('Retrying classroom audio…');
+    try { await directClass.retry(); } catch (failure) { directFailure(failure); } finally { startingRef.current = false; }
+  };
   const createConversation = async () => {
     const title = topicFocus ? `Live Class · ${topicFocus}` : `Live Class · ${courseName}`;
     const response = await fetch('/api/teaching/conversations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseName, title, sessionType: 'live_class' }) });
@@ -1020,20 +1038,20 @@ function VoiceTutorContent() {
         const openingSyllabus = rag.ready ? rag.syllabusId : null;
         if (!openingSyllabus) throw new Error('Prepare your syllabus before entering Direct HTTPS Live Class.');
         const conversation = await createConversation();
-        const reservationResponse = await fetch(directApiUrl('/api/live-class/session'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ syllabusId: openingSyllabus, courseName, conversationId: conversation.id }) });
+        const reservationResponse = await fetch(directApiUrl('/api/live-class/session'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ syllabusId: openingSyllabus, courseName, conversationId: conversation.id }), signal: AbortSignal.timeout(30_000) }).catch((failure: unknown) => { throw new Error('Session route: ' + (failure instanceof Error ? failure.message : 'network failure')); });
         const reservation = await reservationResponse.json().catch(() => ({}));
-        if (!reservationResponse.ok) { if (reservation.resetSyllabus) clearRag(); throw new Error(reservation.message || reservation.error || 'Unable to reserve a Direct HTTPS class session.'); }
+        if (!reservationResponse.ok) { if (reservation.resetSyllabus) clearRag(); throw new Error('Session HTTP ' + reservationResponse.status + ': ' + (reservation.message || reservation.error || 'Unable to reserve a Direct HTTPS class session.')); }
         setConversationId(conversation.id); conversationIdRef.current = conversation.id;
         setSessionId(reservation.sessionId); sessionIdRef.current = reservation.sessionId;
         setQuota(reservation.quota ?? null);
         const deadline = typeof reservation.expiresAt === 'string' ? Date.parse(reservation.expiresAt) : NaN;
         sessionDeadlineAtRef.current = Number.isFinite(deadline) ? deadline : null;
-        setConnected(true); setLiveStarted(true); setConnecting(false); setRuntimeState('TEACHING'); setStatus('LenxiQ is preparing your lesson…'); window.setTimeout(() => { sessionStartedAtRef.current = Date.now(); }, 0);
+        setConnected(true); setStudioOpen(true); setLiveStarted(false); setConnecting(false); setRuntimeState('INITIALIZING'); setStatus('LenxiQ is preparing your lesson…');
         await directClass.start({ sessionId: reservation.sessionId, syllabusId: openingSyllabus });
         startingRef.current = false;
         return;
       } catch (directError) {
-        setError(friendlyError(directError)); setRuntimeState('ERROR'); setConnecting(false); startingRef.current = false; return;
+        directFailure(directError); startingRef.current = false; return;
       }
     }
     const playbackReady = unlockPlaybackAudio().catch(() => undefined);
@@ -1615,7 +1633,7 @@ function VoiceTutorContent() {
     console.info(`[LenxiQ Live Class] ${stage}`, details);
   };
   const runtimeCopy = RUNTIME_COPY[runtimeState];
-  const tutorAudioLive = liveStarted && agentAudioSubscribed && audioState === 'playing' && !tutorMuted;
+  const tutorAudioLive = directTransport ? directClass.playing : liveStarted && agentAudioSubscribed && audioState === 'playing' && !tutorMuted;
   const micHearing = connected && !micMuted && micLevel > 0.035;
   const latestMessage = messages[messages.length - 1];
   const sessionElapsed = elapsedSeconds;
@@ -1675,13 +1693,13 @@ function VoiceTutorContent() {
           <p key={message.id ?? index} className="mb-2 rounded-lg bg-white/[.05] p-2 text-sm leading-6"><span className="mr-2 text-xs font-black text-[#ffd080]">{message.role === 'assistant' ? 'Tutor' : 'You'}</span>{message.content}</p>
         )}
       </aside>}
-      {error && <div role="alert" className="absolute bottom-24 left-3 right-3 z-40 mx-auto max-w-xl rounded-xl border border-red-300/40 bg-red-950/90 px-4 py-3 text-xs font-semibold text-red-100">{error}</div>}
+      {error && <div role="alert" className="absolute bottom-24 left-3 right-3 z-40 mx-auto max-w-xl rounded-xl border border-red-300/40 bg-red-950/90 px-4 py-3 text-xs font-semibold text-red-100">{error}{directTransport && <button type="button" onClick={()=>void retryDirectAudio()} className="ml-3 rounded-lg bg-white px-3 py-2 font-bold text-slate-950">Retry audio</button>}</div>}
       <ClassroomDock>
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${!liveStarted ? 'animate-pulse bg-[#e8a23d]' : voiceActive ? 'animate-pulse bg-[#e8a23d]' : micMuted ? 'bg-rose-400' : micHearing ? 'bg-emerald-300' : 'bg-emerald-500/70'}`} />
           <Waveform active={micHearing} level={micMuted ? 0 : micLevel} compact />
           <div className="min-w-0" aria-live="polite">
-            <p className="truncate text-[11px] font-bold sm:text-xs">{reconnectingTutor?'Continuing your lesson…':tutorFailure?(recoveryAttempts<2?'Continuing your lesson…':'Class paused · tutor unavailable'):pressToTalk && (pressPhase === 'holding' || pressPhase === 'listening') ? (micHearing?'Hearing you — release when finished':'Listening — speak, then release') : pressToTalk && pressPhase === 'processing' ? (lastHeard?'Preparing your answer':'Transcribing your question') : !autoLesson?'Paused':boardPending&&rag.ready?'Preparing your first explanation':voiceActive?'Tutor speaking': pressToTalk && !voiceActive ? 'Hold to ask your tutor' : classroomStatus({started:liveStarted,blocked:audioState==='blocked',muted:micMuted,hearing:micHearing,speaking:voiceActive,paused:!autoLesson,state:runtimeState})}</p>
+            <p className="truncate text-[11px] font-bold sm:text-xs">{directTransport ? (error ? 'Class paused · retry audio' : directClass.playing ? 'Tutor speaking' : boardPending ? 'Preparing your first explanation' : status) : reconnectingTutor?'Continuing your lesson…':tutorFailure?(recoveryAttempts<2?'Continuing your lesson…':'Class paused · tutor unavailable'):pressToTalk && (pressPhase === 'holding' || pressPhase === 'listening') ? (micHearing?'Hearing you — release when finished':'Listening — speak, then release') : pressToTalk && pressPhase === 'processing' ? (lastHeard?'Preparing your answer':'Transcribing your question') : !autoLesson?'Paused':boardPending&&rag.ready?'Preparing your first explanation':voiceActive?'Tutor speaking': pressToTalk && !voiceActive ? 'Hold to ask your tutor' : classroomStatus({started:liveStarted,blocked:audioState==='blocked',muted:micMuted,hearing:micHearing,speaking:voiceActive,paused:!autoLesson,state:runtimeState})}</p>
             <p className="hidden truncate text-[10px] text-white/55 sm:block">{pressToTalk ? 'Hold → speak → release for an answer' : micMuted ? 'Tap mic to unmute' : micHearing ? 'Your voice is reaching the class' : lastHeard ? `Heard: ${lastHeard}` : 'Speak anytime · interrupt naturally'}</p>
           </div>
         </div>

@@ -7,7 +7,8 @@ import {authorTeachingPacket,cachedLesson} from '@/lib/live-class/lesson-author'
 import { matchCuratedClassVisual } from '@/lib/live-class/model-matcher';
 
 const PAGE = 32;
-const PARSER_VERSION = 2;
+const PARSER_VERSION = 3;
+const EXTRACTION_VERSION = 2;
 function stableId(key: string) {
   const h = createHash('sha256').update(key).digest('hex');
   return [h.slice(0,8), h.slice(8,12), '4'+h.slice(13,16), '8'+h.slice(17,20), h.slice(20,32)].join('-');
@@ -98,14 +99,14 @@ export async function compileStep(userId:string, syllabusId:string, action:strin
   const cached=await db.from('study_document_extractions').select('parser_version,extraction_json')
     .eq('document_id',doc.id).eq('user_id',userId).eq('syllabus_id',syllabusId).maybeSingle();
   check(cached.error);
-  let extracted=typeof cached.data?.extraction_json?.text==='string'&&cached.data?.parser_version===PARSER_VERSION
+  let extracted=typeof cached.data?.extraction_json?.text==='string'&&cached.data?.parser_version===EXTRACTION_VERSION
     ?cached.data.extraction_json.text:'';
   if(!extracted){
     const download=await db.storage.from('study-documents').download(doc.storage_path);
     check(download.error);
     extracted=await extractUploadedDocumentText(new Uint8Array(await download.data!.arrayBuffer()),doc.original_name);
     const saved=await db.from('study_document_extractions').upsert({document_id:doc.id,syllabus_id:syllabusId,user_id:userId,
-      parser_version:PARSER_VERSION,extraction_json:{version:PARSER_VERSION,text:extracted},extracted_at:new Date().toISOString()},{onConflict:'document_id'});
+      parser_version:EXTRACTION_VERSION,extraction_json:{version:EXTRACTION_VERSION,text:extracted},extracted_at:new Date().toISOString()},{onConflict:'document_id'});
     check(saved.error);
   }
   const parsed=parseExtractedDocumentText(extracted,doc.id,doc.original_name,legacy);

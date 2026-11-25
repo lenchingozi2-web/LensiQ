@@ -24,10 +24,14 @@ jobs:
           cd worker/lensiq-voice-tutor
           "$RUNNER_TEMP/lensiq-worker/bin/python" -c "import agent, inspect; from livekit.agents import AgentSession; assert agent.server is not None; assert 'skip_reply' in inspect.signature(AgentSession.commit_user_turn).parameters"
           "$RUNNER_TEMP/lensiq-worker/bin/python" -m unittest test_agent -v
-      - name: TypeScript
-        run: npx tsc --noEmit
-      - name: ESLint
-        run: npm run lint
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Study Hub requested checks
+        run: |
+          pnpm run test:study-hub
+          pnpm exec next typegen
+          pnpm exec tsc --noEmit
+          pnpm run lint
       - name: Verify mobile touch controls before release
         if: github.event_name == 'pull_request'
         run: |
@@ -36,4 +40,4 @@ jobs:
           cp scripts/verify-classroom-controls.mjs "$RUNNER_TEMP/classroom-controls/controls.mjs"
           node "$RUNNER_TEMP/classroom-controls/controls.mjs"
       - name: Production build
-        run: npm run build
+        run: pnpm run build

@@ -9,7 +9,7 @@ import { parseRetryAfterMs } from '@/lib/http/retry-after';
 export type BankQuestion={id:string;question:string;answer:string};
 type AuthorOptions={env?:Record<string,string|undefined>;fetcher?:typeof fetch;question?:BankQuestion|null;schema?:Record<string,unknown>;maxTokens?:number;signal?:AbortSignal;sessionBrief?:Record<string,unknown>;validate?:(value:unknown)=>unknown};
 export const TEACHING_VERSION=3;
-const AUTHOR_REVISION=3;
+const AUTHOR_REVISION=4;
 export function teachingFingerprint(record:ConceptRecord){return createHash('sha256').update(record.title+'\n'+record.consolidated_notes).digest('hex');}
 const MAX_SEGMENT_CHARS=1150*4;
 const MAX_SEGMENT_FACTS=24;
