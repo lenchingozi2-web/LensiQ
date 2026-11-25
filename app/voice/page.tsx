@@ -17,6 +17,7 @@ import ClassroomControls from '@/components/voice/ClassroomControls';
 import { useHybridStudyRAG } from '@/hooks/useHybridStudyRAG';
 import { useVisualSyncEngine } from '@/hooks/useVisualSyncEngine';
 import { useLiveClassOrchestrator } from '@/hooks/useLiveClassOrchestrator';
+import { useDirectDeepgramClass } from '@/hooks/useDirectDeepgramClass';
 
 import type { PhysiologyPreset } from '@/components/PhysiologySimulator';
 import { shouldApplyTutorTranscriptVisual, getMoleculeAsset, isApprovedMedicalModelUrl, isApprovedMoleculeModelUrl, type VisualContext } from '@/lib/voice/live-class-visuals';
@@ -474,6 +475,18 @@ function VoiceTutorContent() {
   const materialContext = materialProfiles.length > 0
     ? { primaryBranch: materialPrimaryBranch, branches: materialBranches, sources: materialProfiles.map((profile) => profile.sourceFileName).slice(0, 20) }
     : null;
+  const directTransport = process.env.NEXT_PUBLIC_LIVE_CLASS_TRANSPORT !== 'livekit';
+  const directClass = useDirectDeepgramClass({
+    sessionId, syllabusId: rag.ready ? rag.syllabusId : null, conversationId, courseName,
+    onVisual: (cue) => {
+      if (cue.mode === 'anatomy_3d' && cue.asset_url && isApprovedMedicalModelUrl(cue.asset_url)) updateVisualContext({ type: 'model', modelUrl: cue.asset_url, title: cue.title, structureId: cue.structure_id });
+      else if (cue.mode === 'molecule_3d' && cue.asset_url && isApprovedMoleculeModelUrl(cue.asset_url)) { const molecule = getMoleculeAsset(cue.asset_url); if (molecule) updateVisualContext({ type: 'molecule', ...molecule }); }
+      else if (cue.mode === 'physiology_sim') updateVisualContext({ type: 'simulation', preset: cue.learning_activity as PhysiologyPreset, title: cue.title });
+      else updateVisualContext({ type: 'whiteboard', topic: cue.title, markdown: cue.steps.map(step => '- ' + step).join('\n') });
+    },
+    onTranscript: (role, content) => { if (!content.trim()) return; const message: Message = { role, content: content.trim() }; setMessages(previous => [...previous, message]); messagesRef.current = [...messagesRef.current, message]; if (conversationId) void persistMessage(conversationId, message); },
+    onStatus: setStatus, onError: setError,
+  });
 
   const createConversation = async () => {
     const title = topicFocus ? `Live Class · ${topicFocus}` : `Live Class · ${courseName}`;
@@ -840,6 +853,7 @@ function VoiceTutorContent() {
     const activeSessionId = sessionIdRef.current;
     const activeConversationId = conversationIdRef.current;
     const durationSeconds = sessionStartedAtRef.current ? Math.max(1, elapsedSecondsRef.current) : 0;
+    if (directTransport) directClass.stop();
     stopMicMonitor();
     audioElementsRef.current.forEach((element) => {
       element.pause();
@@ -851,7 +865,7 @@ function VoiceTutorContent() {
     setCurrentLiveRoom(null);
     clearRag();
     // Release the class and purge its sources even if a mobile recording upload stalls.
-    const endRequest=activeSessionId?fetch('/api/voice/session',{method:'POST',headers:{'Content-Type':'application/json'},
+    const endRequest=activeSessionId?fetch(directTransport ? '/api/live-class/session' : '/api/voice/session',{method:directTransport?'DELETE':'POST',headers:{'Content-Type':'application/json'},
       keepalive:true,body:JSON.stringify({sessionId:activeSessionId,action:'end',durationSeconds})}).catch(()=>null):null;
     const recordingBlob = await stopRecording();
     let recordingUploadNotice = '';
@@ -1000,6 +1014,27 @@ function VoiceTutorContent() {
     setRecordingReady(false);
     setRecordingDownloadUrl(null);
     setStatus('Opening your private live classroom…');
+    if (directTransport) {
+      try {
+        const openingSyllabus = rag.ready ? rag.syllabusId : null;
+        if (!openingSyllabus) throw new Error('Prepare your syllabus before entering Direct HTTPS Live Class.');
+        const conversation = await createConversation();
+        const reservationResponse = await fetch('/api/live-class/session', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ syllabusId: openingSyllabus, courseName, conversationId: conversation.id }) });
+        const reservation = await reservationResponse.json().catch(() => ({}));
+        if (!reservationResponse.ok) { if (reservation.resetSyllabus) clearRag(); throw new Error(reservation.message || reservation.error || 'Unable to reserve a Direct HTTPS class session.'); }
+        setConversationId(conversation.id); conversationIdRef.current = conversation.id;
+        setSessionId(reservation.sessionId); sessionIdRef.current = reservation.sessionId;
+        setQuota(reservation.quota ?? null);
+        const deadline = typeof reservation.expiresAt === 'string' ? Date.parse(reservation.expiresAt) : NaN;
+        sessionDeadlineAtRef.current = Number.isFinite(deadline) ? deadline : null;
+        setConnected(true); setLiveStarted(true); setConnecting(false); setRuntimeState('TEACHING'); setStatus('LenxiQ is preparing your lesson…'); window.setTimeout(() => { sessionStartedAtRef.current = Date.now(); }, 0);
+        await directClass.start({ sessionId: reservation.sessionId, syllabusId: openingSyllabus });
+        startingRef.current = false;
+        return;
+      } catch (directError) {
+        setError(friendlyError(directError)); setRuntimeState('ERROR'); setConnecting(false); startingRef.current = false; return;
+      }
+    }
     const playbackReady = unlockPlaybackAudio().catch(() => undefined);
     const microphoneReady = requestMicrophone();
     // Sweep abandoned uploads before creating another session. The server
@@ -1665,8 +1700,8 @@ function VoiceTutorContent() {
             else clearLessonContinueTimer();
           }} aria-label={autoLesson ? 'Pause after this teaching segment' : 'Continue teaching automatically'} aria-pressed={autoLesson} className="min-h-10 rounded-xl border border-white/15 bg-white/10 px-2 py-2 text-[11px] font-bold sm:px-3">{autoLesson ? 'Pause' : 'Resume'}</button>
           <button type="button" onClick={() => setShowTranscript((value) => !value)} aria-label={showTranscript ? 'Hide transcript' : 'Show transcript'} aria-pressed={showTranscript} className="min-h-10 rounded-xl border border-white/15 bg-white/10 px-2 py-2 text-[11px] font-bold sm:px-3">Notes</button>
-          <ClassAudioOptions pace={teachingPace} onPaceChange={changePace} muted={tutorMuted} blocked={audioState==='blocked'} onSound={()=>void toggleTutorAudio()} pressToTalk={pressToTalk} onMode={changeMicrophoneMode}/>
-          {pressToTalk ? <HoldToAsk phase={pressPhase} onHold={setPressMicrophone}/> : <button type="button" onClick={()=>void toggleMicrophone()} aria-label={micMuted?'Unmute microphone':'Mute microphone'} className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e8a23d] text-[#0b1422]">{micMuted?'×':'●'}</button>}
+<ClassAudioOptions pace={teachingPace} onPaceChange={changePace} muted={tutorMuted} blocked={audioState==='blocked'} onSound={()=>void toggleTutorAudio()} pressToTalk={pressToTalk} onMode={changeMicrophoneMode} voiceMode={directClass.mode} onVoiceMode={directClass.setMode}/>
+          {pressToTalk ? <HoldToAsk phase={pressPhase} onHold={(held)=>{ if (directTransport) { if (held) void directClass.ask(); } else setPressMicrophone(held); }}/> : <button type="button" onClick={()=>void toggleMicrophone()} aria-label={micMuted?'Unmute microphone':'Mute microphone'} className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e8a23d] text-[#0b1422]">{micMuted?'×':'●'}</button>}
 
         </div>
       </ClassroomDock>
@@ -1679,4 +1714,3 @@ function VoiceTutorContent() {
 export default function VoicePage() {
   return <Suspense fallback={<div className="min-h-screen bg-[#080d16]" />}><VoiceTutorContent /></Suspense>;
 }
-
