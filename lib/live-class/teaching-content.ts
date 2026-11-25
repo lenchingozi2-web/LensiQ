@@ -10,7 +10,7 @@ export function isTeachingMetadata(value:string):boolean{
  /^(?=.{3,100}$)[A-Z][A-Za-z'’-]+(?:[., ]+[A-Z][A-Za-z'’-]+){0,3}[,\s]+(?:MBBS|MBChB|FWACP|FMCPath|PhD|FMCP|FRCPath|FWACS)(?:[.,\s]+(?:MBBS|MBChB|FWACP|FMCPath|PhD|FMCP|FRCPath|FWACS))*[.]?$/i.test(text);
 }
 export function hasClinicalSubstance(value:string):boolean {
- return /\b(?:cells?|tissues?|organs?|diseases?|syndromes?|injur(?:y|ies)|inflamm\w*|necros\w*|apopto\w*|pathogen\w*|infect\w*|immun\w*|receptors?|enzymes?|drugs?|pharmac\w*|metabol\w*|hormones?|proteins?|blood|vascular|cardia\w*|renal|hepatic|pulmonary|neur\w*|bacter\w*|viruses?|viral|cancer|tumou?rs?|anatom\w*|physiolog\w*|ha?emat\w*|glucose|antibod\w*|antigens?|genes?|DNA|RNA|toxins?|clinical|diagnos\w*|treatments?)\b/i.test(value);
+ return /\b(?:cells?|tissues?|organs?|diseases?|syndromes?|injur(?:y|ies)|inflamm\w*|necros\w*|apopto\w*|pathogen\w*|infect\w*|immun\w*|receptors?|enzymes?|drugs?|pharmac\w*|metabol\w*|hormones?|proteins?|blood|vascular|cardia\w*|renal|hepatic|pulmonary|neur\w*|bacter\w*|viruses?|viral|cancer|tumou?rs?|anatom\w*|physiolog\w*|ha?emat\w*|glucose|antibod\w*|antigens?|genes?|DNA|RNA|toxins?|tuberculosis|pneumonia|diabetes|hypertension|asthma|stroke|infarct\w*|anaemia|anemia|clinical|diagnos\w*|treatments?)\b/i.test(value);
 }
 export function teachingLines(title:string,text:string):string[]{
  if(administrative.test(title)||isTeachingMetadata(title))return[];

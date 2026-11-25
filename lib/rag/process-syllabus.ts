@@ -39,14 +39,14 @@ export function processSyllabus(documents: ParsedDocument[], legacy=false): Proc
     const groups = new Map<string, { title: string; topic: string; facts: CitedAtomicFact[] }>();
     const consolidateByTopic = document.characters >= 100_000 || document.sections.length >= 100;
     const unitPattern = /^(?:lecture\s+)?unit\s+\d+\s*(?:[:.\-–—]\s*|\s+)(.+)$/i;
-    let unit = '', started = false;
+    let unit = '', unitKey = '', started = false;
     document.sections.forEach((section, sectionIndex) => {
       const label = labels[sectionIndex] || 'General concepts';
       const metadataSection = /^(?:source attribution|document information)$/i.test(section.heading.trim());
       if (metadataSection || isTeachingMetadata(section.heading) || isTeachingMetadata(label)) return;
       const meaningful = section.facts.filter(fact=>!isTeachingMetadata(fact.text));
       const explicitUnit = section.heading.match(unitPattern);
-      if (explicitUnit) unit = explicitUnit[1].trim();
+      if (explicitUnit) { unit = explicitUnit[1].trim(); unitKey = section.heading.trim().toLowerCase(); }
       if (!started && !hasClinicalSubstance(section.heading + '\n' + meaningful.map(fact=>fact.text).join('\n'))) return;
       if (!meaningful.length) return;
       started = true;
@@ -55,7 +55,7 @@ export function processSyllabus(documents: ParsedDocument[], legacy=false): Proc
       // consolidate related clinical subsections under their named topic so
       // slide fragments do not become hundreds of micro-concepts. Small
       // documents retain their precise section-level outline.
-      const key = (unit || (consolidateByTopic ? topic : label)).toLowerCase();
+      const key = unitKey || (consolidateByTopic ? topic : label).toLowerCase();
       const title = unit || (consolidateByTopic ? topic : label);
       const group = groups.get(key) || { title, topic, facts: [] };
       for (const fact of section.facts) {
