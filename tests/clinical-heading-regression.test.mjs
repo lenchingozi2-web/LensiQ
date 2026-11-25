@@ -104,3 +104,19 @@ test('bundle front matter is excluded and 49 lecture units retain their ordered 
   assert.match(concepts[0].title,/Disease topic 1$/);
   assert.match(concepts[48].notes,/unit 49 has feature 19/);
 });
+
+test('rebuilt PDF source attributions define lecture units and skip the clinical-looking contents pages',()=>{
+ const input=['[Page 1]','49 distinct files','How to use this book','Study the core definitions and classifications first.',
+ '[Page 2]','Course revision map','Cellular stress causes tissue dysfunction.',
+ '[Page 3]','Contents','Cellular adaptation . . . . . 5','Cell death and types . . . 18',
+ '[Page 5]','General pathology: cellular injury and adaptation','Cellular adaptation','Source: Cellular adaptation.pptx | 57 lecture pages reviewed',
+ 'Overview','Cells exist in a state of homeostasis.','Classification Of Cellular Adaptation','Hypertrophy and hyperplasia are distinct.',
+ '[Page 18]','Cell death and types','Source: Cell death and types.pptx | 25 lecture pages reviewed','Necrosis causes inflammation.'].join('\n');
+ const parsed=ingestor.parseExtractedDocumentText(input,'doc-1','AnathPathNotes.pdf');
+ const nodes=processor.processSyllabus([parsed]);
+ assert.deepEqual(nodes.map(n=>n.title),['Cellular adaptation','Cell death and types']);
+ assert.match(nodes[0].notes,/homeostasis/);
+ assert.match(nodes[0].notes,/Hypertrophy and hyperplasia/);
+ assert.ok(!nodes.some(n=>/Course revision map|49 distinct files|Source:|Cellular stress causes tissue dysfunction/.test(n.notes)));
+ assert.match(nodes[1].notes,/Necrosis causes inflammation/);
+});

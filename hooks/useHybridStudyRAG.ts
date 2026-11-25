@@ -156,13 +156,14 @@ export function useHybridStudyRAG(){
         {syllabusId:syllabus,action,itemId,offset},AbortSignal.any([signal,AbortSignal.timeout(52000)])),signal);
       const plan=await step('prepare');
       let openingPrepared=false,openingAttempted=false,openingPromise:Promise<void>|null=null;
+      let openingFailure='';
       const prepareOpening=async(nodes:SyllabusTreeNode[])=>{
         const first=nodes.find(n=>n.node_type==='concept');
         if(openingPrepared||openingAttempted||!first)return;
         openingAttempted=true;
         setProgress({stage:'Preparing first explanation',current:0,total:1,detail:first.title});
-        openingPromise=step('lesson',first.id).then(()=>{signal.throwIfAborted();openingPrepared=true;}).catch(failure=>{
-          signal.throwIfAborted();console.warn('First lesson will be retried after deterministic indexing',failure instanceof Error?failure.name:'');
+        openingPromise=postJson('/api/rag/compile-syllabus',{syllabusId:syllabus,action:'lesson',itemId:first.id,offset:0},AbortSignal.any([signal,AbortSignal.timeout(52000)])).then(()=>{signal.throwIfAborted();openingPrepared=true;}).catch(failure=>{
+          signal.throwIfAborted();openingFailure=failure instanceof Error?failure.message:'Teaching provider unavailable';
         });
       };
       const docs=plan.documents as {id:string;indexed:boolean}[];
@@ -212,8 +213,7 @@ export function useHybridStudyRAG(){
       total=nodes.length;
       // Publish the complete deterministic outline before waiting for a model.
       if(openingPromise)await openingPromise;
-      if(!openingPrepared){openingAttempted=false;await prepareOpening(nodes);if(openingPromise)await openingPromise;}
-      if(!openingPrepared)throw new Error('The source index is ready, but the first explanation could not be prepared. Retry shortly.');
+      if(!openingPrepared)throw new Error('Source index ready. '+(openingFailure||'First explanation unavailable.'));
       setReady(true);
       signal.throwIfAborted();setStatus('ready');
       setProgress({stage:'Source index ready',current:total,total});

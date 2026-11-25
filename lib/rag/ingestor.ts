@@ -8,6 +8,7 @@ export type ParsedSection = {
   module: string;
   topic: string;
   facts: CitedAtomicFact[];
+  lectureUnit?: string;
 };
 export type ParsedDocument = { sections: ParsedSection[]; characters: number; source: string };
 
@@ -42,6 +43,38 @@ function headingOf(line:string):string|null {
 }
 
 export function parseDocumentSections(text: string, documentId: string, fileName: string, legacy=false): ParsedDocument {
+  // Rebuilt lecture compilations declare their true unit boundaries in source
+  // attribution lines. These are stronger evidence than inferred slide headings.
+  const sourceMarker=/^Source\s*:\s*(.+?)\.(?:pptx?|docx?|pdf|txt)\s*\|\s*\d+\s+(?:lecture\s+)?pages?\s+reviewed\s*$/i;
+  const rawLines=text.replace(/\r\n?/g,'\n').split('\n');
+  if(!legacy&&rawLines.filter(line=>sourceMarker.test(line.trim())).length>=2){
+    const sections:ParsedSection[]=[];
+    let page:number|null=null, current:ParsedSection|null=null;
+    for(const line of rawLines){
+      const value=line.trim();
+      const boundary=value.match(/^\[(?:Page|Slide)\s+(\d+)\]$/i);
+      if(boundary){page=Number(boundary[1]);continue;}
+      const marker=value.match(sourceMarker);
+      if(marker){
+        const title=marker[1].trim().replace(/[_]+/g,' ');
+        if(current){
+          // The next lecture title is printed just before its attribution.
+          const last=current.facts.at(-1);
+          if(last?.text.toLowerCase()===title.toLowerCase())current.facts.pop();
+          if(current.facts.length)sections.push(current);
+        }
+        current={heading:title,module:fileName,topic:title,lectureUnit:title,facts:[]};
+        continue;
+      }
+      if(!current||!value||isLectureCredit(value)||isDocumentCoverHeading(value)||
+        /^(?:lecture-based study notes\s*[•·]|key points to recall$|exam anchors?\s*:|source\s*:|(?:selected )?visual references?$)/i.test(value)||
+        /^\d{1,4}$/.test(value))continue;
+      const cleaned=value.replace(/^[•●▪◦]\s*/,'');
+      current.facts.push({text:cleaned,documentId,sourceFile:fileName,pageNumber:page});
+    }
+    if(current?.facts.length)sections.push(current);
+    return {sections,characters:text.length,source:fileName};
+  }
   const sections: ParsedSection[] = [];
   let page: number | null = null;
   let heading = 'General concepts', moduleTitle = 'General', topic = 'Overview';
