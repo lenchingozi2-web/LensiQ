@@ -43,6 +43,7 @@ const SOUNDSCAPES: Soundscape[] = [
   { id: 'night-library', label: 'Night Library', description: 'Quiet, slow, grounded ambience for reflective learning.', src: '/audio/live-class-night-library.wav' },
 ];
 const COURSES = ['Pharmacology', 'Microbiology', 'Chemical Pathology', 'Anatomical Pathology', 'Haematology / Immunology'];
+const directApiUrl = (path: string) => typeof window !== 'undefined' && window.location.hostname === 'lenxiq.online' ? `https://www.lenxiq.online${path}` : path;
 
 function permissionHelp() {
   if (typeof navigator === 'undefined') return 'Allow microphone access in your browser, then return to LenxiQ AI.';
@@ -1019,7 +1020,7 @@ function VoiceTutorContent() {
         const openingSyllabus = rag.ready ? rag.syllabusId : null;
         if (!openingSyllabus) throw new Error('Prepare your syllabus before entering Direct HTTPS Live Class.');
         const conversation = await createConversation();
-        const reservationResponse = await fetch('/api/live-class/session', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ syllabusId: openingSyllabus, courseName, conversationId: conversation.id }) });
+        const reservationResponse = await fetch(directApiUrl('/api/live-class/session'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ syllabusId: openingSyllabus, courseName, conversationId: conversation.id }) });
         const reservation = await reservationResponse.json().catch(() => ({}));
         if (!reservationResponse.ok) { if (reservation.resetSyllabus) clearRag(); throw new Error(reservation.message || reservation.error || 'Unable to reserve a Direct HTTPS class session.'); }
         setConversationId(conversation.id); conversationIdRef.current = conversation.id;
