@@ -7,7 +7,7 @@ import { matchCuratedClassVisual } from './model-matcher';
 import { parseRetryAfterMs } from '@/lib/http/retry-after';
 
 export type BankQuestion={id:string;question:string;answer:string};
-type AuthorOptions={env?:Record<string,string|undefined>;fetcher?:typeof fetch;question?:BankQuestion|null;schema?:Record<string,unknown>;maxTokens?:number;signal?:AbortSignal;sessionBrief?:Record<string,unknown>;validate?:(value:unknown)=>unknown};
+type AuthorOptions={directSegment?:boolean;env?:Record<string,string|undefined>;fetcher?:typeof fetch;question?:BankQuestion|null;schema?:Record<string,unknown>;maxTokens?:number;signal?:AbortSignal;sessionBrief?:Record<string,unknown>;validate?:(value:unknown)=>unknown};
 export const TEACHING_VERSION=3;
 const AUTHOR_REVISION=5;
 export function teachingFingerprint(record:ConceptRecord){return createHash('sha256').update(record.title+'\n'+record.consolidated_notes).digest('hex');}
@@ -78,7 +78,7 @@ export async function authorDirectTeachingSegment(sessionId:string,syllabusId:st
   const part=segmentRecord(record,segments[index]);
   const selected={...part,visual_spec_json:{...spec,authored:cache?.[String(index)]}};
   const question=index===0?options.question:null;
-  const packet=await authorTeachingPacket(sessionId,syllabusId,version,selected,{...options,question,
+  const packet=await authorTeachingPacket(sessionId,syllabusId,version,selected,{...options,directSegment:true,question,
     sessionBrief:{...(options.sessionBrief||{}),unit_segment:index+1,unit_segment_count:segments.length}});
   return {packet:{...packet,segment_index:index,segment_count:segments.length,
       visual_cues:packet.visual_cues.map(cue=>({...cue,id:cue.id+'-s'+index}))},
@@ -121,7 +121,7 @@ export async function generateTeachingJson(instruction:string,data:unknown,optio
   const mouth=env.GROQ_CLASS_MOUTH_MODEL||'openai/gpt-oss-20b';
   let retryAfterMs=0;
   const failures:string[]=[];
-  const candidates=[...(env.GROQ_API_KEY?[{provider:'groq',model:mouth},{provider:'groq',model:'openai/gpt-oss-20b'},{provider:'groq',model:'openai/gpt-oss-120b'}]:[]),
+  const candidates=[...(env.GROQ_API_KEY?[{provider:'groq',model:mouth},{provider:'groq',model:'openai/gpt-oss-20b'},...(options.directSegment?[{provider:'groq',model:'qwen/qwen3.8-27b'}]:[]),{provider:'groq',model:'openai/gpt-oss-120b'}]:[]),
     ...(key?[{provider:'gemini',model:primary},{provider:'gemini',model:env.GEMINI_FALLBACK_MODEL||'gemini-3.6-flash'}]:[])];
   const seen=new Set<string>();
   for(const {provider,model} of candidates){
