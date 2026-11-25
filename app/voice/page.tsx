@@ -57,7 +57,7 @@ function friendlyError(error: unknown) {
   if (name === 'NotAllowedError' || /permission|not allowed/i.test(message)) return 'Microphone permission is needed for Live Class. Allow it in your phone settings, return here, and try again.';
   if (name === 'NotFoundError' || /device not found|requested device/i.test(message)) return 'No microphone was found. Check the phone microphone and browser permission, then try again.';
   if (/limit_reached/i.test(message)) return message;
-  if (/Failed to fetch|signal connection|network|websocket/i.test(message)) return 'The live classroom could not reach its voice server. Check your connection and try again.';
+  if (/Failed to fetch|signal connection|websocket/i.test(message)) return 'The live classroom could not reach its audio service. Check your connection and try again.';
   return message || 'The live classroom could not be started.';
 }
 
